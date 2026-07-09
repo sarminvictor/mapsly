@@ -28,6 +28,7 @@ import {
   mapsRowToPersist,
   persistBusinessRow,
 } from "@/modules/business-discovery/persist";
+import { discoveryDepthCapFor } from "@/modules/agency-portal/team/seats";
 import { mapsSearch } from "@/services/dataforseo";
 
 import { trackProductEvent } from "@/lib/analytics/product-events";
@@ -56,6 +57,10 @@ export interface RunDiscoveryInput {
   cells: DiscoveryCellRequest[];
   /** Per-cell DfS limit. Defaults to 100; clamped to [1, 1000]. */
   limitPerCell?: number;
+  /** Per-cell TOTAL fetch ceiling (COGS guard, F-8). When omitted, derived
+   *  from the agency's plan (Free/Starter map shallow, Solo+ full) — the
+   *  self-guard so every caller is bounded. Clamped to [1, MAX_TOTAL_PER_CELL]. */
+  maxTotalPerCell?: number;
 }
 
 export interface DiscoveryCellSummary {
@@ -107,8 +112,33 @@ function clampLimit(n: number | undefined): number {
 
 /** Hard ceiling on TOTAL listings fetched per cell across all pages — bounds
  *  worst-case cost/time for a pathological cell while comfortably covering
- *  every realistic market (the cost model's largest worked example is 1442). */
+ *  every realistic market (the cost model's largest worked example is 1442).
+ *  This is the ABSOLUTE ceiling; the per-plan guard (F-8) caps at or below it. */
 const MAX_TOTAL_PER_CELL = 3000;
+
+/** Clamp a requested per-cell total ceiling to [1, MAX_TOTAL_PER_CELL]. */
+function clampMaxTotal(n: number | undefined): number {
+  const v = n ?? MAX_TOTAL_PER_CELL;
+  if (!Number.isFinite(v)) return MAX_TOTAL_PER_CELL;
+  return Math.min(MAX_TOTAL_PER_CELL, Math.max(1, Math.floor(v)));
+}
+
+/**
+ * Resolve the per-plan map-depth cap for an agency (COGS guard, F-8). Reads the
+ * agency's plan + Stripe status and maps via `discoveryDepthCapFor`. A missing
+ * agency row (shouldn't happen — the run was enqueued for it) falls back to the
+ * shallow entry depth, the safe default for our spend.
+ */
+async function resolveDiscoveryDepthCap(agencyId: string): Promise<number> {
+  const agency = await prisma.agency.findUnique({
+    where: { id: agencyId },
+    select: { plan: true, stripeStatus: true },
+  });
+  return discoveryDepthCapFor({
+    plan: agency?.plan ?? null,
+    stripeStatus: agency?.stripeStatus ?? null,
+  });
+}
 
 /**
  * How many cells run concurrently. The Get-leads flow caps a request at 3
@@ -154,6 +184,13 @@ export async function runDiscovery(
 ): Promise<RunDiscoverySummary> {
   const country0 = (c?: string) => (c ?? "US").toUpperCase();
   const limit = clampLimit(input.limitPerCell);
+  // Per-plan map-depth guard (F-8). An explicit maxTotalPerCell (admin/tests)
+  // wins; otherwise derive from the agency plan so every caller is bounded
+  // without threading — Free/Starter map shallow, Solo+ map the full market.
+  const maxTotalPerCell =
+    input.maxTotalPerCell != null
+      ? clampMaxTotal(input.maxTotalPerCell)
+      : await resolveDiscoveryDepthCap(input.agencyId);
 
   const cellKeys = input.cells.map((c) =>
     makeCellKey(c.categorySlug, c.metroSlug, country0(c.country)),
@@ -193,7 +230,15 @@ export async function runDiscovery(
   const results = await Promise.all(
     input.cells.map((cell, i) =>
       concurrency(() =>
-        runOneCell(cell, cellKeys[i], discovery.id, limit, now, country0),
+        runOneCell(
+          cell,
+          cellKeys[i],
+          discovery.id,
+          limit,
+          maxTotalPerCell,
+          now,
+          country0,
+        ),
       ),
     ),
   );
@@ -272,6 +317,7 @@ async function runOneCell(
   key: string,
   discoveryId: string,
   limit: number,
+  maxTotalPerCell: number,
   now: Date,
   country0: (c?: string) => string,
 ): Promise<CellRunResult> {
@@ -371,6 +417,7 @@ async function runOneCell(
       cellKey: key,
       metroName: metro.name,
       limit,
+      maxTotalPerCell,
     });
 
     const outcome: "REFETCHED" | "DISCOVERED_NEW" =
@@ -562,6 +609,8 @@ interface RefetchCellInput {
   cellKey: string;
   metroName: string;
   limit: number;
+  /** Per-plan TOTAL fetch ceiling for this cell (COGS guard, F-8). */
+  maxTotalPerCell: number;
 }
 
 interface RefetchCellResult {
@@ -652,10 +701,11 @@ async function refetchCell(
       }
 
       // Stop when: this page wasn't full (that WAS the whole market), or
-      // we've covered DfS's reported total, or we've hit the safety ceiling.
+      // we've covered DfS's reported total, or we've hit the per-plan ceiling
+      // (F-8 · Free/Starter map shallow, Solo+ map the full market).
       const pageWasFull = page.items.length >= input.limit;
       const coveredTotal = totalAvailable != null && returned >= totalAvailable;
-      if (!pageWasFull || coveredTotal || returned >= MAX_TOTAL_PER_CELL) {
+      if (!pageWasFull || coveredTotal || returned >= input.maxTotalPerCell) {
         break;
       }
       offset += input.limit;

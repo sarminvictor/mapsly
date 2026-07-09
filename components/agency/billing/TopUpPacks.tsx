@@ -55,8 +55,7 @@ export function TopUpPacks({ configured, locale }: TopUpPacksProps) {
       </div>
       <div className="note" style={{ marginTop: "auto", paddingTop: 12 }}>
         From $0.04 / credit · never expires · added to your balance. Pricier
-        than plan credits — bigger plans stay the better deal. This is the only
-        place real money is spent.
+        than plan credits — bigger plans stay the better deal.
       </div>
     </div>
   );
@@ -95,9 +94,9 @@ function PackView({
         <button
           className="btn block plan-cta"
           disabled
-          data-tip="Checkout not configured yet — contact us to buy credits."
+          data-tip="Top-up checkout is being set up — available shortly."
         >
-          Contact us
+          Buy +{nf.format(pack.credits)}
         </button>
       )}
     </div>

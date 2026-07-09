@@ -1,22 +1,21 @@
 /**
- * Current-plan + wallet card (prototype #view-billing lines 7981–8047).
+ * Current-plan + wallet card — SLIMMED 2026-07-09 (Part D, docs/billing-
+ * repricing). Collapsed from the tall multi-tile card to a one-row summary
+ * (plan · balance · renews · thin usage bar) so the plans grid sits above the
+ * fold. Also hosts the native Cancel/Resume control (F-6) via the
+ * `setPlanCancellation` server action — no bounce to the Stripe portal.
  *
- * Renders the active plan name + "Best value" pill (featured tiers only), the
- * "N credits / mo · renews {date}" note, the cycle usage bar, and the two
- * balance tiles (Plan balance + Top-up balance) with their yield translations,
- * plus the 🔒 server-enforced lock callout.
- *
- * Server-presentational: every prop is plain serialized data (no functions
- * cross a `'use client'` boundary — this component is rendered on the server
- * and emits static markup).
+ * Server-presentational: the Cancel/Resume CTA is a server-action `<form>`, so
+ * nothing crosses a `'use client'` boundary.
  */
 
+import { setPlanCancellation } from "@/modules/billing/credit-checkout";
 import { CREDIT_MEANING } from "@/modules/cost/pricing";
 
 import { CoinGlyph } from "./CoinGlyph";
 
 export interface CurrentPlanWalletProps {
-  /** Display name of the active plan (Free / Starter / Growth / Scale). */
+  /** Display name of the active plan (Free / Starter / Solo / Growth / Pro). */
   planName: string;
   /** Whether the active plan is the featured / best-value tier. */
   featured: boolean;
@@ -26,10 +25,20 @@ export interface CurrentPlanWalletProps {
   oneTime: boolean;
   /** Renewal date, already formatted (e.g. "Jul 1"); null when none. */
   renewsLabel: string | null;
-  /** Plan-bucket balance (planCredits + rolloverCredits — the resets-on-renewal pool). */
+  /** Plan-bucket balance (planCredits — resets on renewal). */
   planBalance: number;
   /** Purchased / top-up balance (never expires). */
   topUpBalance: number;
+  /** Available = plan + top-up − held (the spendable number). */
+  availableBalance: number;
+  /** Locale for the cancel/resume action's return URL. */
+  locale: string;
+  /** True when there's a live paid subscription (cancel/resume applies). */
+  subActive: boolean;
+  /** True when the subscription is already set to cancel at period end. */
+  cancelAtPeriodEnd: boolean;
+  /** True when the viewer can manage billing (OWNER/ADMIN) — gates the CTA. */
+  canManage: boolean;
 }
 
 const nf = new Intl.NumberFormat("en-US");
@@ -42,103 +51,117 @@ export function CurrentPlanWalletCard({
   renewsLabel,
   planBalance,
   topUpBalance,
+  availableBalance,
+  locale,
+  subActive,
+  cancelAtPeriodEnd,
+  canManage,
 }: CurrentPlanWalletProps) {
-  // Cycle math: how much of this cycle's allowance is spent. We treat the
-  // current plan balance (plan + rollover) as "left" against the monthly
-  // allowance. Clamp so a rollover-heavy wallet never shows negative usage.
+  // Cycle math: how much of this cycle's allowance is spent.
   const left = Math.min(planBalance, monthlyCredits);
   const used = Math.max(0, monthlyCredits - left);
   const pctUsed =
     monthlyCredits > 0 ? Math.round((used / monthlyCredits) * 100) : 0;
 
-  // Yield translation for the plan-balance tile.
-  const fullyEnriched = Math.floor(planBalance / CREDIT_MEANING.fullEnrichment);
-  const contacts = planBalance; // 1 credit = 1 lead-with-contacts
+  const fullyEnriched = Math.floor(
+    availableBalance / CREDIT_MEANING.fullEnrichment,
+  );
 
-  const creditsLine = oneTime
-    ? `${nf.format(monthlyCredits)} credits · one-time`
-    : `${nf.format(monthlyCredits)} credits / mo${
-        renewsLabel ? ` · renews ${renewsLabel}` : ""
-      }`;
+  const renewsSuffix =
+    !oneTime && renewsLabel
+      ? cancelAtPeriodEnd
+        ? ` · ends ${renewsLabel}`
+        : ` · renews ${renewsLabel}`
+      : "";
 
   return (
     <div className="card" style={{ marginTop: 4 }}>
+      {/* Row 1 · plan · balance · renews */}
       <div
         style={{
           display: "flex",
-          alignItems: "flex-start",
+          alignItems: "baseline",
+          justifyContent: "space-between",
+          gap: 12,
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+          <span className="eyebrow">Current plan</span>
+          <span style={{ fontSize: 18, fontWeight: 750 }}>{planName}</span>
+          {featured ? (
+            <span className="pill indigo dot">Best value</span>
+          ) : null}
+          {cancelAtPeriodEnd ? (
+            <span className="pill amber dot">
+              Cancels{renewsLabel ? ` ${renewsLabel}` : ""}
+            </span>
+          ) : null}
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontWeight: 700 }}>
+            <span className="cr">
+              <CoinGlyph sm />
+              {nf.format(availableBalance)}
+            </span>{" "}
+            available
+          </div>
+          <div className="note" style={{ fontSize: 11.5 }}>
+            {nf.format(monthlyCredits)} credits
+            {oneTime ? " · one-time" : " / mo"}
+            {renewsSuffix}
+          </div>
+        </div>
+      </div>
+
+      {/* Row 2 · thin usage bar */}
+      <div className="bar" style={{ marginTop: 12 }}>
+        <i style={{ width: `${pctUsed}%` }} />
+      </div>
+      <div
+        style={{
+          marginTop: 6,
+          display: "flex",
           justifyContent: "space-between",
           gap: 10,
           flexWrap: "wrap",
         }}
       >
-        <div>
-          <div className="eyebrow">Current plan</div>
-          <div style={{ fontSize: 20, fontWeight: 750 }}>{planName}</div>
-          <div className="note">{creditsLine}</div>
-        </div>
-        {featured ? <span className="pill indigo dot">Best value</span> : null}
-      </div>
-
-      <div
-        style={{
-          margin: "16px 0 6px",
-          display: "flex",
-          justifyContent: "space-between",
-          fontSize: 12.5,
-          fontWeight: 600,
-        }}
-      >
-        <span>
-          {oneTime ? "Free credits" : "This cycle"}:{" "}
-          <span className="cr">
-            <CoinGlyph sm />
-            {nf.format(used)} used
-          </span>
+        <span className="note" style={{ fontSize: 11.5 }}>
+          {pctUsed}%{" "}
+          {oneTime
+            ? "of your free credits used"
+            : "of this cycle used · plan credits reset on renewal"}{" "}
+          · ≈ {nf.format(fullyEnriched)} fully enriched left
+          {topUpBalance > 0
+            ? ` · ${nf.format(topUpBalance)} top-up never expires`
+            : ""}
         </span>
-        <span className="note">
-          {nf.format(left)} of {nf.format(monthlyCredits)} left
-        </span>
-      </div>
-      <div className="bar">
-        <i style={{ width: `${pctUsed}%` }} />
-      </div>
-      <div className="note" style={{ marginTop: 6 }}>
-        {pctUsed}%{" "}
-        {oneTime
-          ? "of your free credits used. One-time — never reset"
-          : "of this cycle used. Plan credits reset on renewal"}{" "}
-        · top-ups never expire.
-      </div>
-
-      <div className="grid g2" style={{ marginTop: 16, gap: 10 }}>
-        <div className="stat">
-          <div className="k">Plan balance</div>
-          <div className="v">
-            <CoinGlyph />
-            {nf.format(planBalance)}
-          </div>
-          <div className="d">
-            ≈ {nf.format(fullyEnriched)} fully enriched · or{" "}
-            {nf.format(contacts)} contacts
-          </div>
-        </div>
-        <div className="stat">
-          <div className="k">Top-up balance</div>
-          <div className="v">
-            <CoinGlyph />
-            {nf.format(topUpBalance)}
-          </div>
-          <div className="d">never expires</div>
-        </div>
-      </div>
-
-      <div className="callout" style={{ marginTop: 14 }}>
-        <span aria-hidden="true">🔒</span>
-        <p style={{ margin: 0 }}>
-          A run your balance can&apos;t cover won&apos;t start —
-          server-enforced. No surprise charges.
-        </p>
+        {subActive && canManage ? (
+          <form action={setPlanCancellation} style={{ margin: 0 }}>
+            <input type="hidden" name="locale" value={locale} />
+            <input
+              type="hidden"
+              name="cancel"
+              value={cancelAtPeriodEnd ? "false" : "true"}
+            />
+            <button
+              type="submit"
+              className="linkbtn"
+              style={{
+                border: "none",
+                background: "none",
+                padding: 0,
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+                color: cancelAtPeriodEnd ? "var(--indigo)" : "var(--muted)",
+              }}
+            >
+              {cancelAtPeriodEnd ? "Resume plan" : "Cancel plan"}
+            </button>
+          </form>
+        ) : null}
       </div>
     </div>
   );

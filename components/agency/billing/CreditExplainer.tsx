@@ -1,8 +1,10 @@
 /**
- * Billing page header + credit explainer (prototype #view-billing lines
- * 7973–7979). The h1 highlights "credits" via `.hl`; the sub spells out the
- * credit economy. Copy is verbatim from the prototype.
+ * Billing page header + credit explainer. The h1 highlights "credits" via
+ * `.hl`; the sub spells out the credit economy. Numbers derive from the pricing
+ * constants (repriced 2026-07-09) so they can't drift from the wallet.
  */
+import { CREDIT_MEANING } from "@/modules/cost/pricing";
+
 export function CreditExplainer() {
   return (
     <>
@@ -12,11 +14,14 @@ export function CreditExplainer() {
       <p className="sub">
         Go deeper only on the leads you&apos;ll pitch.{" "}
         <b>
-          1 credit = 1 lead&apos;s core scan (contacts where reachable + site
-          tech)
+          {CREDIT_MEANING.contacts} credit = 1 delivered lead with verified
+          contacts
         </b>{" "}
-        · <b>3 credits = 1 fully-enriched lead</b> (reviews, ads, SERP, AI
-        research, compliance). <b>100 first-touch messages = 10 credits.</b>
+        · <b>{CREDIT_MEANING.fullEnrichment} credits = 1 fully-enriched lead</b>{" "}
+        (reviews, site speed, AI angle).{" "}
+        <b>
+          100 first-touch messages = {CREDIT_MEANING.firstTouchPer100} credits.
+        </b>
       </p>
     </>
   );

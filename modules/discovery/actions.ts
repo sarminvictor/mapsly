@@ -66,6 +66,53 @@ const CellInput = z.object({
 // hand-rolled caller sending 50 cells was a ~$46/enqueue free-vendor-spend hole.
 const MAX_DISCOVERY_CELLS = 3;
 
+// F-8 · light monthly market ceiling. The HARD COGS guard is the per-plan
+// map-depth cap (run-discovery.ts · discoveryDepthCapFor: Free/Starter ≤500 rows
+// ≈ $0.20/market, Solo+ ≤3,000 ≈ $1.20) plus the enqueue + IP rate limits and
+// the free-tier market lock. On top of those, this soft ceiling emits a WARN
+// (post-response, no added latency, no user-facing block) when a paying agency's
+// cost-incurring maps cross the threshold in a calendar month — the signal
+// Viktor watches for pathological map farming without a disruptive error path.
+const MONTHLY_MARKET_SOFT_CEILING = 200;
+
+/**
+ * Post-response observability for the monthly market ceiling (F-8). Counts the
+ * agency's cost-incurring Discovery rows so far this calendar month and logs a
+ * structured WARN once it crosses {@link MONTHLY_MARKET_SOFT_CEILING}. Never
+ * throws (best-effort) and never blocks the enqueue — the depth cap is the hard
+ * bound. Runs inside `after()` so it adds zero latency to the run action.
+ */
+async function checkMonthlyMarketCeiling(
+  agencyId: string,
+  now: Date,
+): Promise<void> {
+  try {
+    const monthStart = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+    );
+    const mapsThisMonth = await prisma.discovery.count({
+      where: {
+        agencyId,
+        createdAt: { gte: monthStart },
+        totalCostUsd: { gt: 0 }, // only maps that actually spent DfS $
+      },
+    });
+    if (mapsThisMonth >= MONTHLY_MARKET_SOFT_CEILING) {
+      console.warn(
+        JSON.stringify({
+          level: "warn",
+          event: "discovery.monthly_market_ceiling",
+          agencyId,
+          mapsThisMonth,
+          ceiling: MONTHLY_MARKET_SOFT_CEILING,
+        }),
+      );
+    }
+  } catch {
+    // Observability only — a failed count must never affect the run.
+  }
+}
+
 /** Best-effort client IP from request headers (rate-limit keying only). */
 async function requestIpKey(): Promise<string> {
   try {
@@ -743,6 +790,8 @@ export async function runDiscoveryAction(
     // must never break the enqueue.
     try {
       after(() => kickDispatch());
+      // F-8 · monthly market-ceiling observability (best-effort, post-response).
+      after(() => checkMonthlyMarketCeiling(agencyId, new Date()));
     } catch {
       /* no request scope — the cron drains it */
     }

@@ -20,12 +20,15 @@
 
 import { DATAFORSEO_UNIT_COST_USD } from "@/services/dataforseo/pricing";
 
+// 2026-07-09.1 · REPRICING — CREDIT_PRICES reviews 1→2, lighthouse 1→2,
+//   meta_ads 4→12; plan grants + rollover=0 (docs/billing-repricing-2026-07-09).
+//   Bumped so any in-flight quote minted under the old schedule re-quotes.
 // 2026-07-06.1 · meta_ads 3→4 credits/cell (stealth-rebuild images-on COGS).
 // 2026-07-02.2 · billing now runs off CREDIT_PRICES (whole customer credits),
 // decoupled from ENRICHMENT_PRICES.usdPerUnit (raw COGS). Any change to either
 // table must bump this so in-flight 15-min quotes re-quote.
 // (Prior: "2026-07-02.1" WP10-7 re-derived serp/google_ads + walled lighthouse.)
-export const PRICE_LIST_VERSION = "2026-07-06.1";
+export const PRICE_LIST_VERSION = "2026-07-09.1";
 
 /** Internal credit price. Apollo charges ~$0.20/credit; we undercut 4×. */
 export const CREDIT_USD = 0.05;
@@ -47,14 +50,15 @@ export const COST_GATE = {
 } as const;
 
 /**
- * Monthly plan credit grants. 1 credit = one lead's CORE data (contacts + site
- * tech, per CREDIT_PRICES: contacts=1, tech=0). A fully-enriched lead layering
- * reviews / site-speed / AI is ~4–5 credits, plus per-cell ad/rank fees
- * (meta_ads=4, serp=4). See CREDIT_PRICES below — do NOT call a credit a
+ * Monthly plan credit grants. 1 credit = one DELIVERED lead with verified
+ * contacts (per CREDIT_PRICES: contacts=1, tech=0). A fully-enriched lead
+ * layering reviews (2) + site-speed (2) + AI (1) is 6 credits total
+ * (CREDIT_MEANING.fullEnrichment), plus whole-market ad/rank fees once/market
+ * (meta_ads=12, serp=4 = 16). See CREDIT_PRICES below — do NOT call a credit a
  * "fully-enriched lead". The free tier is a one-time 50-credit grant (no Stripe
  * subscription); paid tiers re-grant each billing cycle. Keys match the
  * AgencyPlan enum in prisma/schema.prisma. Source of truth:
- * docs/pricing-strategy.md / docs/enrichment-cost-model.md.
+ * docs/billing-repricing-2026-07-09.html.
  */
 export const FREE_TIER_CREDITS = 50;
 
@@ -88,11 +92,19 @@ export type AgencyPlanTier = "SOLO" | "GROWTH" | "AGENCY_PRO" | "BOUTIQUE";
 // ($0.063 / $0.0495 / $0.037) are all ABOVE the ~$0.05 nominal fully-enriched
 // COGS at the low end and well above real blended cost, so margins hold. See
 // docs/pricing-strategy.md / docs/enrichment-cost-model.md.
+// Repriced 2026-07-09 (docs/billing-repricing-2026-07-09.html). The enum values
+// are the internal grant keys; the DISPLAY names map via PLAN_TIER_MAP:
+//   SOLO       → "Starter" $19  → 250    (organic land tier, 1 seat)
+//   AGENCY_PRO → "Solo"    $49  → 750    (real entry, advertise, 1 seat)
+//   GROWTH     → "Growth"  $99  → 1,800  (3 seats)
+//   BOUTIQUE   → "Pro"     $299 → 6,500  (10 seats)
+// Grants tightened ~3× from the old numbers so a credit sells at ~$0.05–0.08 vs
+// the unified ~$0.012 COGS (§B). AGENCY_PRO is reused (no Prisma enum migration).
 export const PLAN_CREDITS: Record<AgencyPlanTier, number> = {
-  SOLO: 900,
-  GROWTH: 6_000,
-  AGENCY_PRO: 12_000,
-  BOUTIQUE: 24_000,
+  SOLO: 250,
+  GROWTH: 1_800,
+  AGENCY_PRO: 750,
+  BOUTIQUE: 6_500,
 };
 
 /**
@@ -112,7 +124,21 @@ export const PLAN_CREDITS: Record<AgencyPlanTier, number> = {
  * Purchased (top-up) credits never expire and are NOT capped — they're outside
  * the rollover bucket entirely.
  */
-export const ROLLOVER_CAP_MULTIPLE = 3;
+// Repriced 2026-07-09 · rollover DROPPED (decision F-3). Set to 0 so
+// nextRolloverCredits carries nothing forward — plan credits reset each cycle,
+// matching Apollo/ZoomInfo/Instantly (all expire monthly). The rolloverCredits
+// bucket + settle draw order stay (always 0), so no schema/settle change.
+//
+// ⚠ GUARDRAIL before ever setting this > 0 again: the webhook grants a plan on
+// BOTH checkout.session.completed (dedupe-keyed on event.id, currentPeriodEnd
+// still null) AND customer.subscription.created/invoice.paid (dedupe-keyed on
+// periodEnd). Those are DIFFERENT dedupe keys on a first purchase → two grant
+// calls. It's harmless today ONLY because grantPlanCredits SETS planCredits
+// (not increment) and rollover is 0. Re-enabling rollover without first keying
+// the checkout grant on the same period anchor would double-grant the first
+// cycle (750 → rolls to 1,500 spendable). See app/api/webhooks/stripe/route.ts
+// grantAgencyCreditsFromEvent + modules/cost/server.ts grantPlanCredits.
+export const ROLLOVER_CAP_MULTIPLE = 0;
 
 // ─── Canonical plan registry · the portal-prototype pricing model ───────────
 //
@@ -139,15 +165,17 @@ export const ROLLOVER_CAP_MULTIPLE = 3;
 // AND so the grant amount (PLAN_CREDITS[PLAN_TIER_MAP[k]]) equals the card's
 // advertised monthlyCredits (parity-tested).
 
-/** Display-layer plan keys (the prototype's four tiers). */
-export type PlanKey = "free" | "starter" | "growth" | "scale";
+/** Display-layer plan keys. `solo` ($49) added 2026-07-09 as the real entry
+ *  tier; `scale` keeps its key but displays as "Pro". */
+export type PlanKey = "free" | "starter" | "solo" | "growth" | "scale";
 
 /** What one credit means — see CREDIT_PRICES for the per-family schedule. */
 export const CREDIT_MEANING = {
-  /** Credits for one lead WITH contacts (the website scan). */
+  /** Credits for one lead WITH contacts (the delivered unit). */
   contacts: 1,
-  /** Credits for one FULLY-enriched lead = scan + reviews + speed + AI (1+1+1+1). */
-  fullEnrichment: 4,
+  /** Credits for one FULLY-enriched lead = contacts + reviews + speed + AI
+   *  (1 + 2 + 2 + 1) under the 2026-07-09 unified pricing. */
+  fullEnrichment: 6,
   /** Credits for 100 first-touch messages. */
   firstTouchPer100: 10,
 } as const;
@@ -177,10 +205,13 @@ export interface PlanCard {
 }
 
 /**
- * The four canonical plans, EXACTLY matching docs/portal-prototype.html
- * (lines 8052–8188). `fullyEnriched` = floor(credits / 3) and `withContacts`
- * = credits (1 credit = 1 lead-with-contacts), matching the prototype's
- * hand-written numbers.
+ * The five canonical plans (Free / Starter / Solo / Growth / Pro), repriced
+ * 2026-07-09 (docs/billing-repricing-2026-07-09.html). Headline `withContacts`
+ * = credits (1 credit = 1 delivered lead with verified contacts); "fullyEnriched"
+ * = floor(credits / 6) (contacts + reviews + speed + AI); `rate` is
+ * $ / lead-with-contacts (= priceUsd / monthlyCredits). False claims removed: no
+ * rollover, no "deep audit included", Free stripped of never-expire + enrichment
+ * framing.
  */
 export const PLAN_CARDS: Record<PlanKey, PlanCard> = {
   free: {
@@ -189,82 +220,97 @@ export const PLAN_CARDS: Record<PlanKey, PlanCard> = {
     priceUsd: 0,
     monthlyCredits: 50,
     oneTime: true,
-    fullyEnriched: 12,
+    fullyEnriched: 8,
     withContacts: 50,
-    rate: "Never expire · no card",
+    rate: "50 leads with contacts",
     featured: false,
     features: [
-      "Discovery — unlimited, free",
-      "Contacts on every lead",
-      "Full enrichment + first-touch",
-      "Never expire",
+      "50 leads with verified contacts",
+      "Search everywhere we've already mapped",
+      "No card required",
     ],
-    // Honest math on the CREDIT_PRICES schedule: 1 credit = 1 lead with contacts;
-    // a fully-enriched lead (scan + reviews + speed + AI) = 4 credits. 50 credits
-    // ÷ 4 = 12 fully enriched, or 50 with contacts.
-    calc: "Map any market free → fully enrich your best 12 leads, or pull contacts on 50. Enough to win your first client.",
+    calc: "50 guaranteed leads with verified contacts — no market research needed. Enough to win your first client.",
   },
   starter: {
     key: "starter",
     displayName: "Starter",
     priceUsd: 19,
-    monthlyCredits: 900,
+    monthlyCredits: 250,
     oneTime: false,
-    fullyEnriched: 225,
-    withContacts: 900,
-    rate: "from $0.08 / enriched lead",
+    fullyEnriched: 41,
+    withContacts: 250,
+    rate: "$0.08 / lead with contacts",
     featured: false,
     features: [
-      "Discovery — unlimited, free",
-      "Contacts on every lead",
+      "250 leads with contacts / mo",
+      "Open any market",
       "Full enrichment + first-touch",
-      "Unused credits roll over (up to 3× your monthly credits)",
+      "1 seat",
     ],
-    calc: "≈ 225 fully enriched, or 900 with contacts — e.g. 3 markets · ~75 each.",
+    calc: "250 leads with contacts, or ~40 fully enriched · your starting point.",
+  },
+  solo: {
+    key: "solo",
+    displayName: "Solo",
+    priceUsd: 49,
+    monthlyCredits: 750,
+    oneTime: false,
+    fullyEnriched: 125,
+    withContacts: 750,
+    rate: "$0.07 / lead with contacts",
+    featured: true,
+    features: [
+      "750 leads with contacts / mo",
+      "Open any market · full depth",
+      "Full enrichment + first-touch",
+      "1 seat",
+    ],
+    calc: "750 leads with contacts, or ~125 fully enriched · the plan most agencies start on.",
   },
   growth: {
     key: "growth",
     displayName: "Growth",
     priceUsd: 99,
-    monthlyCredits: 6_000,
+    monthlyCredits: 1_800,
     oneTime: false,
-    fullyEnriched: 1_500,
-    withContacts: 6_000,
-    rate: "$0.07 / enriched lead",
-    featured: true,
+    fullyEnriched: 300,
+    withContacts: 1_800,
+    rate: "$0.055 / lead with contacts",
+    featured: false,
     features: [
-      "Discovery — unlimited, free",
-      "Contacts on every lead",
-      "Deep audit included (speed + keywords)",
-      "Unused credits roll over (up to 3× your monthly credits)",
+      "1,800 leads with contacts / mo",
+      "Open any market · full depth",
+      "Full enrichment + first-touch",
+      "3 seats",
     ],
-    calc: "≈ 1,500 fully enriched, or 6,000 with contacts · dozens of markets · 3 teammates.",
+    calc: "1,800 leads with contacts, or ~300 fully enriched · 3 teammates.",
   },
   scale: {
     key: "scale",
-    displayName: "Scale",
+    displayName: "Pro",
     priceUsd: 299,
-    monthlyCredits: 24_000,
+    monthlyCredits: 6_500,
     oneTime: false,
-    fullyEnriched: 6_000,
-    withContacts: 24_000,
-    rate: "from $0.05 / enriched lead",
+    fullyEnriched: 1_083,
+    withContacts: 6_500,
+    rate: "$0.046 / lead with contacts",
     featured: false,
     features: [
-      "Discovery — unlimited, free",
-      "Contacts on every lead",
-      "Deep audit included (speed + keywords)",
-      "Unused credits roll over (up to 3× your monthly credits)",
+      "6,500 leads with contacts / mo",
+      "Open any market · full depth",
+      "Full enrichment + first-touch",
+      "10 seats",
       "Priority support",
     ],
-    calc: "≈ 6,000 fully enriched, or 24,000 with contacts · high-volume prospecting at the lowest rate.",
+    calc: "6,500 leads with contacts, or ~1,080 fully enriched · high-volume prospecting at the lowest rate.",
   },
 };
 
-/** Ordered display list (Free → Starter → Growth → Scale). */
+/** Ordered display list (Free → Starter → Solo → Growth → Pro). */
 export const PLAN_CARD_ORDER: PlanKey[] = [
   "free",
   "starter",
+  "solo",
   "growth",
   "scale",
 ];
@@ -279,9 +325,10 @@ export const PLAN_CARD_ORDER: PlanKey[] = [
  */
 export const PLAN_TIER_MAP: Record<PlanKey, AgencyPlanTier | null> = {
   free: null,
-  starter: "SOLO",
-  growth: "GROWTH",
-  scale: "BOUTIQUE",
+  starter: "SOLO", // $19 → 250
+  solo: "AGENCY_PRO", // $49 → 750 (reuses the AGENCY_PRO enum, no migration)
+  growth: "GROWTH", // $99 → 1,800
+  scale: "BOUTIQUE", // $299 → 6,500
 };
 
 /** Reverse bridge: given an `Agency.plan` enum value, which display card? */
@@ -500,33 +547,34 @@ export const DISCOVERY_PRICE = {
 // the affordability slider stops using a pessimistic ceil. See
 // docs/credits-economics-review-2026-07-02.html.
 //
-// Schedule (business = per lead, cell = per market):
+// Schedule (business = per lead, cell = per market) · repriced 2026-07-09:
 //   website scan (contacts, +tech rides it)  1 / lead
 //   services (AI)                             1 / lead
-//   reviews                                   1 / lead
-//   site speed (Lighthouse)                   1 / lead
+//   reviews                                   2 / lead
+//   site speed (Lighthouse)                   2 / lead
 //   AI research                               1 / lead
 //   google ads intel                          1 / lead   (B1 · per-business, target-host)
-//   meta ads intel                            4 / cell   (raised 3→4, images-on COGS)
+//   meta ads intel                           12 / cell
 //   search / SERP intel                       4 / cell
 //
 // tech = 0: it rides the one contacts DOM fetch, so a booking-tool goal
 // (contacts+tech) is 1 credit/lead, not 2. When a signal declares only tech,
 // resolveResearches pulls contacts (which carries the 1 credit).
+// UNIFIED PRICING 2026-07-09 (docs/billing-repricing-2026-07-09.html §A): every
+// research retied to ~$0.01 of COGS = 1 credit, so cost/credit is uniform ~$0.012
+// and no family loses money at any plan rate. Three families moved:
+//   reviews    1→2 (COGS $0.015 was thin at 1cr)
+//   lighthouse 1→2 (blended $0.019, covers the walled ~$0.06 tail)
+//   meta_ads   4→12 (real COGS $0.12, up to $0.24 with failures — was $0.03/cr)
 export const CREDIT_PRICES: Record<EnrichmentType, number> = {
   contacts: 1,
   tech: 0,
   services: 1,
-  reviews: 1,
-  lighthouse: 1,
+  reviews: 2,
+  lighthouse: 2,
   ai_research: 1,
   google_ads: 1,
-  // 3→4 (2026-07-06): the actor now loads images to look human (the stealth
-  // rebuild), ~doubling residential-proxy GB, so per-run COGS rises to ~$0.12
-  // (worst ~$0.16). At 3 credits ($0.15) that went below-COGS at the tail; 4
-  // credits ($0.20) restores a ~40% margin and reads as parity with serp (both
-  // per-market cell intel, one shared run). See [[meta-actor-robustness]].
-  meta_ads: 4,
+  meta_ads: 12,
   serp: 4,
 };
 

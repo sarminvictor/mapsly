@@ -12,16 +12,47 @@
 
 import prisma from "@/lib/prisma";
 
-/** Seat cap per PAID plan tier (docs/seat-model.md mapped onto the enum). */
+/** Seat cap per PAID plan tier. Repriced 2026-07-09
+ *  (docs/billing-repricing-2026-07-09.html · decision F-5). */
 export const PLAN_SEAT_CAPS: Record<string, number> = {
-  SOLO: 2, // display "Starter" ($19)
-  GROWTH: 5, // display "Growth" ($99)
-  AGENCY_PRO: 10, // legacy internal tier (WP0-6 comment)
-  BOUTIQUE: 15, // display "Scale" ($299)
+  SOLO: 1, // display "Starter" ($19)
+  AGENCY_PRO: 1, // display "Solo" ($49)
+  GROWTH: 3, // display "Growth" ($99)
+  BOUTIQUE: 10, // display "Pro" ($299)
 };
 
 /** The Free-state cap (no active subscription). */
 export const FREE_SEAT_CAP = 1;
+
+// ─── Discovery map-depth guard (decision F-8, 2026-07-09) ───────────────────
+//
+// Discovery (mapping a market) is $0 to the agency but costs US DfS $ per
+// never-seen cell — a big market (~3,000 listings) is ~$1.20 out of pocket.
+// To protect the thin margin on the near-free tiers we cap how DEEP the map
+// goes: Free + Starter ($19) fetch a shallow slice (~500 rows ≈ $0.20/market);
+// Solo ($49) and up fetch the full market. This is the COGS guard, not a
+// customer charge (docs/billing-repricing-2026-07-09.html · Part-discovery).
+
+/** Full per-cell map depth — the fetch ceiling for Solo ($49) and above. */
+export const DISCOVERY_DEPTH_FULL = 3000;
+/** Shallow per-cell map depth — the fetch ceiling for Free + Starter ($19). */
+export const DISCOVERY_DEPTH_ENTRY = 500;
+
+/**
+ * Per-cell discovery map-depth cap for an agency. Free (no active sub) and the
+ * SOLO enum (display "Starter", $19) map shallow; every paid tier above Starter
+ * (AGENCY_PRO="Solo", GROWTH, BOUTIQUE) maps the full market. Pure — no DB.
+ */
+export function discoveryDepthCapFor(agency: {
+  plan: string | null;
+  stripeStatus: string | null;
+}): number {
+  if (!isPaidAgency(agency.stripeStatus)) return DISCOVERY_DEPTH_ENTRY; // Free
+  // SOLO enum = display "Starter" ($19) → shallow. Everything above → full.
+  return (agency.plan ?? "") === "SOLO"
+    ? DISCOVERY_DEPTH_ENTRY
+    : DISCOVERY_DEPTH_FULL;
+}
 
 /** Stripe statuses that count as an active paid subscription. */
 const ACTIVE_STATUSES = new Set(["active", "trialing", "past_due"]);

@@ -550,8 +550,8 @@ describe("grantFreeTierIfNew", () => {
     await grantPlanCredits("a1", "SOLO", null, "p1");
     await grantFreeTierIfNew("a1");
     const w = await getOrCreateWallet("a1", NOW);
-    // WP1-12 · SOLO (advertised "Starter") grants 900 now.
-    expect(w.planCredits).toBe(900); // unchanged by the free grant
+    // SOLO (display "Starter") grants 250 now (repriced 2026-07-09).
+    expect(w.planCredits).toBe(250); // unchanged by the free grant
   });
 });
 
@@ -559,74 +559,59 @@ describe("grantPlanCredits", () => {
   test("sets the plan bucket to the tier amount", async () => {
     await grantPlanCredits("a1", "GROWTH", null, "p1");
     const w = await getOrCreateWallet("a1", NOW);
-    // WP1-12 · GROWTH (advertised "Growth") grants 6,000 now.
-    expect(w.planCredits).toBe(6000);
+    // GROWTH (display "Growth") grants 1,800 now.
+    expect(w.planCredits).toBe(1800);
   });
 
   test("is idempotent per (agency, tier, period)", async () => {
     await grantPlanCredits("a1", "SOLO", null, "period-1");
     await grantPlanCredits("a1", "SOLO", null, "period-1"); // replay
     const w = await getOrCreateWallet("a1", NOW);
-    expect(w.planCredits).toBe(900);
+    expect(w.planCredits).toBe(250);
     expect(db.ledger.filter((l) => l.type === "TOPUP")).toHaveLength(1);
   });
 
-  test("rolls the prior period's unused plan credits over (WP6-8)", async () => {
-    await grantPlanCredits("a1", "SOLO", null, "period-1"); // plan=900
+  test("rollover is DROPPED (2026-07-09) — plan resets, nothing carries", async () => {
+    await grantPlanCredits("a1", "SOLO", null, "period-1"); // plan=250
     await grantPlanCredits("a1", "SOLO", null, "period-2"); // re-grant
     const w = await getOrCreateWallet("a1", NOW);
-    expect(w.planCredits).toBe(900);
-    expect(w.rolloverCredits).toBe(900);
-    expect(w.availableCredits).toBe(1800);
+    expect(w.planCredits).toBe(250); // reset to the grant
+    expect(w.rolloverCredits).toBe(0); // no carry-forward anymore
+    expect(w.availableCredits).toBe(250);
   });
 
-  test("WP6-8 · rollover ACCUMULATES across cycles, capped at Nx the grant", async () => {
-    // SOLO grant = 900; cap = 3 × 900 = 2,700. Four full-unused cycles would
-    // carry 0→900→1,800→2,700→(2,700 clamped) — never above the cap.
-    const expected = [0, 900, 1800, 2700, 2700];
+  test("rollover stays 0 across many cycles", async () => {
     for (let cycle = 1; cycle <= 5; cycle += 1) {
       await grantPlanCredits("a1", "SOLO", null, `period-${cycle}`);
       const w = await getOrCreateWallet("a1", NOW);
-      // Rollover reflects what carried from the PRIOR cycle's unused plan.
-      expect(w.rolloverCredits, `after cycle ${cycle}`).toBe(
-        expected[cycle - 1],
-      );
-      expect(w.planCredits).toBe(900);
+      expect(w.rolloverCredits, `after cycle ${cycle}`).toBe(0);
+      expect(w.planCredits).toBe(250);
     }
   });
 
-  test("WP6-8 · spent plan credits don't roll — only the unused remainder does", async () => {
+  test("spent plan credits don't carry — plan just resets to the grant", async () => {
     seedWallet("a1", 0); // start empty so grant is the only source
-    await grantPlanCredits("a1", "GROWTH", null, "period-1"); // plan=6,000
-    // Spend 4,000 of the 6,000 within the cycle (settle draws plan first).
-    await holdCredits("a1", 4000, "run1");
+    await grantPlanCredits("a1", "GROWTH", null, "period-1"); // plan=1,800
+    await holdCredits("a1", 1000, "run1");
     await reconcileRunCredits("run1", { hadProgress: true });
     let w = await getOrCreateWallet("a1", NOW);
-    expect(w.planCredits).toBe(2000); // 6,000 − 4,000 spent
+    expect(w.planCredits).toBe(800); // 1,800 − 1,000 spent
 
     await grantPlanCredits("a1", "GROWTH", null, "period-2"); // re-grant
     w = await getOrCreateWallet("a1", NOW);
-    expect(w.planCredits).toBe(6000); // reset to the grant
-    expect(w.rolloverCredits).toBe(2000); // only the 2,000 unused carried
-    expect(w.availableCredits).toBe(8000);
+    expect(w.planCredits).toBe(1800); // reset to the grant
+    expect(w.rolloverCredits).toBe(0); // nothing carried (rollover dropped)
+    expect(w.availableCredits).toBe(1800);
   });
 });
 
-describe("nextRolloverCredits · pure cap logic (WP6-8)", () => {
-  test("caps accumulated rollover at ROLLOVER_CAP_MULTIPLE × grant", () => {
+describe("nextRolloverCredits · rollover disabled (2026-07-09)", () => {
+  test("always returns 0 — ROLLOVER_CAP_MULTIPLE is 0", () => {
+    expect(ROLLOVER_CAP_MULTIPLE).toBe(0);
     const grant = 6000;
-    const cap = ROLLOVER_CAP_MULTIPLE * grant;
-    // Prior rollover already at cap + a fresh unused grant → clamped to cap.
-    expect(nextRolloverCredits(grant, cap, grant)).toBe(cap);
-    // Below cap → accumulates additively.
-    expect(nextRolloverCredits(1000, 2000, grant)).toBe(3000);
-    // Exactly at the cap boundary.
-    expect(
-      nextRolloverCredits(grant, grant * (ROLLOVER_CAP_MULTIPLE - 1), grant),
-    ).toBe(cap);
-    // Nothing unused → nothing added.
-    expect(nextRolloverCredits(0, 500, grant)).toBe(500);
-    // Defensive: negative inputs never subtract.
+    expect(nextRolloverCredits(grant, 0, grant)).toBe(0);
+    expect(nextRolloverCredits(1000, 2000, grant)).toBe(0);
+    expect(nextRolloverCredits(0, 500, grant)).toBe(0);
     expect(nextRolloverCredits(-100, -50, grant)).toBe(0);
   });
 });

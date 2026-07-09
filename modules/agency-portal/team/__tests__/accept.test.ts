@@ -112,7 +112,13 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { acceptPendingInvite } from "../accept";
-import { seatCapFor, FREE_SEAT_CAP } from "../seats";
+import {
+  seatCapFor,
+  FREE_SEAT_CAP,
+  discoveryDepthCapFor,
+  DISCOVERY_DEPTH_ENTRY,
+  DISCOVERY_DEPTH_FULL,
+} from "../seats";
 
 beforeEach(() => {
   db.reset();
@@ -129,10 +135,44 @@ describe("seatCapFor", () => {
     ).toBe(FREE_SEAT_CAP);
     expect(
       seatCapFor({ maxSeats: null, plan: "GROWTH", stripeStatus: "active" }),
-    ).toBe(5);
+    ).toBe(3); // repriced 2026-07-09 (was 5)
     expect(
       seatCapFor({ maxSeats: null, plan: "BOUTIQUE", stripeStatus: "active" }),
-    ).toBe(15);
+    ).toBe(10); // repriced 2026-07-09 (was 15)
+  });
+});
+
+describe("discoveryDepthCapFor (F-8 · COGS guard)", () => {
+  test("Free state (no active subscription) maps shallow", () => {
+    expect(discoveryDepthCapFor({ plan: "SOLO", stripeStatus: null })).toBe(
+      DISCOVERY_DEPTH_ENTRY,
+    );
+    expect(
+      discoveryDepthCapFor({ plan: "BOUTIQUE", stripeStatus: "canceled" }),
+    ).toBe(DISCOVERY_DEPTH_ENTRY);
+  });
+
+  test("Starter ($19 · SOLO enum) maps shallow even when paid", () => {
+    expect(discoveryDepthCapFor({ plan: "SOLO", stripeStatus: "active" })).toBe(
+      DISCOVERY_DEPTH_ENTRY,
+    );
+  });
+
+  test("Solo ($49 · AGENCY_PRO) and up map the full market", () => {
+    for (const plan of ["AGENCY_PRO", "GROWTH", "BOUTIQUE"]) {
+      expect(
+        discoveryDepthCapFor({ plan, stripeStatus: "active" }),
+        `${plan} should map full`,
+      ).toBe(DISCOVERY_DEPTH_FULL);
+    }
+    // trialing / past_due still count as paid → full depth for Solo+.
+    expect(
+      discoveryDepthCapFor({ plan: "GROWTH", stripeStatus: "trialing" }),
+    ).toBe(DISCOVERY_DEPTH_FULL);
+  });
+
+  test("the entry cap is strictly below the full cap", () => {
+    expect(DISCOVERY_DEPTH_ENTRY).toBeLessThan(DISCOVERY_DEPTH_FULL);
   });
 });
 

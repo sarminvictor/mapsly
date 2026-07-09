@@ -64,20 +64,23 @@ describe("plan-credit parity (WP1-12)", () => {
   });
 
   test("the reconciled lattice values are the advertised numbers", () => {
-    expect(PLAN_CARDS.starter.monthlyCredits).toBe(900);
-    expect(PLAN_CARDS.growth.monthlyCredits).toBe(6_000);
-    expect(PLAN_CARDS.scale.monthlyCredits).toBe(24_000);
-    expect(PLAN_CREDITS.SOLO).toBe(900);
-    expect(PLAN_CREDITS.GROWTH).toBe(6_000);
-    expect(PLAN_CREDITS.BOUTIQUE).toBe(24_000);
+    // Repriced 2026-07-09.
+    expect(PLAN_CARDS.starter.monthlyCredits).toBe(250);
+    expect(PLAN_CARDS.solo.monthlyCredits).toBe(750);
+    expect(PLAN_CARDS.growth.monthlyCredits).toBe(1_800);
+    expect(PLAN_CARDS.scale.monthlyCredits).toBe(6_500);
+    expect(PLAN_CREDITS.SOLO).toBe(250);
+    expect(PLAN_CREDITS.AGENCY_PRO).toBe(750);
+    expect(PLAN_CREDITS.GROWTH).toBe(1_800);
+    expect(PLAN_CREDITS.BOUTIQUE).toBe(6_500);
   });
 
-  test("fullyEnriched headline is floor(credits / 4) for every card", () => {
-    // A fully-enriched lead is 4 credits (scan + reviews + speed + AI) under the
-    // CREDIT_PRICES schedule — see CREDIT_MEANING.fullEnrichment.
+  test("fullyEnriched headline is floor(credits / 6) for every card", () => {
+    // A fully-enriched lead is 6 credits (contacts + reviews + speed + AI =
+    // 1+2+2+1) under the 2026-07-09 CREDIT_PRICES — see CREDIT_MEANING.fullEnrichment.
     for (const key of PLAN_CARD_ORDER) {
       expect(PLAN_CARDS[key].fullyEnriched).toBe(
-        Math.floor(PLAN_CARDS[key].monthlyCredits / 4),
+        Math.floor(PLAN_CARDS[key].monthlyCredits / 6),
       );
     }
   });
@@ -88,15 +91,15 @@ describe("CREDIT_PRICES (customer billing schedule)", () => {
     expect(CREDIT_PRICES.contacts).toBe(1);
     expect(CREDIT_PRICES.tech).toBe(0); // rides the contacts scan
     expect(CREDIT_PRICES.services).toBe(1);
-    expect(CREDIT_PRICES.reviews).toBe(1);
-    expect(CREDIT_PRICES.lighthouse).toBe(1);
+    expect(CREDIT_PRICES.reviews).toBe(2); // 1→2 unified pricing (2026-07-09)
+    expect(CREDIT_PRICES.lighthouse).toBe(2); // 1→2 (covers walled tail)
     expect(CREDIT_PRICES.ai_research).toBe(1);
     expect(CREDIT_PRICES.google_ads).toBe(1);
-    expect(CREDIT_PRICES.meta_ads).toBe(4); // raised 3→4 (images-on COGS, 2026-07-06)
+    expect(CREDIT_PRICES.meta_ads).toBe(12); // 4→12 (real $0.12 COGS)
     expect(CREDIT_PRICES.serp).toBe(4);
   });
 
-  test("a fully-enriched lead = 4 credits (scan + reviews + speed + AI)", () => {
+  test("a fully-enriched lead = 6 credits (contacts + reviews + speed + AI)", () => {
     expect(
       CREDIT_PRICES.contacts +
         CREDIT_PRICES.reviews +
@@ -180,7 +183,7 @@ describe("estimateRun", () => {
     // 0.00425 open), so the upper bound reflects a cell of Cloudflare-walled
     // sites honestly: 80 billable × 0.00425 × 14.117647 = 0.34 × 14.117647 = 4.80.
     expect(r.upperBoundUsd).toBeCloseTo(4.8, 4);
-    expect(r.netCredits).toBe(80); // CREDIT_PRICES: 80 billable × 1 credit
+    expect(r.netCredits).toBe(160); // CREDIT_PRICES: 80 billable × 2 credits
     // Confidence is now "bounded" (lighthouse has upperMultiplier > 1 · a
     // billable walled audit can cost up to ~14× the open quote).
     expect(r.confidence).toBe("bounded");
@@ -190,7 +193,7 @@ describe("estimateRun", () => {
   test("reviews ×500 → $7.50 COGS, confirm gate (no approval), bounded", () => {
     const r = estimateRun({ lines: [{ enrichment: "reviews", total: 500 }] });
     expect(r.netUsd).toBeCloseTo(7.5, 4); // COGS telemetry unchanged
-    expect(r.netCredits).toBe(500); // CREDIT_PRICES: 500 × 1 credit
+    expect(r.netCredits).toBe(1000); // CREDIT_PRICES: 500 × 2 credits
     // WP1-11: a $7.50 run no longer needs approval — wallet balance is the gate.
     expect(r.gate).toBe("confirm");
     expect(r.confidence).toBe("bounded");
@@ -208,8 +211,8 @@ describe("estimateRun", () => {
     expect(r.netUsd).toBeCloseTo(1.327, 4); // COGS telemetry unchanged
     expect(r.gate).toBe("confirm");
     expect(r.confidence).toBe("bounded"); // reviews + lighthouse are variable
-    // CREDIT_PRICES: lighthouse 80×1 + serp 9×4 + reviews 40×1 = 80 + 36 + 40.
-    expect(r.netCredits).toBe(156);
+    // CREDIT_PRICES: lighthouse 80×2 + serp 9×4 + reviews 40×2 = 160 + 36 + 80.
+    expect(r.netCredits).toBe(276);
   });
 
   test("all fresh → net $0 but freshHit shows the saving", () => {

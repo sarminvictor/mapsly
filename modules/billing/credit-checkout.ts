@@ -48,9 +48,10 @@ import {
 // no price (it's the default, no-subscription tier).
 
 const PAID_PLAN_ENV: Record<Exclude<PlanKey, "free">, string> = {
-  starter: "STRIPE_PRICE_PLAN_STARTER",
-  growth: "STRIPE_PRICE_PLAN_GROWTH",
-  scale: "STRIPE_PRICE_PLAN_SCALE",
+  starter: "STRIPE_PRICE_PLAN_STARTER", // $19
+  solo: "STRIPE_PRICE_PLAN_SOLO", // $49 (added 2026-07-09)
+  growth: "STRIPE_PRICE_PLAN_GROWTH", // $99
+  scale: "STRIPE_PRICE_PLAN_SCALE", // $299
 };
 
 const TOPUP_ENV: Record<TopUpPack["key"], string> = {
@@ -163,7 +164,7 @@ function isNextRedirect(err: unknown): boolean {
 // ─── Action · plan upgrade (subscription) ───────────────────────────────────
 
 const PlanFormSchema = z.object({
-  plan: z.enum(["starter", "growth", "scale"]),
+  plan: z.enum(["starter", "solo", "growth", "scale"]),
   locale: z.string().min(1),
 });
 
@@ -225,6 +226,86 @@ export async function startPlanCheckout(formData: FormData): Promise<void> {
         level: "error",
         event: "billing.plan_checkout.failed",
         plan,
+        message: err instanceof Error ? err.message : String(err),
+      }),
+    );
+    redirect(billingUrl(locale, "?billing_error=internal_error"));
+  }
+}
+
+// ─── Action · native cancel / resume (cancel_at_period_end) ─────────────────
+//
+// F-6 · in-app cancellation without bouncing to the Stripe portal. Sets
+// `cancel_at_period_end` on the live subscription (true = cancel at period end,
+// false = resume a pending cancellation). The subscription stays active until
+// the period end either way — the webhook (customer.subscription.updated)
+// reconciles the DB; we also write `cancelAtPeriodEnd` optimistically so the
+// page reflects the choice on the very next render. OWNER/ADMIN only.
+
+const CancelFormSchema = z.object({
+  // "true" → schedule cancellation; "false" → resume (undo a pending cancel).
+  cancel: z.enum(["true", "false"]),
+  locale: z.string().min(1),
+});
+
+export async function setPlanCancellation(formData: FormData): Promise<void> {
+  const parsed = CancelFormSchema.safeParse({
+    cancel: formData.get("cancel"),
+    locale: formData.get("locale"),
+  });
+  if (!parsed.success) redirect("/team/billing?billing_error=invalid_input");
+  const { cancel, locale } = parsed.data;
+  const cancelAtPeriodEnd = cancel === "true";
+
+  const ctx = await resolveAgencyContext();
+  if ("error" in ctx) {
+    redirect(billingUrl(locale, `?billing_error=${ctx.error}`));
+  }
+  if (!ctx.canManage) {
+    redirect(billingUrl(locale, "?billing_error=role_required"));
+  }
+
+  // WP8-2 · bound cancel/resume toggles per user (Stripe-write churn).
+  const rl = await rateLimitAction(ACTION_ENQUEUE_LIMIT, ctx.userId);
+  if (rl.limited) {
+    redirect(billingUrl(locale, "?billing_error=rate_limited"));
+  }
+
+  // Resolve the live subscription id (not carried on AgencyContext).
+  const agency = await prisma.agency.findUnique({
+    where: { id: ctx.agencyId },
+    select: { stripeSubscriptionId: true },
+  });
+  const subscriptionId = agency?.stripeSubscriptionId ?? null;
+  if (!subscriptionId) {
+    // Nothing to cancel — likely already on the free tier.
+    redirect(billingUrl(locale, "?billing_error=no_subscription"));
+  }
+
+  try {
+    await stripeClient.subscriptions.update(subscriptionId as string, {
+      cancel_at_period_end: cancelAtPeriodEnd,
+    });
+    // Optimistic DB write so the page reflects the choice immediately; the
+    // customer.subscription.updated webhook is the source of truth and will
+    // re-confirm (idempotent — same boolean).
+    await prisma.agency.update({
+      where: { id: ctx.agencyId },
+      data: { cancelAtPeriodEnd },
+    });
+    redirect(
+      billingUrl(
+        locale,
+        cancelAtPeriodEnd ? "?plan_canceled=1" : "?plan_resumed=1",
+      ),
+    );
+  } catch (err) {
+    if (isNextRedirect(err)) throw err;
+    console.error(
+      JSON.stringify({
+        level: "error",
+        event: "billing.plan_cancellation.failed",
+        cancelAtPeriodEnd,
         message: err instanceof Error ? err.message : String(err),
       }),
     );

@@ -288,6 +288,7 @@ describe("handleStripeEvent · checkout.session.completed", () => {
   // credits. Each display key must resolve to the right tier.
   test.each([
     ["starter", "SOLO", "agency_solo"],
+    ["solo", "AGENCY_PRO", "agency_pro"], // $49 tier added 2026-07-09
     ["growth", "GROWTH", "agency_growth"],
     ["scale", "BOUTIQUE", "agency_boutique"],
   ] as const)(

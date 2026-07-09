@@ -6,14 +6,15 @@
  * was previously split across /team/billing (Stripe subscription) and /usage
  * (wallet + ledger). /usage now redirects here.
  *
- * Top-to-bottom composition:
+ * Top-to-bottom composition (reworked 2026-07-09 · Part D):
  *   1. Header + credit explainer
- *   2. Current-plan + wallet card (usage bar, Plan/Top-up balance tiles, lock)
- *   3. Plans grid (Free / Starter / Growth · featured / Scale)
- *   4. What-a-credit-buys + Top-up packs (2-up)
- *   5. Why-Mapsly-is-cheaper compare
- *   6. Credit ledger (running balance)
- *   7. Stripe invoices (manage subscription · open invoices)
+ *   2. Slim current-plan card (plan · balance · renews · thin bar · cancel/resume)
+ *   3. Plans grid (4 paid cards: Starter / Solo · featured / Growth / Pro) +
+ *      the Free plan as a de-emphasized horizontal strip below
+ *   4. What-a-credit-buys + Top-up packs (2-up, #topup anchor)
+ *   5. Why-Mapsly-is-cheaper comparison table (+ Origami row)
+ *   6. Credit ledger (paginated, timestamps, run detail)
+ *   7. Stripe invoices (low-emphasis "update card in Stripe" link)
  *
  * Pricing is the canonical prototype model in modules/cost/pricing.ts
  * (PLAN_CARDS / TOPUP_PACKS / CREDIT_MEANING). The display layer is decoupled
@@ -47,6 +48,7 @@ import {
   type InvoiceRow,
   type InvoicesData,
 } from "@/modules/billing/queries";
+import { buildUsageDetails } from "@/modules/billing/usage-detail";
 import { grantFreeTierIfNew } from "@/modules/cost/server";
 import {
   PLAN_CARDS,
@@ -104,13 +106,14 @@ async function BillingBody({ params, searchParams }: PageProps) {
 
   const member = await prisma.agencyMember.findFirst({
     where: { userId: session.user.id },
-    select: { agencyId: true },
+    select: { agencyId: true, role: true },
   });
   if (!member) {
     redirect({ href: "/home", locale });
     return null;
   }
   const agencyId = member.agencyId;
+  const canManage = member.role === "OWNER" || member.role === "ADMIN";
 
   // Fund a brand-new agency's free tier so the wallet shows a real balance.
   await grantFreeTierIfNew(agencyId).catch(() => {});
@@ -128,7 +131,12 @@ async function BillingBody({ params, searchParams }: PageProps) {
       }),
       prisma.agency.findUnique({
         where: { id: agencyId },
-        select: { plan: true, currentPeriodEnd: true, stripeStatus: true },
+        select: {
+          plan: true,
+          currentPeriodEnd: true,
+          stripeStatus: true,
+          cancelAtPeriodEnd: true,
+        },
       }),
       prisma.creditLedger.findMany({
         where: { agencyId },
@@ -139,12 +147,14 @@ async function BillingBody({ params, searchParams }: PageProps) {
           type: true,
           credits: true,
           note: true,
+          runId: true,
           createdAt: true,
         },
       }),
       getAgencyInvoices(session.user.id),
       Promise.all([
         isPlanCheckoutConfigured("starter"),
+        isPlanCheckoutConfigured("solo"),
         isPlanCheckoutConfigured("growth"),
         isPlanCheckoutConfigured("scale"),
       ]),
@@ -179,18 +189,23 @@ async function BillingBody({ params, searchParams }: PageProps) {
       ? formatRenew(agency.currentPeriodEnd)
       : null;
 
+  // Phase 5 · join run metadata so each usage row can show market · N
+  // businesses · what ran (defensive — empty map on any failure).
+  const usageDetails = await buildUsageDetails(ledger.map((l) => l.runId));
   const ledgerRows: LedgerRow[] = ledger.map((l) => ({
     id: l.id,
     type: l.type,
     credits: l.credits,
     note: l.note,
     createdAt: l.createdAt,
+    detail: l.runId ? (usageDetails.get(l.runId) ?? null) : null,
   }));
 
   const planConfigured: Record<Exclude<PlanKey, "free">, boolean> = {
     starter: planCfg[0],
-    growth: planCfg[1],
-    scale: planCfg[2],
+    solo: planCfg[1],
+    growth: planCfg[2],
+    scale: planCfg[3],
   };
   const topUpConfigured: Record<TopUpPack["key"], boolean> = {
     pack_1000: topUpCfg[0],
@@ -201,11 +216,16 @@ async function BillingBody({ params, searchParams }: PageProps) {
     <div className="view">
       {deficit != null ? (
         <div className="callout amber" style={{ marginBottom: 12 }}>
-          <span aria-hidden="true">🪙</span>
           <div>
-            <b>Your run needs {deficit.toLocaleString()} more credits.</b> Top
-            up below — the pack lands instantly and your Preview picks up where
-            you left it.
+            <b>Your run needs {deficit.toLocaleString()} more credits.</b>{" "}
+            <a
+              href="#topup"
+              style={{ color: "var(--indigo)", fontWeight: 600 }}
+            >
+              Top up below
+            </a>{" "}
+            — the pack lands instantly and your Preview picks up where you left
+            off.
           </div>
         </div>
       ) : null}
@@ -219,20 +239,29 @@ async function BillingBody({ params, searchParams }: PageProps) {
         renewsLabel={renewsLabel}
         planBalance={planBucket}
         topUpBalance={topUpBalance}
+        availableBalance={availableBalance}
+        locale={locale}
+        subActive={subActive}
+        cancelAtPeriodEnd={Boolean(agency?.cancelAtPeriodEnd)}
+        canManage={canManage}
       />
 
       <PlansGrid
         activePlan={activePlanKey}
         configured={planConfigured}
         locale={locale}
+        subActive={subActive}
+        portalReturnUrl={billingReturnUrl(locale)}
       />
 
       <div
+        id="topup"
         className="grid"
         style={{
           gridTemplateColumns: "1fr 1fr",
           marginTop: 16,
           alignItems: "stretch",
+          scrollMarginTop: 16,
         }}
       >
         <WhatACreditBuys />
@@ -277,10 +306,24 @@ function InvoicesSection({
             Your Stripe billing history — receipts and the card on file.
           </p>
         </div>
+        {/* Low-emphasis portal link — card + older invoices only. Cancel/resume
+            is native now (current-plan card); no redundant "Manage" button. */}
         <form action={openBillingPortal} style={{ margin: 0 }}>
           <input type="hidden" name="returnUrl" value={returnUrl} />
-          <button type="submit" className="btn sm">
-            Manage subscription
+          <button
+            type="submit"
+            className="linkbtn"
+            style={{
+              border: "none",
+              background: "none",
+              padding: 0,
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: "pointer",
+              color: "var(--indigo)",
+            }}
+          >
+            Update card in Stripe →
           </button>
         </form>
       </div>

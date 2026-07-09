@@ -1,0 +1,1092 @@
+<style>
+  :root {
+    --ink: #1a1d29;
+    --mut: #5b6172;
+    --line: #e4e7ef;
+    --panel: #f7f8fc;
+    --indigo: #5b3df5;
+    --green: #0f9d58;
+    --amber: #b8860b;
+    --red: #c0392b;
+    --g-bg: #eafaf1;
+    --a-bg: #fdf6e3;
+    --r-bg: #fdedeb;
+    --i-bg: #efeaff;
+  }
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    background: #fff;
+  }
+  .doc {
+    font:
+      15px/1.6 -apple-system,
+      "Segoe UI",
+      Roboto,
+      sans-serif;
+    color: var(--ink);
+    background: #fff;
+    max-width: 1020px;
+    margin: 0 auto;
+    padding: 36px 30px 80px;
+  }
+  h1 {
+    font-size: 28px;
+    margin: 0 0 3px;
+    letter-spacing: -0.02em;
+  }
+  .part {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    color: var(--indigo);
+    text-transform: uppercase;
+    margin: 38px 0 -2px;
+  }
+  h2 {
+    font-size: 20px;
+    margin: 6px 0 8px;
+    padding-top: 12px;
+    border-top: 2px solid var(--line);
+  }
+  h3 {
+    font-size: 15.5px;
+    margin: 20px 0 5px;
+  }
+  .sub {
+    color: var(--mut);
+    margin: 0 0 6px;
+  }
+  .hl {
+    color: var(--indigo);
+  }
+  p {
+    margin: 7px 0;
+  }
+  code {
+    background: #eef0f7;
+    color: #4b32c2;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 12.5px;
+  }
+  .src {
+    color: var(--mut);
+    font-size: 12px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0 6px;
+    font-size: 13.5px;
+  }
+  th,
+  td {
+    text-align: left;
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  thead th {
+    background: var(--panel);
+    color: var(--mut);
+    font-weight: 700;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border-bottom: 2px solid var(--line);
+  }
+  td.n,
+  th.n {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  tr.hi td {
+    background: var(--i-bg);
+  }
+  .call {
+    border-left: 4px solid var(--indigo);
+    background: var(--panel);
+    padding: 11px 15px;
+    border-radius: 7px;
+    margin: 12px 0;
+  }
+  .call.g {
+    border-color: var(--green);
+    background: var(--g-bg);
+  }
+  .call.a {
+    border-color: var(--amber);
+    background: var(--a-bg);
+  }
+  .call.r {
+    border-color: var(--red);
+    background: var(--r-bg);
+  }
+  b.g {
+    color: var(--green);
+  }
+  b.a {
+    color: var(--amber);
+  }
+  b.r {
+    color: var(--red);
+  }
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 20px;
+  }
+  .p-g {
+    background: var(--g-bg);
+    color: var(--green);
+  }
+  .p-a {
+    background: var(--a-bg);
+    color: var(--amber);
+  }
+  .p-r {
+    background: var(--r-bg);
+    color: var(--red);
+  }
+  .p-i {
+    background: var(--i-bg);
+    color: var(--indigo);
+  }
+  ul {
+    margin: 5px 0;
+    padding-left: 19px;
+  }
+  li {
+    margin: 3px 0;
+  }
+  .score {
+    display: flex;
+    gap: 9px;
+    flex-wrap: wrap;
+    margin: 10px 0;
+  }
+  .sc {
+    flex: 1 1 140px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 9px 11px;
+  }
+  .sc .v {
+    font-size: 23px;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .sc .k {
+    font-size: 11.5px;
+    color: var(--mut);
+    margin-top: 3px;
+  }
+  .as {
+    font-size: 12px;
+    color: var(--mut);
+    background: var(--panel);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin: 8px 0;
+  }
+  .foot {
+    color: var(--mut);
+    font-size: 12px;
+    margin-top: 34px;
+    border-top: 1px solid var(--line);
+    padding-top: 11px;
+  }
+  .toc {
+    columns: 2;
+    font-size: 13px;
+    margin: 8px 0;
+  }
+  .toc a {
+    color: var(--indigo);
+    text-decoration: none;
+  }
+</style>
+
+<div class="doc">
+  <h1>
+    Mapsly billing — <span class="hl">repricing, plans &amp; build plan</span>
+  </h1>
+  <p class="sub">
+    2026-07-09 · the aligned strategy · unit economy · unified credit pricing ·
+    5-tier ladder · user promises · Stripe + UI rework · phased implementation.
+    <b>Code-verified. Nothing built — approve, then I build.</b>
+  </p>
+
+  <div class="toc">
+    <a href="#a">A · The economy (what it costs us)</a><br />
+    <a href="#b">B · The plans (what we charge)</a><br />
+    <a href="#c">C · What we promise users</a><br />
+    <a href="#d">D · The page rework</a><br />
+    <a href="#e">E · Stripe &amp; plumbing</a><br />
+    <a href="#f">F · Decisions</a><br />
+    <a href="#g">G · Implementation plan</a>
+  </div>
+
+  <h3>Scorecard</h3>
+  <div class="score">
+    <div class="sc">
+      <div class="v" style="color: var(--green)">8</div>
+      <div class="k">Margin — flat 70–84% after the fix</div>
+    </div>
+    <div class="sc">
+      <div class="v" style="color: var(--green)">8</div>
+      <div class="k">Beats rivals — cheaper + unique signals</div>
+    </div>
+    <div class="sc">
+      <div class="v" style="color: var(--amber)">7</div>
+      <div class="k">Simplicity — "credit = lead" holds</div>
+    </div>
+    <div class="sc">
+      <div class="v" style="color: var(--amber)">7</div>
+      <div class="k">Sustainability — CAC is the lever</div>
+    </div>
+    <div class="sc">
+      <div class="v" style="color: var(--indigo)">7.5</div>
+      <div class="k"><b>Overall</b></div>
+    </div>
+  </div>
+  <div class="call g">
+    <b>The strategy in one paragraph.</b> Retie every research to
+    <b>~$0.01 of our cost = 1 credit</b>, so a credit costs us the same
+    (~$0.012) no matter what it buys → margin is a flat <b>70–84%</b> with
+    <b>no loss-making tail</b>. Sell those credits in a
+    <b>5-tier ladder</b> (Free · $19 · $49 · $99 · $299) where
+    <b>$49 Solo is the real entry</b> to advertise and $19/Free are organic land
+    tiers. Keep <b>"1 credit = 1 delivered local lead with contacts"</b> as the
+    honest anchor, strip the false claims (rollover, deep-audit), and lean the
+    pitch on the <b>local-signal moat + flat-vs-metered</b> contrast against
+    Origami/Apollo. The real risk is <b>not</b> unit cost — it's
+    <b>acquisition cost</b>: $49+ pays back in 1–3 months, $19 doesn't, so never
+    pay to acquire the cheap tiers.
+  </div>
+
+  <!-- ================= PART A ================= -->
+  <div class="part" id="a">Part A</div>
+  <h2>The economy — what it costs us</h2>
+
+  <h3>
+    A1 · Cost per research family
+    <span class="src"
+      >(code-verified · <code>pricing.ts</code> +
+      <code>scraper-cost-test.md</code>)</span
+    >
+  </h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Research (per lead unless marked)</th>
+        <th class="n">Our real cost</th>
+        <th class="n">Credits now</th>
+        <th class="n">Credits proposed</th>
+        <th>Why</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="hi">
+        <td><b>Contacts</b> — the delivered lead</td>
+        <td class="n">$0.009</td>
+        <td class="n">1</td>
+        <td class="n"><b>1</b></td>
+        <td>the anchor unit — unchanged</td>
+      </tr>
+      <tr>
+        <td>Tech + booking (add-on)</td>
+        <td class="n">$0.001</td>
+        <td class="n">0</td>
+        <td class="n">0</td>
+        <td>free, rides contacts</td>
+      </tr>
+      <tr>
+        <td>Services / page AI</td>
+        <td class="n">$0.002</td>
+        <td class="n">1</td>
+        <td class="n">1</td>
+        <td>already fine</td>
+      </tr>
+      <tr>
+        <td>Google ads</td>
+        <td class="n">$0.002</td>
+        <td class="n">1</td>
+        <td class="n">1</td>
+        <td>already fine</td>
+      </tr>
+      <tr>
+        <td>AI research angle</td>
+        <td class="n">$0.010</td>
+        <td class="n">1</td>
+        <td class="n">1</td>
+        <td>~$0.01, on anchor</td>
+      </tr>
+      <tr>
+        <td><b>Reviews</b> (depth 200)</td>
+        <td class="n">$0.015</td>
+        <td class="n">1</td>
+        <td class="n"><b class="a">2</b></td>
+        <td>was thin at 1cr</td>
+      </tr>
+      <tr>
+        <td><b>Site speed</b> (Lighthouse, blended)</td>
+        <td class="n">$0.019</td>
+        <td class="n">1</td>
+        <td class="n"><b class="a">2</b></td>
+        <td>covers the walled tail</td>
+      </tr>
+      <tr>
+        <td>SERP / rankings <span class="src">(per market)</span></td>
+        <td class="n">$0.043</td>
+        <td class="n">4</td>
+        <td class="n">4</td>
+        <td>~$0.011/cr, on anchor</td>
+      </tr>
+      <tr>
+        <td><b>Meta ads</b> <span class="src">(per market)</span></td>
+        <td class="n">$0.12 <span class="src">(fails→$0.24)</span></td>
+        <td class="n">4</td>
+        <td class="n"><b class="r">12</b></td>
+        <td>badly under-priced — the one big fix</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>A2 · Unified credit pricing — the whole point</h3>
+  <p>
+    With those 3 changes, <b>cost per credit is uniform ~$0.012</b> for every
+    research (was a $0.009→$0.06 spread). Margin no longer depends on what a
+    credit buys — the loss-making tail is gone.
+  </p>
+  <div class="call a">
+    <b>Before (today):</b> Meta cost $0.12 for 4 credits =
+    <b class="r">$0.03/credit</b> ($0.06 with failures) — so on
+    Growth/Pro/top-ups a Meta credit <b>lost money</b>. Reviews + walled
+    Lighthouse were also thin. <b>After:</b> every research lands at
+    <b class="g">$0.007–0.012/credit</b> → flat margin.
+  </div>
+
+  <h3>A3 · The four costs we absorb — all now counted</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Cost</th>
+        <th>In the model?</th>
+        <th class="n">Size</th>
+        <th>How it's handled</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><b>Discovery</b> (map + refresh the index)</td>
+        <td><b class="a">◐ + a guard</b></td>
+        <td class="n">
+          ~$0.0015/lead · <b class="r">up to $1.20/big market</b>
+        </td>
+        <td>
+          <b class="g">Free users can't map</b> (search reads the existing
+          index; Target maps are paid-locked). But it's $0 to paying users &amp;
+          uncapped (3,000 businesses/market). Guard: cap depth ~500 on
+          Free/Starter (decision F-8).
+        </td>
+      </tr>
+      <tr>
+        <td><b>Failed research</b> we pay for</td>
+        <td><b class="g">✓ folded in</b></td>
+        <td class="n">~15% uplift</td>
+        <td>
+          Baked into the $0.012/cr. Note: empty enrichment
+          <b>still charges</b> the customer (decision D2) — only technical
+          failures are our loss.
+        </td>
+      </tr>
+      <tr>
+        <td><b>Free tier</b> (50 credits × many)</td>
+        <td><b class="a">marketing line</b></td>
+        <td class="n">~$0.50/free user</td>
+        <td>
+          Not a plan's margin. Capped by anti-abuse (1 grant per real email).
+          ~$12.50 of free-cost per converted customer at 4% — trivial vs CAC.
+        </td>
+      </tr>
+      <tr>
+        <td><b>Acquisition (ads / CAC)</b></td>
+        <td><b class="a">external</b></td>
+        <td class="n">assume ~$100/customer</td>
+        <td>
+          Not COGS — governs payback &amp; LTV (Part B3). <b>The real lever.</b>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="as">
+    <b>Blended cost per credit ≈ $0.012</b> = contacts $0.009 + discovery
+    ~$0.0015 + failure loading, every research retied to ~$0.01. This one number
+    drives all margins below.
+  </div>
+
+  <!-- ================= PART B ================= -->
+  <div class="part" id="b">Part B</div>
+  <h2>The plans — what we charge</h2>
+
+  <h3>
+    B1 · The 5-tier ladder
+    <span class="src">(your Stripe prices: 19 / 49 / 99 / 299 + Free)</span>
+  </h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Plan</th>
+        <th class="n">Price/mo</th>
+        <th class="n">Credits</th>
+        <th class="n">Seats</th>
+        <th class="n">$/credit</th>
+        <th class="n">Leads w/ contacts</th>
+        <th class="n">Fully-enriched</th>
+        <th class="n">Gross margin</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><b>Free</b> <span class="pill p-i">land</span></td>
+        <td class="n">$0</td>
+        <td class="n">50 <span class="src">once</span></td>
+        <td class="n">1</td>
+        <td class="n">—</td>
+        <td class="n">50</td>
+        <td class="n">~8</td>
+        <td class="n">—</td>
+      </tr>
+      <tr>
+        <td><b>Starter</b></td>
+        <td class="n">$19</td>
+        <td class="n">250</td>
+        <td class="n">1</td>
+        <td class="n">$0.076</td>
+        <td class="n">250</td>
+        <td class="n">~40</td>
+        <td class="n"><b class="g">84%</b></td>
+      </tr>
+      <tr class="hi">
+        <td><b>Solo</b> <span class="pill p-g">advertise this</span></td>
+        <td class="n">$49</td>
+        <td class="n">750</td>
+        <td class="n">1</td>
+        <td class="n">$0.065</td>
+        <td class="n">750</td>
+        <td class="n">~125</td>
+        <td class="n"><b class="g">82%</b></td>
+      </tr>
+      <tr>
+        <td><b>Growth</b></td>
+        <td class="n">$99</td>
+        <td class="n">1,800</td>
+        <td class="n">3</td>
+        <td class="n">$0.055</td>
+        <td class="n">1,800</td>
+        <td class="n">~300</td>
+        <td class="n"><b class="g">78%</b></td>
+      </tr>
+      <tr>
+        <td><b>Pro</b></td>
+        <td class="n">$299</td>
+        <td class="n">6,500</td>
+        <td class="n">10</td>
+        <td class="n">$0.046</td>
+        <td class="n">6,500</td>
+        <td class="n">~1,080</td>
+        <td class="n"><b class="g">74%</b></td>
+      </tr>
+      <tr>
+        <td>Top-up</td>
+        <td class="n">$50 / $200</td>
+        <td class="n">1k / 5k</td>
+        <td class="n">—</td>
+        <td class="n">$0.05 / $0.04</td>
+        <td class="n">—</td>
+        <td class="n">—</td>
+        <td class="n"><b class="g">76% / 70%</b></td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="src">
+    "Fully-enriched" = leads ÷ 6 under the new pricing (contacts 1 + reviews 2 +
+    speed 2 + AI 1). Margin at full credit use × $0.012; real spend ~70% so
+    actual margin runs higher. Grants are
+    <b>unchanged from today's numbers only for $19/$99/$299 mapping</b> — see
+    F-1.
+  </p>
+
+  <h3>B2 · Per-credit margin — flat, no tail</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Plan</th>
+        <th class="n">User pays/cr</th>
+        <th class="n">Our cost/cr</th>
+        <th class="n">Margin</th>
+        <th class="n">Before (spread)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Starter $19</td>
+        <td class="n">$0.076</td>
+        <td class="n">$0.012</td>
+        <td class="n"><b class="g">84%</b></td>
+        <td class="n"><span class="src">21–88%</span></td>
+      </tr>
+      <tr class="hi">
+        <td>Solo $49</td>
+        <td class="n">$0.065</td>
+        <td class="n">$0.012</td>
+        <td class="n"><b class="g">82%</b></td>
+        <td class="n"><span class="src">8–86%</span></td>
+      </tr>
+      <tr>
+        <td>Growth $99</td>
+        <td class="n">$0.055</td>
+        <td class="n">$0.012</td>
+        <td class="n"><b class="g">78%</b></td>
+        <td class="n"><span class="src">−9–84%</span></td>
+      </tr>
+      <tr>
+        <td>Pro $299</td>
+        <td class="n">$0.046</td>
+        <td class="n">$0.012</td>
+        <td class="n"><b class="g">74%</b></td>
+        <td class="n"><span class="src">−30–80%</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>
+    B3 · Does it sustain paid acquisition?
+    <span class="src">— the deciding math</span>
+  </h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Plan</th>
+        <th class="n">Gross profit/mo</th>
+        <th class="n">Payback @ $100 CAC</th>
+        <th class="n">12-mo LTV</th>
+        <th class="n">LTV/CAC</th>
+        <th>Verdict</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Starter $19</td>
+        <td class="n">$16</td>
+        <td class="n"><b class="r">6.3 mo</b></td>
+        <td class="n">$192</td>
+        <td class="n">1.9×</td>
+        <td><b class="r">weak</b> — organic only, never pay to acquire</td>
+      </tr>
+      <tr class="hi">
+        <td>Solo $49</td>
+        <td class="n">$40</td>
+        <td class="n"><b class="g">2.5 mo</b></td>
+        <td class="n">$480</td>
+        <td class="n">4.8×</td>
+        <td><b class="g">healthy</b> — the plan to advertise</td>
+      </tr>
+      <tr>
+        <td>Growth $99</td>
+        <td class="n">$77</td>
+        <td class="n"><b class="g">1.3 mo</b></td>
+        <td class="n">$929</td>
+        <td class="n">9.3×</td>
+        <td><b class="g">strong</b></td>
+      </tr>
+      <tr>
+        <td>Pro $299</td>
+        <td class="n">$221</td>
+        <td class="n"><b class="g">0.5 mo</b></td>
+        <td class="n">$2,652</td>
+        <td class="n">26×</td>
+        <td><b class="g">excellent</b></td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="as">
+    <b>Assumptions to replace with your real numbers:</b> CAC $100 · 12-mo
+    retention · 4% free→paid. Rule: LTV/CAC ≥ 3 is healthy — Solo+ clear it,
+    Starter doesn't.
+  </div>
+
+  <h3>
+    B4 · Seats &amp; permissions — real &amp; enforced
+    <span class="pill p-g">keep</span>
+  </h3>
+  <p>
+    Fully enforced in code (not decorative): per-plan caps at <b>both</b> invite
+    &amp; accept (<code>seats.ts</code>, <code>invite-actions.ts</code>,
+    <code>accept.ts</code>), role permissions OWNER/ADMIN/MEMBER/STAFF with
+    generation gated to OWNER/ADMIN (<code>roles.ts</code>).
+    <b>Decided seats: Free 1 · Starter 1 · Solo 1 · Growth 3 · Pro 10.</b> Code
+    caps (<code>SOLO 2 · GROWTH 5 · BOUTIQUE 15</code>) get updated to
+    <code>1 / 3 / 10</code>, and the new $49 tier wired at 1.
+  </p>
+
+  <!-- ================= PART C ================= -->
+  <div class="part" id="c">Part C</div>
+  <h2>What we promise users</h2>
+
+  <h3>
+    C1 · Credit meaning &amp; "what a credit buys"
+    <span class="src">(reworked, honest)</span>
+  </h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Action</th>
+        <th class="n">New cost</th>
+        <th class="n">Was</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="hi">
+        <td><b>Delivered lead + verified contacts</b> (Search everywhere)</td>
+        <td class="n">1 credit</td>
+        <td class="n">1</td>
+      </tr>
+      <tr>
+        <td>Fully enrich (reviews + site speed + AI angle)</td>
+        <td class="n">+5 → 6 total</td>
+        <td class="n">3–4</td>
+      </tr>
+      <tr>
+        <td>Add market signals (ads + rankings, whole market)</td>
+        <td class="n">+16, once/market</td>
+        <td class="n">8</td>
+      </tr>
+      <tr>
+        <td>First-touch messages (AI drafts) · per 100</td>
+        <td class="n">10</td>
+        <td class="n">10</td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="as">
+    <b>Anchor:</b> "1 credit = 1 delivered local lead with verified contacts +
+    the why-qualified evidence." Going deeper costs a few more credits (it costs
+    us more). <b>Worked example (Solo, 750 cr):</b> 400 contacts (400) → fully
+    enrich your best 40 (200) → ads+rankings for 1 market (16) → 100
+    first-touches (10) = 626 credits.
+  </p>
+
+  <h3>C2 · Free plan — reframed</h3>
+  <div class="call">
+    <b>New pitch:</b> "50 guaranteed leads with verified contacts. Search
+    everywhere we've already mapped — no market research needed." Rendered as a
+    <b>de-emphasized horizontal strip at the bottom</b>, not a vertical plan
+    card. <b>Removed:</b> "Never expire", "Full enrichment + first-touch",
+    "Discovery — unlimited" framing. It sells <b>contacts, not enrichment</b>.
+  </div>
+
+  <h3>C3 · False claims — removed</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Claim</th>
+        <th>Truth in code</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>"Deep audit included (speed + keywords)" (Growth/Scale)</td>
+        <td>
+          <b class="r">FALSE</b> — no tier gating; billed per credit on every
+          plan
+        </td>
+        <td><b>Remove</b></td>
+      </tr>
+      <tr>
+        <td>"Unused credits roll over (up to 3×)"</td>
+        <td><b class="a">TRUE in code</b> (3× cap) — but you said we don't</td>
+        <td><b>Drop rollover</b> (code + copy) — decision F-2</td>
+      </tr>
+      <tr>
+        <td>Free "Never expire"</td>
+        <td>technically true</td>
+        <td><b>Remove</b> from pitch</td>
+      </tr>
+      <tr>
+        <td>Free "Full enrichment + first-touch"</td>
+        <td>true but not Free-specific</td>
+        <td><b>Remove</b> — misleading emphasis</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>C4 · Why Mapsly is cheaper</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Tool</th>
+        <th>Model</th>
+        <th class="n">Per enriched lead</th>
+        <th class="n">vs Mapsly</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="hi">
+        <td><b>Mapsly</b></td>
+        <td>
+          Flat plan · free discovery · seats included · charge-on-delivery
+        </td>
+        <td class="n"><b>$0.05–0.08</b></td>
+        <td class="n">baseline</td>
+      </tr>
+      <tr>
+        <td><b>Origami</b> <span class="pill p-a">closest rival</span></td>
+        <td>Credit, <b>pay-per-result forever</b> · also crawls Maps</td>
+        <td class="n">$0.07–0.12 · $0.30+ full</td>
+        <td class="n"><b>1.5–2× more</b></td>
+      </tr>
+      <tr>
+        <td>Instantly</td>
+        <td>Raw B2B leads</td>
+        <td class="n">$0.02–0.05</td>
+        <td class="n">cheaper $ — <b>no local "why"</b></td>
+      </tr>
+      <tr>
+        <td>Apollo</td>
+        <td>Seat + credit, overage</td>
+        <td class="n">$0.20/contact</td>
+        <td class="n"><b>2–4× more</b></td>
+      </tr>
+      <tr>
+        <td>ZoomInfo</td>
+        <td>Quote-only seats, annual lock</td>
+        <td class="n">$1–3/credit</td>
+        <td class="n"><b>15–40× more</b></td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="call">
+    <b>Three wedges:</b> <b>(1) vs Origami</b> — they bill per lead forever;
+    Mapsly is one flat fee that amortises, and their generic crawl can't produce
+    our 60+ local signals. <b>(2) vs Apollo/ZoomInfo</b> — 2–40× more, per-seat
+    tax + annual locks Tom is fleeing. <b>(3) vs Instantly</b> — cheaper per raw
+    record, but names, not <i>reasons to call</i>. And across all:
+    <b>free discovery + pay only for delivered leads.</b>
+  </div>
+
+  <!-- ================= PART D ================= -->
+  <div class="part" id="d">Part D</div>
+  <h2>The page rework — /team/billing</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Block</th>
+        <th>Change</th>
+        <th class="src">File</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Current plan</td>
+        <td>
+          Collapse tall wallet card → slim one-row summary (plan · balance ·
+          renews · thin bar). Plans visible above the fold.
+        </td>
+        <td class="src">CurrentPlanWalletCard.tsx</td>
+      </tr>
+      <tr>
+        <td>Free plan</td>
+        <td>
+          Move to bottom, horizontal, de-emphasized. Reframe to "50 leads with
+          contacts". Remove Never-expire + enrichment framing.
+        </td>
+        <td class="src">pricing.ts · PlansGrid.tsx</td>
+      </tr>
+      <tr>
+        <td>Add $49 Solo</td>
+        <td>
+          New card between $19 &amp; $99 · 750 cr · 1 seat · new PlanKey + enum
+          + price id.
+        </td>
+        <td class="src">pricing.ts · seats.ts</td>
+      </tr>
+      <tr>
+        <td>Paid plans</td>
+        <td>
+          Remove "roll over" + "deep audit". One primary yield figure ("N
+          delivered leads/mo") not the confusing dual number.
+        </td>
+        <td class="src">pricing.ts · PlansGrid.tsx</td>
+      </tr>
+      <tr>
+        <td>"Contact us" → Stripe</td>
+        <td>
+          Real checkout on every tier + top-up once the 4 price-id env vars are
+          set.
+        </td>
+        <td class="src">PlansGrid.tsx</td>
+      </tr>
+      <tr>
+        <td>What a credit buys</td>
+        <td>Rework to C1 math (fix stale "3 credits" → 6).</td>
+        <td class="src">WhatACreditBuys.tsx</td>
+      </tr>
+      <tr>
+        <td>Why cheaper</td>
+        <td>Re-derive $/lead + add Origami row (C4).</td>
+        <td class="src">WhyCheaper.tsx</td>
+      </tr>
+      <tr>
+        <td>Usage</td>
+        <td>
+          Add pagination (capped at 50 today), <b>timestamps</b> (hour:min +
+          year), and <b>action detail</b> (market · N businesses · enrichment)
+          to "What".
+        </td>
+        <td class="src">CreditLedgerTable.tsx</td>
+      </tr>
+      <tr>
+        <td>Invoices</td>
+        <td>
+          Real Stripe data ✓. Remove redundant "Manage subscription" button;
+          fold portal into one low-emphasis link.
+        </td>
+        <td class="src">page.tsx</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ================= PART E ================= -->
+  <div class="part" id="e">Part E</div>
+  <h2>Stripe &amp; plumbing</h2>
+  <p>
+    <b>Already wired:</b> subscription checkout, top-up checkout, signed
+    idempotent webhook, plan→credit grant on <code>invoice.paid</code>, customer
+    portal, invoice list, cancel-via-portal.
+    <b>The gap for "full connection":</b>
+  </p>
+  <ul>
+    <li>
+      <b>Wire the 4 price ids</b> (env, local + Vercel):
+      19→<code>STRIPE_PRICE_PLAN_STARTER</code>, 99→<code>_GROWTH</code>,
+      299→<code>_SCALE</code>, + a new slot for 49.
+    </li>
+    <li>
+      <b>Map the $49 tier</b> — new PlanKey + enum (reuse
+      <code>AGENCY_PRO</code> or add one), credits 750, seat cap 1.
+    </li>
+    <li>
+      <b>Native in-app Cancel</b> — a server action (<code
+        >subscriptions.update cancel_at_period_end</code
+      >) + a "Cancel plan" CTA (today cancel is portal-only).
+    </li>
+    <li>
+      <b>Plan switch/upgrade</b> — route through the Stripe portal's plan-change
+      (avoids the double-subscription bug of starting a fresh checkout);
+      configure the portal product set for the 4 prices.
+    </li>
+  </ul>
+
+  <!-- ================= PART F ================= -->
+  <div class="part" id="f">Part F</div>
+  <h2>Decisions</h2>
+  <table>
+    <thead>
+      <tr>
+        <th class="n">#</th>
+        <th>Decision</th>
+        <th>Status / recommendation</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="n">D2</td>
+        <td>Empty research charges</td>
+        <td>
+          <b class="g">LOCKED</b> — empty enrichment still charges; search
+          charges only delivered
+        </td>
+      </tr>
+      <tr>
+        <td class="n">F-1</td>
+        <td>Credit grants</td>
+        <td>
+          <b>Proposed:</b> Free 50 · $19/250 · $49/750 · $99/1,800 · $299/6,500.
+          <b>Sub-choice:</b> keep these (users get slightly less
+          <i>depth</i> after the §A pricing) <b>or</b> bump ~1.3× to preserve
+          depth. <span class="pill p-a">confirm</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="n">F-2</td>
+        <td>Credit prices (the fix)</td>
+        <td>
+          Reviews 1→2 · Site-speed 1→2 · <b>Meta 4→12</b>.
+          <span class="pill p-a">confirm</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="n">F-3</td>
+        <td>Rollover</td>
+        <td>
+          <b>Drop it</b> (code + copy) — rivals all expire.
+          <span class="pill p-a">confirm</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="n">F-4</td>
+        <td>$49 identity</td>
+        <td>
+          <b class="g">DECIDED</b> — real "Solo" entry; $19 = organic Starter
+        </td>
+      </tr>
+      <tr>
+        <td class="n">F-5</td>
+        <td>Seats</td>
+        <td><b class="g">DECIDED</b> — 1 / 1 / 1 / 3 / 10</td>
+      </tr>
+      <tr>
+        <td class="n">F-6</td>
+        <td>Cancel + switch</td>
+        <td>
+          <b>Native cancel</b> + plan-switch via portal.
+          <span class="pill p-a">confirm</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="n">F-7</td>
+        <td>Top-up packs</td>
+        <td>
+          Keep $50/1k + $200/5k (overage cap ≤ $0.10/cr, under Apollo's $0.20).
+          <span class="pill p-a">confirm</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="n">F-8</td>
+        <td>Discovery guard</td>
+        <td>
+          Cap map depth ~500 on Free/Starter, full 3,000 on Growth+ · light
+          monthly market ceiling. <span class="pill p-a">confirm</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="n">F-9</td>
+        <td>Real CAC + conversion</td>
+        <td>
+          Need your ad-CAC target &amp; free→paid % to firm up B3.
+          <span class="pill p-a">input</span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ================= PART G ================= -->
+  <div class="part" id="g">Part G</div>
+  <h2>
+    Implementation plan
+    <span class="src">— after approval · one phase ≈ one session</span>
+  </h2>
+  <table>
+    <thead>
+      <tr>
+        <th class="n">Phase</th>
+        <th>Work</th>
+        <th class="src">Files · tests</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="n">1</td>
+        <td>
+          <b>Pricing constants + credit prices.</b> <code>CREDIT_PRICES</code>:
+          reviews 2, lighthouse 2, meta 12. <code>PLAN_CARDS</code> +
+          <code>PLAN_CREDITS</code> new grants + the $49 tier + enum. Drop
+          rollover (<code>ROLLOVER_CAP</code> path). Seat caps 1/3/10 + $49=1.
+        </td>
+        <td class="src">
+          pricing.ts · server.ts · seats.ts · fix WP1-12 parity + server.test
+          seat/rollover assertions
+        </td>
+      </tr>
+      <tr>
+        <td class="n">2</td>
+        <td>
+          <b>Discovery guard.</b> Per-plan map-depth cap (Free/Starter ~500,
+          Growth+ 3,000) + optional monthly market ceiling.
+        </td>
+        <td class="src">run-discovery.ts · actions.ts (clamp by plan)</td>
+      </tr>
+      <tr>
+        <td class="n">3</td>
+        <td>
+          <b>Stripe wiring.</b> 4 price-id env vars (local + Vercel), $49
+          mapping, native cancel server action, portal plan-switch config.
+        </td>
+        <td class="src">
+          credit-checkout.ts · webhook.ts · actions.ts · .env + Vercel
+        </td>
+      </tr>
+      <tr>
+        <td class="n">4</td>
+        <td>
+          <b>UI rework.</b> Compact current-plan, Free horizontal at bottom,
+          plans above fold, remove "Contact us", rework "what a credit buys" +
+          "why cheaper" (+Origami), invoices button.
+        </td>
+        <td class="src">
+          CurrentPlanWalletCard · PlansGrid · WhatACreditBuys · WhyCheaper ·
+          page.tsx
+        </td>
+      </tr>
+      <tr>
+        <td class="n">5</td>
+        <td>
+          <b>Usage table.</b> Pagination + timestamps + action detail (enrich
+          the ledger note or join run metadata).
+        </td>
+        <td class="src">CreditLedgerTable.tsx · queries.ts</td>
+      </tr>
+      <tr>
+        <td class="n">6</td>
+        <td>
+          <b>Copy.</b> All billing strings to the new numbers + removed claims.
+        </td>
+        <td class="src">messages/en.json · copy-reviewer pass</td>
+      </tr>
+      <tr>
+        <td class="n">7</td>
+        <td>
+          <b>Reviewer chain + gate + ship.</b> code-reviewer · payments-auditor
+          · ux-reviewer-agency · copy-reviewer → deploy-check →
+          <code>/ship</code>.
+        </td>
+        <td class="src">—</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="call">
+    <b>Sequencing note:</b> Phases 1–2 are pure logic (safe, testable). Phase 3
+    touches money (Stripe) — do the payments-auditor pass before shipping.
+    Phases 4–6 are user-visible; the copy-reviewer + ux-reviewer gate them.
+    Everything ships in one release; the Stripe env vars flip the checkout live.
+  </div>
+
+  <div class="foot">
+    Mapsly · billing repricing (aligned) · 2026-07-09 · COGS from
+    <code>pricing.ts</code> + <code>scraper-cost-test.md</code>; seats from
+    <code>seats.ts</code>/<code>roles.ts</code>; Stripe from
+    <code>modules/billing/*</code>; discovery from
+    <code>run-discovery.ts</code>; benchmark
+    Origami·Apollo·ZoomInfo·Instantly·Clay·BrightLocal. CAC/free/conversion are
+    planning assumptions — replace with real numbers (F-9). Margins are
+    structural, not a forecast. <b>No code changed — awaiting Part F.</b>
+  </div>
+</div>

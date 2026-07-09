@@ -22,10 +22,14 @@ interface Plan {
   featured?: boolean;
 }
 
+// Featured = Growth (p3), not Starter (p2). Repricing strategy (B3) says never
+// advertise the $19 entry tier — the plan to advertise is Solo ($49), which this
+// 3-up marketing grid doesn't yet show. Until it's expanded to the full 5-tier
+// ladder (follow-up), crown the serious paid tier rather than the weak entry one.
 const PLANS: Plan[] = [
   { key: "p1", features: 5 },
-  { key: "p2", features: 5, featured: true },
-  { key: "p3", features: 5 },
+  { key: "p2", features: 5 },
+  { key: "p3", features: 5, featured: true },
 ];
 
 export function AgPricing({ t }: AgPricingProps) {

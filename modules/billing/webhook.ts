@@ -548,9 +548,12 @@ function parsePlan(value: string | undefined): Plan | null {
 // new-pricing checkouts. Without this, `parsePlan(metadata.plan)` returned null,
 // the upsert was SKIPPED, Agency.plan stayed SOLO, and a $299 Scale buyer was
 // granted 900 credits instead of 24,000. Keys mirror PLAN_TIER_MAP in pricing.ts
-// (starter→SOLO, growth→GROWTH, scale→BOUTIQUE) via the agency_* literals.
+// (starter→SOLO, solo→AGENCY_PRO, growth→GROWTH, scale→BOUTIQUE) via the
+// agency_* literals. `solo` ($49) added 2026-07-09 — without it a $49 buyer
+// resolved to null → SKIPPED → stayed on SOLO's 250-credit grant.
 const PLAN_KEY_TO_PLAN: Record<string, Plan> = {
   starter: "agency_solo",
+  solo: "agency_pro",
   growth: "agency_growth",
   scale: "agency_boutique",
 };

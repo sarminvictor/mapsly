@@ -123,9 +123,9 @@ export const COMPARISONS: Record<ComparisonSpec["slug"], ComparisonSpec> = {
         them: "Firmographic filters only",
       },
       {
-        dimension: "Credit rollover",
-        mapsly: "Unused credits roll over up to 3× monthly",
-        them: "Credits reset / expire monthly",
+        dimension: "What you pay for",
+        mapsly: "Delivered leads only · free discovery · top-ups never expire",
+        them: "Per-contact credits · overage billing",
       },
     ],
     ctaTitle: "Map a market free. See the signals Apollo can't.",
