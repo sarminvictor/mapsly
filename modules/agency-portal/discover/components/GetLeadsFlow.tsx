@@ -237,7 +237,13 @@ export function GetLeadsFlow({
     if (searching) return;
     setSearching(true);
     try {
-      const signalsJson = buildDiscoverySignals(activeGoal.filters);
+      // Persist the goal meta (name + base) like the Target flow does, so an SE
+      // research carries goalName/goalBase → the workbench goal pill and the
+      // /research goal chip light up for Search-everywhere too (they were null).
+      const signalsJson = buildDiscoverySignals(activeGoal.filters, {
+        goalName: activeGoal.name,
+        goalBase: activeGoal.base,
+      });
       const res = await searchIndexLeadsAction({
         signalsJson,
         count: searchLeadCount,

@@ -267,6 +267,14 @@ export interface LeadsWorkbenchProps {
   /** Whole-set row count across ALL windows (the honest total). */
   totalRows?: number;
   /**
+   * The research's TRUE distinct market-cell count (Discovery.cellKeys.length),
+   * authoritative across all windows. Gates "By cell" grouping — the windowed
+   * rows can't be trusted for this because a large SE research delivers leads
+   * cell-contiguously, so window 1 may hold a single cell while the research
+   * spans many. Falls back to the windowed distinct count when absent.
+   */
+  serverCellCount?: number;
+  /**
    * The server export endpoint streaming the FULL set as CSV (same 13 columns
    * as the client export — both go through rowToCsvRecord). Renders an
    * "Export all N" action next to the client "Export CSV" button so every
@@ -309,6 +317,7 @@ export function LeadsWorkbench({
   serverPage = 1,
   serverPageCount = 1,
   totalRows = rows.length,
+  serverCellCount,
   exportAllUrl,
   serializedRowFields,
   listId,
@@ -399,7 +408,10 @@ export function LeadsWorkbench({
 
   // ── Toolbar / view state ──────────────────────────────────────────────────
   const [search, setSearch] = useState("");
-  const [group, setGroup] = useState<GroupMode>("none");
+  // Default to grouping by market cell (owner decision 2026-07-09) — a saved
+  // per-research view still wins on revisit (hydrated below). A single-cell
+  // research degrades to flat automatically (see canGroupByCell).
+  const [group, setGroup] = useState<GroupMode>("cell");
   const [vsCell, setVsCell] = useState(true);
   const [helpOpen, setHelpOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement | null>(null);
@@ -1675,10 +1687,22 @@ export function LeadsWorkbench({
     [goalSignals, availSigKeys, appliedSignalKeys],
   );
   const canGroupBySignals = signalGroupAxes.length > 0;
-  // Whether the table is in a grouped (paginate-off) view. Signal grouping needs
-  // ≥1 varying goal signal; without one it degrades to a flat view.
+  // Cell grouping only means something with ≥2 distinct market cells — a
+  // single-cell (Target) research would render one pointless group header that
+  // just repeats the title, so it degrades to a flat, paginated view (mirrors
+  // the signals-grouping degrade). Keeps the "default to cell" safe everywhere.
+  const distinctCellCount = useMemo(
+    () => new Set(rows.map((r) => r.cell)).size,
+    [rows],
+  );
+  // Prefer the research's TRUE cell count (all windows) — the windowed rows
+  // undercount for a large cell-contiguous SE research (window 1 = one cell).
+  // Max with the windowed count is belt-and-suspenders (never under-grants).
+  const canGroupByCell = Math.max(distinctCellCount, serverCellCount ?? 0) > 1;
+  // Whether the table is in a grouped (in-window-paginate-off) view.
   const isGrouped =
-    group === "cell" || (group === "signals" && canGroupBySignals);
+    (group === "cell" && canGroupByCell) ||
+    (group === "signals" && canGroupBySignals);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const curPage = Math.min(page, totalPages);
@@ -1718,7 +1742,7 @@ export function LeadsWorkbench({
         rows: WorkbenchLeadRow[];
       }[]
     | null => {
-    if (group === "cell") {
+    if (group === "cell" && canGroupByCell) {
       const map = new Map<string, WorkbenchLeadRow[]>();
       for (const r of pageRows) {
         const arr = map.get(r.cell);
@@ -1741,7 +1765,7 @@ export function LeadsWorkbench({
       );
     }
     return null;
-  }, [group, pageRows, canGroupBySignals, signalGroupAxes]);
+  }, [group, pageRows, canGroupByCell, canGroupBySignals, signalGroupAxes]);
 
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
     new Set(),
@@ -3150,7 +3174,7 @@ export function LeadsWorkbench({
               Group:{" "}
               {group === "signals" && canGroupBySignals
                 ? "signals"
-                : group === "cell"
+                : group === "cell" && canGroupByCell
                   ? "cell"
                   : "none"}{" "}
               ▾
@@ -3163,7 +3187,11 @@ export function LeadsWorkbench({
               {
                 v: "cell",
                 label: "By cell",
-                tip: "One collapsible section per market cell",
+                // Degrades to flat with only one market (see canGroupByCell) —
+                // gate the row like "By signals" so the label never lies.
+                tip: canGroupByCell
+                  ? "One collapsible section per market cell"
+                  : "Needs 2 or more market cells",
               },
               {
                 v: "signals",
@@ -3176,9 +3204,13 @@ export function LeadsWorkbench({
               },
             ] as const
           ).map((o) => {
-            const disabled = o.v === "signals" && !canGroupBySignals;
-            const on =
-              o.v === group && (o.v !== "signals" || canGroupBySignals);
+            const disabled =
+              (o.v === "signals" && !canGroupBySignals) ||
+              (o.v === "cell" && !canGroupByCell);
+            // Highlight the EFFECTIVE group — when the chosen mode degrades to
+            // flat (single-cell / no varying signal), "No groups" is active.
+            const effectiveGroup = isGrouped ? group : "none";
+            const on = o.v === effectiveGroup && !disabled;
             return (
               // Plain aria-pressed buttons (not menuitemradio — that role
               // requires a role="menu" parent the shared Popover doesn't set).

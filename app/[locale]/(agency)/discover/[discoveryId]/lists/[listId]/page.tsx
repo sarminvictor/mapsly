@@ -62,10 +62,15 @@ import {
   buildWorkbenchRows,
   csvSlug,
   parsePageParam,
-  prettyCell,
   relativeDays,
   WORKBENCH_BUSINESS_SELECT,
 } from "@/modules/agency-portal/discover/workbench-rows";
+import {
+  marketsSummary,
+  metroLabelShort,
+  researchTitle,
+  titleCaseSlug,
+} from "@/modules/agency-portal/research/display-name";
 import {
   activeSignalsFromJson,
   allLibrarySignals,
@@ -144,9 +149,7 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
     select: {
       id: true,
       agencyId: true,
-      name: true,
       discoveryId: true,
-      serviceType: true,
       metro: true,
       category: true,
       lastRefreshedAt: true,
@@ -189,6 +192,7 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
   const discoveryRow = await prisma.discovery.findUnique({
     where: { id: discoveryId },
     select: {
+      name: true,
       signalsJson: true,
       cellKeys: true,
       finishedAt: true,
@@ -250,10 +254,23 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
       ? `${csvSlug(list.category)}-${csvSlug(list.metro)}`
       : undefined;
 
-  // Header title + the mapped-freshness anchor — computed BEFORE the shell so
-  // the B6 locked-context strip can reuse both as plain strings (Pattern 4).
-  const cellKey = leads[0]?.business.cellKey ?? null;
-  const title = cellKey ? prettyCell(cellKey) : list.name;
+  // Header title (shared rule · research/display-name.ts): the research NAME
+  // wins — the SE auto-name ("SE · Website redesign") or a user rename — so a
+  // cross-market Search-everywhere run no longer titles itself off its
+  // alphabetically-first lead's cell ("Acupuncture clinic · Boise"). Only an
+  // un-named research falls back to the first-cell scope title.
+  const title = researchTitle({
+    name: discoveryRow?.name,
+    cellCount: discoveryRow?.cellKeys?.length ?? (firstLeadCell ? 1 : 0),
+    firstCategory: firstLeadCell
+      ? titleCaseSlug(firstLeadCell.categorySlug)
+      : list.category
+        ? titleCaseSlug(list.category)
+        : null,
+    firstMetro: firstLeadCell
+      ? metroLabelShort(firstLeadCell.metroSlug)
+      : (list.metro ?? null),
+  });
   const mappedAt =
     list.lastRefreshedAt ??
     discoveryRow?.finishedAt ??
@@ -276,6 +293,10 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
       serverPage,
       serverPageCount,
       totalRows: totalLeads,
+      // Authoritative market-cell count (all windows) — gates "By cell"
+      // grouping so a large cell-contiguous SE research doesn't mis-degrade
+      // to flat on window 1 (code review).
+      serverCellCount: discoveryRow?.cellKeys?.length ?? 0,
       // Streams THIS list's full set (WP4-4) — same 13 columns, scoped by
       // ?list= inside the discovery export route.
       exportAllUrl: `/api/agency/research/${discoveryId}/export?list=${listId}`,
@@ -308,6 +329,12 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
       )
     : 0;
 
+  // Markets for the meta line — dropped when it would just echo the title (an
+  // un-named single-market research derives the same "Category · Metro" string
+  // for both). Named/multi-market research keeps it.
+  const marketsExtra = marketsSummary(discoveryRow?.cellKeys ?? []);
+  const extra = marketsExtra && marketsExtra !== title ? marketsExtra : null;
+
   return (
     <div className="view full">
       {/* WP4-14 · shared workspace header — goal pill + narrative count
@@ -324,11 +351,11 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
         freshness={freshness}
         mappedRelative={mappedAt ? relativeDays(mappedAt) : "—"}
         credits={credits}
-        backHref={{
-          pathname: "/discover/[discoveryId]",
-          params: { discoveryId },
-        }}
-        extra={`${list.name} · ${list.serviceType.toLowerCase().replace(/_/g, " ")}`}
+        // Back to the research directory (WorkspaceHeader's default). The old
+        // override sent "← All research" to the parent market workspace, which
+        // for an SE research shows whole-market businesses, not delivered leads.
+        // Meta line now surfaces the research's markets (title carries the name).
+        extra={extra}
       />
 
       {/* AUDIT D4 · always-mounted gate (see LiveRunGate). */}

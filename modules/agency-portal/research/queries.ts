@@ -39,6 +39,7 @@ import {
 } from "@/lib/cell";
 import { US_METROS } from "@/lib/geo/us-metros";
 import { goalMetaFromJson } from "@/modules/agency-portal/discover/discovery-signals";
+import { researchTitle } from "./display-name";
 import {
   buildResearchHref,
   deriveResearchStatus,
@@ -187,7 +188,6 @@ const ABS_DATE_FMT = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
   year: "numeric",
 });
-const marketWord = (n: number) => `${n} market${n === 1 ? "" : "s"}`;
 
 /**
  * Shape one Discovery row + its per-cell lead counts into a ResearchCard.
@@ -250,22 +250,15 @@ function toResearchCard(
   const mappedAt = d.finishedAt ?? d.createdAt;
   const freshness = cellFreshnessState(mappedAt, now);
 
-  // Title: a set `name` ALWAYS wins verbatim — that is either a user rename or
-  // the search auto-name ("Search everywhere"). The market count + date live in
-  // the meta line and the cell sub-rows, so the title needs no decoration. Only
-  // an un-named (Target) research derives a scope title: single market →
-  // "{category} · {metro}"; multi-market → "{category} · N markets".
-  const customName = d.name?.trim();
-  let title: string;
-  if (customName) {
-    title = customName;
-  } else if (d.cellKeys.length <= 1) {
-    title = firstMetro
-      ? `${firstCategory ?? "Research"} · ${firstMetro}`
-      : (firstCategory ?? "Research");
-  } else {
-    title = `${firstCategory ?? "Research"} · ${marketWord(d.cellKeys.length)}`;
-  }
+  // Title (shared rule — modules/agency-portal/research/display-name.ts): a set
+  // `name` wins verbatim (rename or the SE auto-name); else the scope title from
+  // the first-cell labels + count. Same helper the workbench pages now use.
+  const title = researchTitle({
+    name: d.name,
+    cellCount: d.cellKeys.length,
+    firstCategory,
+    firstMetro,
+  });
 
   const status = deriveResearchStatus(d.status, enrich);
   const href = buildResearchHref(d, status, enrich, categoryIdBySlug);

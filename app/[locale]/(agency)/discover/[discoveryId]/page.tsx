@@ -76,6 +76,7 @@ import {
   allLibrarySignals,
   goalMetaFromJson,
 } from "@/modules/agency-portal/discover/discovery-signals";
+import { researchTitle } from "@/modules/agency-portal/research/display-name";
 import {
   SIG_META,
   templateByKey,
@@ -316,10 +317,15 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
     ? await resolveCategoryLabel(firstCell.categorySlug)
     : null;
   const metroLabel = firstCell ? resolveMetroLabel(firstCell.metroSlug) : null;
-  const title =
-    categoryLabel && metroLabel
-      ? `${categoryLabel} · ${metroLabel}`
-      : (discovery.name ?? "Workspace");
+  // Shared rule (research/display-name.ts): a set name wins; else single-cell
+  // "Category · Metro", multi-cell "Category · N markets" (the old title showed
+  // ONLY the first cell for a multi-market/SE discovery).
+  const title = researchTitle({
+    name: discovery.name,
+    cellCount: cellKeys.length,
+    firstCategory: categoryLabel,
+    firstMetro: metroLabel,
+  });
 
   // Meta line anchor: mapped freshness (also the B6 "Data as of" chip source —
   // the ONE anchor the header's FreshnessChip reads, so the two never disagree).
@@ -341,6 +347,9 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
       serverPage,
       serverPageCount,
       totalRows: totalBusinesses,
+      // Authoritative market-cell count (gates "By cell" grouping consistently
+      // across windows — see the list workbench note).
+      serverCellCount: cellKeys.length,
       // Streams the FULL set (WP4-4) — same 13 columns via rowToCsvRecord.
       exportAllUrl: `/api/agency/research/${discoveryId}/export`,
       // Step 4 · which HEAVY fields this payload carries — the client hydrates
