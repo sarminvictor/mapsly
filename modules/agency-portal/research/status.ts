@@ -142,6 +142,11 @@ export function buildResearchHref(
     if (status === "discovered") qs.set("d", d.id);
     qs.set("g", g);
     if (cellsParam) qs.set("cells", cellsParam);
+    // A cell-scoped research is Target mode — pin ?m=target so the flow doesn't
+    // fall to the free default ("search"), which would ignore the cells and
+    // land the user on Search-everywhere. Free users then clamp to Market with
+    // the picker prefilled + the upgrade CTA (coherent); paid users unchanged.
+    if (cellsParam) qs.set("m", "target");
   }
   return `/discover?${qs.toString()}`;
 }

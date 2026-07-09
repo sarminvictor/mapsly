@@ -153,11 +153,18 @@ export function GetLeadsFlow({
     [sp],
   );
 
-  // Transient UI that doesn't need to survive a reload. Free tier defaults to
-  // (and is locked to) "search" — Target markets is a paid feature (FT-2).
-  const [mode, setMode] = useState<"target" | "search">(
-    paid ? "target" : "search",
-  );
+  // Mode lives in the URL (?m=) so it survives refresh + share, per the
+  // goal-state-lives-in-URL rule. Default: paid → "target", free → "search".
+  // Free-lock soften (2026-07-09, docs/free-target-lock-options): free users
+  // may EXPLORE target mode (full picker) — the gate moved to the footer CTA
+  // and the step clamp below; mapping itself stays paid (server market_locked).
+  const rawMode = sp.get("m");
+  const mode: "target" | "search" =
+    rawMode === "target" || rawMode === "search"
+      ? rawMode
+      : paid
+        ? "target"
+        : "search";
   const [searchLeadCount, setSearchLeadCount] = useState(50);
 
   // Clamp the requested step to what the available state can actually render —
@@ -170,6 +177,10 @@ export function GetLeadsFlow({
   // so only bounce a cell-less preview back to Market in Target mode.
   if (step === "preview" && cells.length === 0 && mode !== "search")
     step = "market";
+  // Free tier explores Target mode but never reaches its Preview (the picker's
+  // footer CTA is the upgrade path; the read-only preview is phase 2) — a deep
+  // link can't route around the gate.
+  if (step === "preview" && mode === "target" && !paid) step = "market";
   if (step === "market" && !goal) step = "goal";
 
   // ── URL writers ─────────────────────────────────────────────────────────
@@ -203,6 +214,14 @@ export function GetLeadsFlow({
   );
   const setCells = useCallback(
     (c: MarketCell[]) => setParams({ cells: encodeCells(c) }),
+    [setParams],
+  );
+  // Switching mode always lands on the Market step. Both call sites (the tabs
+  // and the free "search instead" CTA) only render on Market, but pinning
+  // step="market" also prevents a stale ?step=preview from instantly becoming
+  // valid under the new mode and skipping the lead-count step (code review).
+  const setMode = useCallback(
+    (m: "target" | "search") => setParams({ m, step: "market" }),
     [setParams],
   );
 

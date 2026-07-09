@@ -387,6 +387,12 @@ export function PreviewStep({
         setJobError(
           `You've hit this month's limit of ${r.cap.toLocaleString()} new markets. Upgrade your plan or wait for next month — already-mapped markets are still free to reopen.`,
         );
+      } else if (r.status === "market_locked") {
+        // Paid users normally never see this (free is clamped out of Target
+        // preview) — reachable on a mid-session downgrade/lapse.
+        setJobError(
+          "Mapping new markets is available on paid plans. Use Search everywhere — or upgrade to open any market.",
+        );
       } else {
         setJobError(`Couldn't start mapping this market (${r.status}).`);
       }

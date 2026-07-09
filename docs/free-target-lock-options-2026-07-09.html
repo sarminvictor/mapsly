@@ -1,0 +1,809 @@
+<style>
+  :root {
+    --ink: #1a1d29;
+    --mut: #5b6172;
+    --line: #e4e7ef;
+    --panel: #f7f8fc;
+    --indigo: #5b3df5;
+    --green: #0f9d58;
+    --amber: #b8860b;
+    --red: #c0392b;
+    --g-bg: #eafaf1;
+    --a-bg: #fdf6e3;
+    --r-bg: #fdedeb;
+    --i-bg: #efeaff;
+  }
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    background: #fff;
+  }
+  .doc {
+    font:
+      15px/1.6 -apple-system,
+      "Segoe UI",
+      Roboto,
+      sans-serif;
+    color: var(--ink);
+    max-width: 1020px;
+    margin: 0 auto;
+    padding: 36px 30px 80px;
+  }
+  h1 {
+    font-size: 28px;
+    margin: 0 0 3px;
+    letter-spacing: -0.02em;
+  }
+  .part {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    color: var(--indigo);
+    text-transform: uppercase;
+    margin: 38px 0 -2px;
+  }
+  h2 {
+    font-size: 20px;
+    margin: 6px 0 8px;
+    padding-top: 12px;
+    border-top: 2px solid var(--line);
+  }
+  h3 {
+    font-size: 15.5px;
+    margin: 20px 0 5px;
+  }
+  .sub {
+    color: var(--mut);
+    margin: 0 0 6px;
+  }
+  .hl {
+    color: var(--indigo);
+  }
+  p {
+    margin: 7px 0;
+  }
+  code {
+    background: #eef0f7;
+    color: #4b32c2;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 12.5px;
+  }
+  .src {
+    color: var(--mut);
+    font-size: 12px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0 6px;
+    font-size: 13.5px;
+  }
+  th,
+  td {
+    text-align: left;
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  thead th {
+    background: var(--panel);
+    color: var(--mut);
+    font-weight: 700;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border-bottom: 2px solid var(--line);
+  }
+  td.n,
+  th.n {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  tr.hi td {
+    background: var(--i-bg);
+  }
+  .call {
+    border-left: 4px solid var(--indigo);
+    background: var(--panel);
+    padding: 11px 15px;
+    border-radius: 7px;
+    margin: 12px 0;
+  }
+  .call.g {
+    border-color: var(--green);
+    background: var(--g-bg);
+  }
+  .call.a {
+    border-color: var(--amber);
+    background: var(--a-bg);
+  }
+  .call.r {
+    border-color: var(--red);
+    background: var(--r-bg);
+  }
+  b.g {
+    color: var(--green);
+  }
+  b.a {
+    color: var(--amber);
+  }
+  b.r {
+    color: var(--red);
+  }
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 20px;
+  }
+  .p-g {
+    background: var(--g-bg);
+    color: var(--green);
+  }
+  .p-a {
+    background: var(--a-bg);
+    color: var(--amber);
+  }
+  .p-r {
+    background: var(--r-bg);
+    color: var(--red);
+  }
+  .p-i {
+    background: var(--i-bg);
+    color: var(--indigo);
+  }
+  ul {
+    margin: 5px 0;
+    padding-left: 19px;
+  }
+  li {
+    margin: 3px 0;
+  }
+  .score {
+    display: flex;
+    gap: 9px;
+    flex-wrap: wrap;
+    margin: 10px 0;
+  }
+  .sc {
+    flex: 1 1 128px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 9px 11px;
+  }
+  .sc .v {
+    font-size: 23px;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .sc .k {
+    font-size: 11.5px;
+    color: var(--mut);
+    margin-top: 3px;
+  }
+  .foot {
+    color: var(--mut);
+    font-size: 12px;
+    margin-top: 34px;
+    border-top: 1px solid var(--line);
+    padding-top: 11px;
+  }
+
+  /* ── live-look mockups (agency portal palette) ─────────────────────── */
+  .mk {
+    background: #f6f7fb;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px;
+    margin: 10px 0 4px;
+    font-size: 12.5px;
+  }
+  .mk .mk-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 13px 14px;
+  }
+  .mk .seg {
+    display: inline-flex;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    overflow: hidden;
+    background: #fff;
+    margin-bottom: 11px;
+  }
+  .mk .seg span {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 6px 14px;
+    color: #4a4f61;
+    cursor: default;
+  }
+  .mk .seg span + span {
+    border-left: 1px solid var(--line);
+  }
+  .mk .seg span.on {
+    background: #5b3df5;
+    color: #fff;
+  }
+  .mk .seg span.dim {
+    color: #a2a7b8;
+  }
+  .mk .chip {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    background: #efeaff;
+    color: #5b3df5;
+    border-radius: 10px;
+    padding: 0 7px;
+    margin-left: 5px;
+    vertical-align: 1px;
+  }
+  .mk .banner {
+    font-size: 11.5px;
+    background: #fbf3e2;
+    border: 1px solid #d9b25f;
+    border-radius: 8px;
+    padding: 7px 10px;
+    margin-bottom: 11px;
+    color: #6b5518;
+  }
+  .mk .banner b {
+    color: #4d3c0e;
+  }
+  .mk .banner a {
+    color: #5b3df5;
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .mk .toast {
+    display: inline-block;
+    background: #1a1d29;
+    color: #fff;
+    font-size: 11px;
+    border-radius: 8px;
+    padding: 6px 11px;
+    margin-top: 10px;
+  }
+  .mk .field {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    padding: 6px 10px;
+    color: #8a90a4;
+    font-size: 12px;
+    margin: 4px 0;
+  }
+  .mk .field b {
+    color: #1a1d29;
+    font-weight: 600;
+  }
+  .mk .mchip {
+    display: inline-block;
+    background: #efeaff;
+    color: #4b32c2;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 9px;
+    margin: 6px 6px 0 0;
+  }
+  .mk .mchip i {
+    font-style: normal;
+    color: #8a90a4;
+    margin-left: 5px;
+  }
+  .mk .btn {
+    display: inline-block;
+    border-radius: 9px;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 8px 14px;
+    margin-top: 11px;
+    cursor: default;
+  }
+  .mk .btn.primary {
+    background: #5b3df5;
+    color: #fff;
+  }
+  .mk .btn.ghost {
+    background: #fff;
+    color: #5b3df5;
+    border: 1px solid #cfc5ff;
+  }
+  .mk .btn.disabled {
+    background: #eceef5;
+    color: #a2a7b8;
+  }
+  .mk .kpis {
+    display: flex;
+    gap: 8px;
+    margin: 10px 0 2px;
+    flex-wrap: wrap;
+  }
+  .mk .kpi {
+    flex: 1 1 90px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 7px 9px;
+  }
+  .mk .kpi .v {
+    font-size: 17px;
+    font-weight: 800;
+    color: #1a1d29;
+  }
+  .mk .kpi .k {
+    font-size: 10px;
+    color: #8a90a4;
+  }
+  .mk .kpi.locked .v {
+    color: #a2a7b8;
+  }
+  .mk .costbar {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 8px 11px;
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .mk .costbar .q {
+    font-size: 11.5px;
+    color: #4a4f61;
+  }
+  .mklabel {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--mut);
+    margin: 14px 0 0;
+  }
+</style>
+
+<div class="doc">
+  <h1>
+    Free tier · <span class="hl">Target-markets lock</span> — soften options
+  </h1>
+  <p class="sub">
+    2026-07-09 · /discover Get-Leads flow · the 🎯 Target tab is fully blocked
+    for Free today. 5 options + a hybrid, each with a live-look mockup,
+    code-verified effort, and a 3-lens score (conversion · cost/abuse · build
+    simplicity). Evidence from named PLG products.
+    <b>Nothing built — you pick, then it's ~1 session.</b>
+  </p>
+
+  <!-- ================= CURRENT ================= -->
+  <div class="part">Current state</div>
+  <h2>
+    O0 · What Free sees today <span class="pill p-r">conversion 2/10</span>
+  </h2>
+  <p>
+    The lock is almost entirely client-side:
+    <code>GetLeadsFlow.tsx:158</code> forces <code>mode="search"</code> for free
+    agencies; the Target tab renders with a 🔒 and clicking it only fires a
+    toast (<code>MarketStep.tsx:163-181</code>) plus a static amber banner. The
+    free user
+    <b>never sees the city/category picker, the market list, or any preview</b>
+    — the upgrade ask stays abstract. Named-product research found
+    <b>no evidence-backed product that uses toast-only as its gate</b>; this is
+    the bottom-quartile pattern (&lt;2.5% freemium conversion is driven by
+    prompt placement, not the freemium model itself).
+  </p>
+
+  <div class="mk">
+    <div class="mk-card">
+      <div class="seg">
+        <span class="dim">🎯 Target markets 🔒</span
+        ><span class="on">🔎 Search everywhere</span>
+      </div>
+      <div class="banner">
+        <b>Target markets is a paid feature.</b> On Free you get up to 50 leads
+        from markets we've already mapped… <a>Upgrade →</a>
+      </div>
+      <div class="field">
+        How many leads? <b>▮▮▮▮▮▮░░░░ 25</b> · matched to your signals
+      </div>
+      <span class="toast"
+        >Target markets is a paid feature — upgrade to open any market.</span
+      >
+    </div>
+  </div>
+  <p class="src">
+    Clicking the locked tab = toast only. The picker below the fold never exists
+    for Free.
+  </p>
+
+  <div class="call a">
+    <b>Two defects to fix regardless of the option you pick:</b>
+    (1) the real server gate (<code>market_locked</code>) is dark behind
+    <code>ENTITLEMENT_BILLING</code> — the only live backstops are the new
+    Free=5 monthly map cap + depth 500 (~$3/mo worst-case per free agency);
+    un-darking it is a one-line change (gate on <code>isPaidAgency</code>). (2)
+    The banner's upgrade link is a plain <code>next/link</code> that drops the
+    locale prefix.
+  </div>
+
+  <!-- ================= OPTIONS ================= -->
+  <div class="part">The options</div>
+
+  <h2>
+    OA · Explore, gate at the action
+    <span class="pill p-g">simplest real soften</span>
+  </h2>
+  <p>
+    Free users can switch into Target mode and use the <b>full picker</b> — type
+    any city, any category, add up to 3 markets, see their list build. The gate
+    moves to the primary button: "Preview &amp; cost →" becomes
+    <b>"Upgrade to map these markets →"</b> (named with their own picks). The
+    tab's 🔒 becomes a "Preview" chip so the later gate is signposted, never a
+    bait-and-switch.
+  </p>
+  <div class="mk">
+    <div class="mk-card">
+      <div class="seg">
+        <span class="on"
+          >🎯 Target markets<span
+            class="chip"
+            style="background: #fff; color: #5b3df5"
+            >PREVIEW</span
+          ></span
+        ><span>🔎 Search everywhere</span>
+      </div>
+      <div class="banner">
+        <b>You're previewing a paid feature.</b> Build your market list —
+        mapping it needs a plan. <a>See plans →</a>
+      </div>
+      <div class="field">City · <b>Kelowna, BC</b></div>
+      <div class="field">Category · <b>Barber shop</b></div>
+      <div>
+        <span class="mchip">Barber shop · Kelowna <i>×</i></span
+        ><span class="mchip">Barber shop · Victoria <i>×</i></span>
+      </div>
+      <span class="btn primary">Upgrade to map Kelowna + Victoria →</span>
+    </div>
+  </div>
+  <ul>
+    <li>
+      <b>Pattern:</b> Apollo's browse-free/pay-at-action — the closest
+      lead-gen-native analog. Endowment effect: the user invests effort, the CTA
+      names <i>their</i> markets.
+    </li>
+    <li>
+      <b>Effort:</b> 2 files, ~50–80 LOC (+~20 for a <code>?m=</code> URL param
+      so mode survives refresh, +~10 for the server un-dark). Half a session.
+      <b>$0 new cost surface</b> — Free still never reaches Preview.
+    </li>
+    <li>
+      <b>Weakness:</b> the user sees the interface but still no <i>data</i>, and
+      the CTA is a dead end into billing (OC fixes that).
+    </li>
+  </ul>
+
+  <h2>OB · Preview the value <span class="pill p-i">deepest tease</span></h2>
+  <p>
+    Like OA, plus Free gets the <b>Preview step read-only</b>: real business
+    counts for already-mapped cells, signal-match KPIs, the quote in credits —
+    and only the final run button is the upgrade CTA. "312 barbers · 47 match
+    your signals — upgrade to map &amp; enrich" is the strongest converting
+    prompt class (value experienced, then asked).
+  </p>
+  <div class="mk">
+    <div class="mk-card">
+      <div class="seg">
+        <span class="on"
+          >🎯 Target markets<span
+            class="chip"
+            style="background: #fff; color: #5b3df5"
+            >PREVIEW</span
+          ></span
+        ><span>🔎 Search everywhere</span>
+      </div>
+      <div class="kpis">
+        <div class="kpi">
+          <div class="v">312</div>
+          <div class="k">Local businesses</div>
+        </div>
+        <div class="kpi">
+          <div class="v">278</div>
+          <div class="k">Have contacts</div>
+        </div>
+        <div class="kpi">
+          <div class="v">~47</div>
+          <div class="k">Match your signals</div>
+        </div>
+        <div class="kpi locked">
+          <div class="v">—</div>
+          <div class="k">Victoria · not yet mapped</div>
+        </div>
+      </div>
+      <div class="costbar">
+        <span class="q"
+          >Mapping + contacts for 2 markets ≈ <b>96 credits</b></span
+        >
+        <span class="btn primary" style="margin: 0"
+          >Upgrade to map &amp; enrich →</span
+        >
+      </div>
+    </div>
+  </div>
+  <ul>
+    <li>
+      <b>Pattern:</b> Typeform (locked insight in the same dashboard), Ahrefs
+      (real data up to a visible cap), LinkedIn (5 real viewers, rest gated).
+      Research verdict: show <b>real, unblurred aggregates</b> — Tom buys data
+      trust; blurring aggregates reads as a dark pattern. Blur only sample lead
+      rows if ever shown (also closes the G9 signal-leak angle).
+    </li>
+    <li>
+      <b>Effort &amp; risk:</b> ~200–250 LOC across 3 files, one full session —
+      and it's the only option that must touch PreviewStep's race-guarded effect
+      chain. <b class="r">Critical:</b> the auto-run effect fires
+      <code>runDiscoveryAction</code> the moment a quote lands — unguarded, a
+      "read-only" preview would actually spend DfS money on virgin cells. The
+      server un-dark becomes a hard prerequisite, plus a 3–5 previews/day cap
+      for CostEstimate noise.
+    </li>
+    <li>
+      <b>Honesty caveat:</b> the tease shows real numbers only for cells someone
+      already mapped; a virgin market shows "—" everywhere — can anti-sell
+      exactly the novel-intent user while the index is thin (~5.7k businesses
+      today).
+    </li>
+  </ul>
+
+  <h2>OC · Intent redirect <span class="pill p-g">no dead ends</span></h2>
+  <p>
+    Exploration like OA, but when a free user has picked markets, the footer
+    offers <b>two co-equal paths</b>: switch the blocked intent onto the free
+    path ("Search all mapped markets with these signals — free, uses your 50
+    credits") next to the upgrade CTA. Canva's "replace with a free one" dialog
+    is the named analog. Their 50 one-time credits get burned on their own
+    intent → activation → habit → upgrade.
+  </p>
+  <div class="mk">
+    <div class="mk-card">
+      <div class="seg">
+        <span class="on"
+          >🎯 Target markets<span
+            class="chip"
+            style="background: #fff; color: #5b3df5"
+            >PREVIEW</span
+          ></span
+        ><span>🔎 Search everywhere</span>
+      </div>
+      <div>
+        <span class="mchip">Barber shop · Kelowna <i>×</i></span>
+      </div>
+      <div style="margin-top: 4px">
+        <span class="btn primary">Upgrade to map Kelowna →</span>
+        <span class="btn ghost"
+          >Search barber shops everywhere we've mapped — free</span
+        >
+      </div>
+      <div style="font-size: 10.5px; color: #8a90a4; margin-top: 6px">
+        Free search uses your one-time 50 credits · from our existing index, no
+        new mapping
+      </div>
+    </div>
+  </div>
+  <ul>
+    <li>
+      <b>Code truth (important):</b> search mode today consumes
+      <b>only signals + lead count — there is NO category input</b>; it sweeps
+      all mapped markets. So the honest cheap version (<b>OC-lite</b>, ~30–50
+      LOC) says "Search all mapped markets with these signals" and silently
+      drops the category. The category-scoped version (<b>OC-full</b>, ~80–120
+      LOC) is cheap server-side — <code>cellKey</code> starts with
+      <code>categorySlug|</code> and is already indexed — and the category
+      derives from the <code>cells=</code> URL param, so no new URL state.
+    </li>
+    <li>
+      <b>Weakness standalone:</b> shows no Target-mode value by itself; the free
+      primary can cannibalize peak-intent upgrade clicks; a thin index can
+      underwhelm vs what Target promised — label it honestly ("from our existing
+      index").
+    </li>
+  </ul>
+
+  <h2>
+    OD · One taste map <span class="pill p-r">evidence doesn't support it</span>
+  </h2>
+  <p>
+    One shallow map (depth ~100, ~$0.04 our cost) per free account, then the
+    lock. The benchmarked "reverse trial" pattern that actually converts
+    (Airtable, Krisp: 7–11%+) is
+    <b>temporary full access, not a single shallow sample</b> — a weak depth-100
+    taste of one market can anti-sell. Real vendor spend + an account-rotation
+    abuse treadmill, days after you declined the free-credit trickle. ~2
+    sessions of build for the weakest evidence. Included for completeness;
+    recommend rejecting.
+    <span class="src"
+      >If sampling is ever wanted, a time-boxed 14-day full Target trial is the
+      pattern with benchmark support.</span
+    >
+  </p>
+  <div class="mk">
+    <div class="mk-card">
+      <div
+        class="banner"
+        style="background: #eafaf1; border-color: #9fd6b6; color: #175937"
+      >
+        <b>One free market map.</b> Map any one market (top 100 businesses) to
+        see how Target works — once per account.
+      </div>
+      <span class="btn primary">Use my free map on Kelowna →</span>
+      <span class="btn disabled">Free map used · upgrade for more</span>
+    </div>
+  </div>
+
+  <h2>
+    ⭐ Hybrid · OA + OC now, OB as phase 2
+    <span class="pill p-g">recommended</span>
+  </h2>
+  <p>
+    All three judges converge here. <b>Phase 1 (one session):</b> unlock the
+    picker (OA), swap 🔒 for the "Preview" chip, and give the footer the dual
+    CTA (OC-lite — honest "search all mapped markets with these signals" copy;
+    upgrade CTA stays visually co-equal). Ship the server un-dark + locale-link
+    fix in the same commit.
+    <b
+      >Phase 2 (separate session, after the auto-run guard and once index
+      coverage makes the tease non-empty):</b
+    >
+    add the read-only Preview (OB) with real counts, and optionally OC-full's
+    category-scoped search. This is Apollo's explore-free model + Canva's
+    free-path redirect at <b>$0 marginal vendor cost</b>, fully consistent with
+    the FT-2 entitlement plan.
+  </p>
+
+  <!-- ================= SCORES ================= -->
+  <div class="part">Scorecard</div>
+  <h2>
+    Three-lens judge panel
+    <span class="src"
+      >(each lens scored independently, grounded in the code map +
+      research)</span
+    >
+  </h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Option</th>
+        <th class="n">Conversion</th>
+        <th class="n">Cost / abuse safety</th>
+        <th class="n">Build simplicity</th>
+        <th class="n">Average</th>
+        <th>One-line verdict</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><b>O0</b> · current</td>
+        <td class="n"><b class="r">2</b></td>
+        <td class="n">9</td>
+        <td class="n">9</td>
+        <td class="n">6.7</td>
+        <td>
+          Safe and cheap because it sells nothing — the tab trains users to stop
+          clicking.
+        </td>
+      </tr>
+      <tr>
+        <td><b>OA</b> · explore, gate at action</td>
+        <td class="n">6</td>
+        <td class="n">8</td>
+        <td class="n">8</td>
+        <td class="n">7.3</td>
+        <td>
+          Big conversion step-up for ~70 LOC and zero new cost surface; dead-end
+          CTA is its one flaw.
+        </td>
+      </tr>
+      <tr>
+        <td><b>OB</b> · preview the value</td>
+        <td class="n"><b class="g">8</b></td>
+        <td class="n"><b class="a">5</b></td>
+        <td class="n"><b class="r">3</b></td>
+        <td class="n">5.3</td>
+        <td>
+          Best converter, but must guard the auto-run effect or "read-only"
+          preview spends real money; heaviest build.
+        </td>
+      </tr>
+      <tr>
+        <td><b>OC</b> · intent redirect</td>
+        <td class="n">7</td>
+        <td class="n">7.5</td>
+        <td class="n">6</td>
+        <td class="n">6.8</td>
+        <td>
+          The only option that removes dead ends and feeds free activation; weak
+          alone, great as a layer.
+        </td>
+      </tr>
+      <tr>
+        <td><b>OD</b> · one taste map</td>
+        <td class="n">4</td>
+        <td class="n"><b class="r">3</b></td>
+        <td class="n"><b class="r">2</b></td>
+        <td class="n">3.0</td>
+        <td>
+          Wrong shape of reverse trial, real spend, abuse treadmill, contradicts
+          your fresh decision.
+        </td>
+      </tr>
+      <tr class="hi">
+        <td><b>⭐ Hybrid</b> · OA+OC now → OB later</td>
+        <td class="n"><b class="g">7→8</b></td>
+        <td class="n"><b class="g">8</b></td>
+        <td class="n"><b class="g">7</b></td>
+        <td class="n"><b>7.7</b></td>
+        <td>
+          Phase 1 captures most of the lift in one safe session; phase 2 adds
+          the data tease when prerequisites + coverage exist.
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Why the evidence points this way</h3>
+  <ul>
+    <li>
+      <b>"Tease, don't hide" is the consistent 2023–26 finding.</b> Freemium
+      median free→paid is 8%; the bottom quartile (&lt;2.5%) vs top (10–15%)
+      spread is explained by prompt placement and value visibility, not the
+      model.
+      <span class="src"
+        >(Growth Unhinged conversion report; Userpilot benchmarks)</span
+      >
+    </li>
+    <li>
+      <b>Named analogs per option:</b> Apollo — browse the whole database free,
+      pay at reveal (OA/OB). Canva — premium element blocked → "replace with a
+      free one" (OC). Typeform/Ahrefs/LinkedIn — real data up to a visible cap
+      (OB). Slack — your own history gated, loss aversion (why naming
+      <i>their</i> markets in the CTA matters).
+    </li>
+    <li>
+      <b>Don't blur aggregates.</b> Tom's stated purchase driver is "I trust the
+      data"; blur/teaser paywalls that obscure rather than prove value are
+      flagged as dark-pattern-adjacent. Real counts, honest "not yet mapped"
+      dashes.
+    </li>
+    <li>
+      <b>Reverse-trial evidence is for full temporary access</b>, not one-taste
+      samples — OD borrows the name without the mechanism.
+    </li>
+  </ul>
+
+  <div class="call g">
+    <b>Recommendation.</b> Ship the <b>Hybrid phase 1</b>: OA's unlocked picker
+    + preview chip + OC-lite's dual CTA, plus the one-line server un-dark of
+    <code>market_locked</code> and the locale-link fix — one session, ~100–130
+    LOC, $0 new cost exposure, strictly better bounded than today. Queue
+    <b>OB as phase 2</b> behind two prerequisites: the PreviewStep auto-run
+    guard, and enough index coverage that the tease shows numbers instead of
+    dashes. Reject OD.
+  </div>
+
+  <div class="foot">
+    Mapsly · free-tier Target-lock options · 2026-07-09 · Method: code-impact
+    analyst (GetLeadsFlow / MarketStep / PreviewStep / discovery actions /
+    seats, cited file:line) + PLG gating researcher (Growth Unhinged, Userpilot,
+    Eleken, Elena Verna, named product teardowns) + 3-lens judge panel
+    (conversion · cost/abuse · simplicity), 5 agents. Mockups approximate the
+    live agency design system (seg2 tabs, amber banner, indigo CTAs). Effort
+    figures are code-verified estimates. No code changed — awaiting your pick.
+  </div>
+</div>

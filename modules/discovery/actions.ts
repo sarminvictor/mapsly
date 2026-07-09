@@ -54,7 +54,6 @@ import {
   isPaidAgency,
   monthlyMapCapFor,
 } from "@/modules/agency-portal/team/seats";
-import { entitlementBillingEnabled } from "@/modules/cost/flags";
 
 const CellInput = z.object({
   categorySlug: z.string().min(1).max(120),
@@ -629,14 +628,15 @@ export async function runDiscoveryAction(
       select: { plan: true, stripeStatus: true },
     });
 
-    // FT-2 · free tier can't open brand-new markets (Target) — it uses "Search
-    // everywhere" over our existing index instead. Server-side lock (the client
-    // tab-hide is UX only). Flag-gated so today's free "unlimited discovery" is
-    // unaffected until the entitlement model + search-everywhere ship together.
-    if (entitlementBillingEnabled()) {
-      if (!isPaidAgency(agencyRow?.stripeStatus ?? null)) {
-        return { status: "market_locked" };
-      }
+    // FT-2 · free tier can't run Target discovery — it uses "Search everywhere"
+    // over our existing index instead. ALWAYS-ON server lock, un-darked
+    // 2026-07-09 (free-target-lock review): the UI soften lets free users
+    // explore the Target picker, so the client is no longer a gate of any
+    // kind — this check is the only thing stopping a hand-rolled caller from
+    // spending our DfS budget. (Previously flag-gated behind
+    // ENTITLEMENT_BILLING; the entitlement LEDGER work stays behind the flag.)
+    if (!isPaidAgency(agencyRow?.stripeStatus ?? null)) {
+      return { status: "market_locked" };
     }
 
     await grantFreeTierIfNew(agencyId);

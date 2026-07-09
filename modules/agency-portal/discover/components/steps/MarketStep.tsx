@@ -6,11 +6,20 @@
 // RIGHT: a read-only "Your goal" rail showing the active signals + Edit signals
 // (jumps back to Goal). Continue advances to Preview.
 //
+// Free-lock soften (2026-07-09, docs/free-target-lock-options — hybrid OA+OC):
+// free agencies EXPLORE Target mode with the full picker — the tab carries a
+// "Preview" chip instead of 🔒, and the footer swaps Continue for a dual CTA:
+// "Upgrade to map [their markets] →" (primary) + "Search all mapped markets
+// with these signals — free" (redirects the blocked intent onto the free path).
+// The read-only Target preview (real counts) is phase 2. Mapping stays gated
+// server-side (runDiscoveryAction market_locked).
+//
 // Uses the prototype's ported classes (.seg2/.mkt-add/.combo/.cells/.cellrow/
 // .freshdot/.bgr-chip …). English-only for now.
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
+
+import { Link } from "@/i18n/navigation";
 
 import { SIG_META } from "../../goal-templates";
 import { type GoalState, type MarketCell } from "../../flow-types";
@@ -167,17 +176,34 @@ export function MarketStep({
               title={
                 paid
                   ? undefined
-                  : "Opening a brand-new market is a paid feature — upgrade to unlock"
+                  : "Explore Target markets — mapping a market needs a plan"
               }
-              onClick={() =>
-                paid
-                  ? onModeChange("target")
-                  : onToast(
-                      "Target markets is a paid feature — upgrade to open any market. On Free, use Search everywhere.",
-                    )
-              }
+              onClick={() => onModeChange("target")}
             >
-              🎯 Target markets {paid ? "" : "🔒"}
+              🎯 Target markets
+              {!paid ? (
+                <>
+                  {/* explicit space so screen readers don't announce
+                      "marketsPREVIEW" (JSX strips the newline whitespace) */}{" "}
+                  <span
+                    style={{
+                      fontSize: 9.5,
+                      fontWeight: 800,
+                      letterSpacing: "0.06em",
+                      borderRadius: 10,
+                      padding: "1px 6px",
+                      verticalAlign: "1px",
+                      background:
+                        mode === "target"
+                          ? "rgba(255,255,255,0.92)"
+                          : "var(--indigo-50, #eeebff)",
+                      color: "var(--agency-indigo, #5b3df5)",
+                    }}
+                  >
+                    PREVIEW
+                  </span>
+                </>
+              ) : null}
             </button>
             <button
               role="tab"
@@ -189,22 +215,35 @@ export function MarketStep({
             </button>
           </div>
 
-          {!paid ? (
+          {!paid && mode === "target" ? (
             <div
               className="note"
               style={{
                 margin: "0 0 14px",
                 padding: "8px 10px",
                 borderRadius: 8,
-                background: "var(--amber-50, #fbf3e2)",
+                background: "var(--amber-50, #fdf4e3)",
                 border: "1px solid var(--amber, #b7791f)",
+                // .note's --faint on amber-50 is ~4.36:1 (below AA) — pin an
+                // ink color so the banner + its link clear 4.5:1.
+                color: "var(--ink-2, #3a4660)",
               }}
             >
-              <b>Target markets is a paid feature.</b> On Free you get up to 50
-              leads from markets we&apos;ve already mapped — matched to your
-              signals, contacts ready.{" "}
-              <Link href="/team/billing" style={{ fontWeight: 700 }}>
-                Upgrade to open any market →
+              <b>You&apos;re previewing a paid feature.</b> Build your market
+              list below — mapping it needs a plan. On Free, Search everywhere
+              pulls up to 50 leads to start from markets we&apos;ve already
+              mapped.{" "}
+              <Link
+                href={{
+                  pathname: "/team/billing",
+                  query: { from: "target-preview" },
+                }}
+                style={{
+                  fontWeight: 700,
+                  color: "var(--agency-indigo, #5b3df5)",
+                }}
+              >
+                See plans →
               </Link>
             </div>
           ) : null}
@@ -464,21 +503,73 @@ export function MarketStep({
         </div>
       </div>
 
-      <div style={{ marginTop: 20, display: "flex", gap: 10 }}>
+      <div
+        style={{
+          marginTop: 20,
+          display: "flex",
+          gap: 10,
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
         <button type="button" className="btn" onClick={onBack}>
           ← Back
         </button>
-        <div style={{ marginLeft: "auto" }}>
-          <button
-            type="button"
-            className="btn primary"
-            disabled={!canContinue}
-            onClick={onContinue}
+        {!paid && mode === "target" ? (
+          // Free tier explored Target mode — no Preview yet (phase 2). Dual
+          // CTA: upgrade at the moment of intent (named with their own picks),
+          // or redirect the intent onto the free Search path (same signals;
+          // search sweeps ALL mapped markets — it has no category filter, so
+          // the copy stays honest and doesn't promise their picked market).
+          <div
+            style={{
+              marginLeft: "auto",
+              display: "flex",
+              gap: 10,
+              alignItems: "center",
+              flexWrap: "wrap",
+            }}
           >
-            {continueLabel}
-          </button>
-        </div>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => onModeChange("search")}
+            >
+              Search all mapped markets with these signals — no plan needed
+            </button>
+            <Link
+              href={{
+                pathname: "/team/billing",
+                query: { from: "target-preview" },
+              }}
+              className="btn primary"
+            >
+              {upgradeCtaLabel(cells)}
+            </Link>
+          </div>
+        ) : (
+          <div style={{ marginLeft: "auto" }}>
+            <button
+              type="button"
+              className="btn primary"
+              disabled={!canContinue}
+              onClick={onContinue}
+            >
+              {continueLabel}
+            </button>
+          </div>
+        )}
       </div>
     </>
   );
+}
+
+/** "Upgrade to map Kelowna + Victoria →" — names the user's own picks (first
+ *  city word each, max 2 + "+N more"); generic before any market is added. */
+function upgradeCtaLabel(cells: MarketCell[]): string {
+  if (cells.length === 0) return "Upgrade to open any market →";
+  const cities = [...new Set(cells.map((c) => c.city.split(",")[0]))];
+  const shown = cities.slice(0, 2).join(" + ");
+  const more = cities.length - 2;
+  return `Upgrade to map ${shown}${more > 0 ? ` +${more} more` : ""} →`;
 }

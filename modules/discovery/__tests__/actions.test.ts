@@ -66,6 +66,11 @@ const db = {
   discoveries: [] as FakeDiscovery[],
   // Controls the monthly cost-incurring map counter (seats.ts cap gate).
   costIncurringMapCount: 0,
+  // Agency billing state — the always-on market_locked gate reads stripeStatus
+  // (free = locked out of Target discovery entirely) and the monthly map cap
+  // reads plan. Default: paid, unknown plan.
+  agencyPlan: null as string | null,
+  agencyStripeStatus: "active" as string | null,
   seq: 0,
   id(p: string) {
     this.seq += 1;
@@ -86,6 +91,8 @@ const db = {
     this.estimates = [];
     this.discoveries = [];
     this.costIncurringMapCount = 0;
+    this.agencyPlan = null;
+    this.agencyStripeStatus = "active";
     this.seq = 0;
   },
 };
@@ -226,14 +233,14 @@ vi.mock("@/lib/prisma", () => {
     count: vi.fn(async () => db.costIncurringMapCount),
   };
 
-  // Agency billing state — read once in runDiscoveryAction for the free-market
-  // lock (flag-gated, OFF in tests) + the monthly map cap. Free/no-plan here.
+  // Agency billing state — read once in runDiscoveryAction for the always-on
+  // free-market lock + the monthly map cap. Controlled via db fields.
   const agency = {
     findUnique: vi.fn(
       async ({ select }: { select?: Record<string, boolean> }) => {
         const row = {
-          plan: null as string | null,
-          stripeStatus: null as string | null,
+          plan: db.agencyPlan,
+          stripeStatus: db.agencyStripeStatus,
         };
         return pick(row, select);
       },
@@ -409,14 +416,40 @@ describe("runDiscoveryAction · WP5-8 spend gate", () => {
   });
 });
 
+describe("runDiscoveryAction · always-on free-market lock (FT-2, un-darked)", () => {
+  // A free agency (no live subscription) can never run Target discovery — the
+  // server gate holds regardless of how the request was crafted, since the UI
+  // soften (2026-07-09) made the client a non-gate.
+  test("free agency → market_locked before any enqueue or hold", async () => {
+    const estimateId = seedEstimate();
+    authorizedQuote(0);
+    db.agencyStripeStatus = null; // free — no subscription
+
+    const r = await runDiscoveryAction({ estimateId });
+    expect(r.status).toBe("market_locked");
+    expect(db.discoveries).toHaveLength(0);
+    expect(holdCredits).not.toHaveBeenCalled();
+  });
+
+  test("past_due still counts as paid (dunning grace) → not locked", async () => {
+    const estimateId = seedEstimate();
+    authorizedQuote(0);
+    db.agencyStripeStatus = "past_due";
+
+    const r = await runDiscoveryAction({ estimateId });
+    expect(r.status).toBe("ok");
+  });
+});
+
 describe("runDiscoveryAction · monthly cost-incurring map cap", () => {
-  // Free agency (agency mock → {plan:null, stripeStatus:null}) → cap 5
-  // (MONTHLY_MAP_CAP_FREE). The count is controlled via db.costIncurringMapCount.
+  // Default mock agency is PAID with an unknown plan → monthlyMapCapFor falls
+  // back to the tight ceiling (5). The count is controlled via
+  // db.costIncurringMapCount.
 
   test("cost-incurring run at/over the cap is blocked (market_quota)", async () => {
     const estimateId = seedEstimate(true); // this run WILL fetch → gated
     authorizedQuote(0); // discovery is $0 to the user
-    db.costIncurringMapCount = 5; // already at the free cap
+    db.costIncurringMapCount = 5; // already at the fallback cap
 
     const r = await runDiscoveryAction({ estimateId });
     expect(r.status).toBe("market_quota");
@@ -430,7 +463,17 @@ describe("runDiscoveryAction · monthly cost-incurring map cap", () => {
   test("cost-incurring run under the cap proceeds", async () => {
     const estimateId = seedEstimate(true);
     authorizedQuote(0);
-    db.costIncurringMapCount = 4; // under the free cap of 5
+    db.costIncurringMapCount = 4; // under the fallback cap of 5
+
+    const r = await runDiscoveryAction({ estimateId });
+    expect(r.status).toBe("ok");
+  });
+
+  test("a known paid tier gets its generous plan ceiling (Growth = 200)", async () => {
+    const estimateId = seedEstimate(true);
+    authorizedQuote(0);
+    db.agencyPlan = "GROWTH";
+    db.costIncurringMapCount = 150; // over the fallback 5, under Growth's 200
 
     const r = await runDiscoveryAction({ estimateId });
     expect(r.status).toBe("ok");
