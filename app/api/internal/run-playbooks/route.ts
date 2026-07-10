@@ -10,7 +10,12 @@
 // matching the launch playbooks' category slugs). Bounded per the scalability
 // rule — never "all businesses in one invocation".
 //
-// Auth: Authorization: Bearer ${CRON_SECRET}. Validation: Zod on the body.
+// Auth: EITHER the Boxly worker token (the callback caller · CallbackWebhook-
+// Processor sends BOXLY_WORKER_AUTH_TOKEN) OR CRON_SECRET (the cron caller).
+// Before 2026-07-10 this accepted ONLY CRON_SECRET, so every worker close-sweep
+// POST 401'd — the enrich-close-playbooks sweep has been dead since 2026-07-02
+// (INC · 55 findings stuck missing-enrichment though their data existed). Mirror
+// the dual-auth /api/internal/enrich-job already uses. Validation: Zod on body.
 //
 // See:
 //   - modules/playbooks/run.ts        — runPlaybooksForBusiness
@@ -21,6 +26,7 @@
 import { z } from "zod";
 
 import { verifyCronAuth } from "@/lib/auth/cron-secret";
+import { verifyBoxlyWorkerAuth } from "@/lib/boxly-worker/client";
 import { withCronRun } from "@/lib/cost/cost-counter";
 import prisma from "@/lib/prisma";
 import { ALL_PLAYBOOKS } from "@/modules/playbooks/registry";
@@ -73,9 +79,11 @@ async function pickBatch(limit: number): Promise<string[]> {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  // Preserve the existing shape: 401 on any auth failure (including a missing
-  // CRON_SECRET, which the original `Bearer undefined` compare also rejected).
-  if (!verifyCronAuth(request).ok) {
+  // Accept EITHER the Boxly worker token (the callback-webhook caller) OR
+  // CRON_SECRET (the cron caller). 401 only when neither matches.
+  const workerOk = verifyBoxlyWorkerAuth(request.headers.get("authorization"));
+  const cronOk = verifyCronAuth(request).ok;
+  if (!workerOk && !cronOk) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
 

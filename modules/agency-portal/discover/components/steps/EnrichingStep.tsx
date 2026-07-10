@@ -15,7 +15,7 @@
 //
 // Uses ported classes (.editorial/.bar/.joblist/.job/.check/.spin). English-only.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useRouter } from "@/i18n/navigation";
 import type { AgencyJob, EnrichStage } from "@/app/api/agency/jobs/route";
@@ -69,11 +69,17 @@ export function EnrichingStep({
     held: number;
     charged: number;
   } | null>(null);
-  // null = "not enough signal to estimate yet" (shown as "starting…"). A NUMBER
-  // is a stable estimate derived from the RUN's real elapsed-per-unit, not the
-  // page's clock — so it doesn't reset to 1 min on every refresh, and it stops
-  // jumping (it's anchored to the run start + real throughput).
-  const [etaMin, setEtaMin] = useState<number | null>(null);
+  // null = "not enough signal to estimate yet" (shown as "starting…"). Otherwise
+  // a {lo,hi}-minute RANGE derived from the RUN's real elapsed-per-unit throughput
+  // (anchored to the run start, not the page clock, so it survives refreshes).
+  // Shown as a range, not a false-precision point, and EMA-smoothed + monotone-
+  // non-increasing so it stops jumping 1↔5 min (2026-07-10): the counter is now
+  // business-unit (no sawtooth) AND the rate is smoothed here.
+  const [eta, setEta] = useState<{ lo: number; hi: number } | null>(null);
+  // Smoothed ms-per-business estimate across polls (EMA) — a ref so it persists
+  // between polls without re-rendering.
+  const etaRateRef = useRef<number | null>(null);
+  const lastEtaHiRef = useRef<number>(Number.POSITIVE_INFINITY);
 
   // WP3-3 · Poll two endpoints every 3s:
   //   - /api/agency/runs/[id]/progress → the lead-by-lead done/total/failed from
@@ -156,14 +162,19 @@ export function EnrichingStep({
           }
         }
 
-        setDone(lastDone);
-        setFailed(lastFailed);
+        // MONOTONIC display (2026-07-10): never let done/failed/pct regress. The
+        // counter is now business-unit + clamped server-side, but a re-seed
+        // correcting a rare concurrent double-count could still nudge a value
+        // down — the user should never see progress go backwards, so clamp to the
+        // max seen this run. (A new run remounts this component → fresh state.)
+        setDone((prev) => Math.max(prev, lastDone));
+        setFailed((prev) => Math.max(prev, lastFailed));
         setTotal(lastTotal);
 
         if (!running) {
           setPct(100);
           setFinished(true);
-          setEtaMin(0);
+          setEta({ lo: 0, hi: 0 });
           // WP4-2 · a run that ended but whose progress endpoint didn't hand us
           // a terminal status this poll (e.g. resolved terminal only via the
           // jobs-feed flag) defaults to OK — the safe non-alarming outcome.
@@ -172,21 +183,41 @@ export function EnrichingStep({
           return; // stop polling
         }
 
-        // % from REAL units (floored at 2 while running so the bar isn't empty).
-        setPct(
-          Math.max(2, Math.min(99, Math.round((lastDone / lastTotal) * 100))),
+        // % from REAL units (floored at 2 while running so the bar isn't empty),
+        // monotone-non-decreasing so it never dips.
+        const rawPct = Math.max(
+          2,
+          Math.min(99, Math.round((lastDone / lastTotal) * 100)),
         );
+        setPct((prev) => Math.max(prev, rawPct));
 
-        // ETA from the RUN's real throughput: elapsed-since-run-start ÷ units
-        // done × units remaining. Anchored to the run's startedAt (not page
-        // load), so it's stable across refreshes; null until ≥1 unit lands.
+        // ETA from the RUN's real throughput, EMA-SMOOTHED into a RANGE. Point
+        // estimate = elapsed-since-run-start ÷ units done × units remaining
+        // (anchored to startedAt, stable across refreshes). We smooth the
+        // ms-per-unit rate (0.6 old · 0.4 new) so a single slow/fast unit doesn't
+        // swing the estimate, present a ±30% range (enrichment ETAs are
+        // genuinely uncertain — a range is honest, a point is false precision),
+        // and clamp the upper bound monotone-non-increasing so it only ever
+        // shrinks. null until ≥1 unit lands (the pre-run "~2 min" guess is gone).
         if (lastDone > 0 && runStartedAt) {
           const elapsedMs = Date.now() - Date.parse(runStartedAt);
           const remaining = Math.max(0, lastTotal - lastDone);
-          const ms = (elapsedMs / lastDone) * remaining;
-          setEtaMin(Math.max(1, Math.round(ms / 60000)));
+          const instantRate = elapsedMs / lastDone; // ms per business
+          const rate =
+            etaRateRef.current == null
+              ? instantRate
+              : 0.6 * etaRateRef.current + 0.4 * instantRate;
+          etaRateRef.current = rate;
+          const midMs = rate * remaining;
+          const loMin = Math.max(1, Math.round((midMs * 0.7) / 60000));
+          let hiMin = Math.max(loMin, Math.round((midMs * 1.3) / 60000));
+          // Monotone-non-increasing upper bound: an ETA that only shrinks reads
+          // as steady progress; one that grows reads as "stuck".
+          hiMin = Math.min(hiMin, lastEtaHiRef.current);
+          lastEtaHiRef.current = hiMin;
+          setEta({ lo: Math.min(loMin, hiMin), hi: hiMin });
         } else {
-          setEtaMin(null);
+          setEta(null);
         }
       } catch {
         // transient — keep polling
@@ -250,14 +281,17 @@ export function EnrichingStep({
   // retry CTA takes over.
   const isFailed = finished && outcome === "FAILED";
 
-  // "done" once the run closes; else the real climbing count. Never over-claims.
+  // "done" once the run closes; else an honest ETA RANGE (never a false-precise
+  // point, never over-claims). "~2 min" when lo===hi, "~2–4 min" otherwise.
   const rightNote = finished
     ? isFailed
       ? "failed"
       : "done"
-    : etaMin == null
+    : eta == null
       ? "starting…"
-      : `~${etaMin} min left`;
+      : eta.lo === eta.hi
+        ? `~${eta.hi} min left`
+        : `~${eta.lo}–${eta.hi} min left`;
 
   return (
     <section style={{ paddingBottom: 40 }}>

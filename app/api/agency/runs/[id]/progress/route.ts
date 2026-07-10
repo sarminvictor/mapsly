@@ -104,12 +104,14 @@ export async function GET(
         status: run.status,
       };
 
-  // WP4-3 · clamp to the BUSINESS unit. The per-job Redis INCR (dispatch.ts
-  // bumpRunProgress) bumps once per FAMILY job for within-tick liveness, so
-  // between the per-tick business-level re-seeds a multi-family run's raw
-  // done/failed can momentarily exceed the business total. Clamp so the client
-  // never sees done>total (>100%) or a done+failed sum past N. The next tick's
-  // updateRunProgress re-seeds the exact business counts.
+  // WP4-3 · clamp to the BUSINESS unit. Since 2026-07-10 bumpRunProgress is
+  // itself business-unit (it only counts a business once its LAST family job
+  // terminates), so the raw counters no longer march in family-sized jumps — the
+  // "46→89→31" sawtooth is fixed at the source. This clamp stays as a cheap
+  // belt-and-suspenders for the rare concurrent double-count (two of a business's
+  // families terminating in the same instant), so the client never sees
+  // done>total (>100%) or a done+failed sum past N. The next tick's
+  // updateRunProgress re-seeds the exact business counts either way.
   const total = Math.max(0, raw.total);
   const failed = Math.min(Math.max(0, raw.failed), total);
   const done = Math.min(Math.max(0, raw.done), Math.max(0, total - failed));

@@ -269,6 +269,9 @@ function reQuoteEstimate(
       freshHitUsd: d.freshHitUsd,
       netUsd: d.netUsd,
       netCredits: d.netCredits,
+      // Discovery (map search) has no per-family fresh-credit delight; the
+      // anti-tamper drift comparison only reads netCredits, so 0 is correct here.
+      freshCredits: 0,
       upperBoundUsd: d.netUsd,
       confidence: "exact",
       gate: d.gate,

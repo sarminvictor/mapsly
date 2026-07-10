@@ -141,12 +141,14 @@ export function EnrichMoreSheet({
     () => request.scope?.visibleBusinessIds ?? [],
     [request],
   );
+  // P3 (2026-07-10) · default scope: explicit row SELECTION wins (deliberate
+  // user intent), else the WHOLE research ("all"). "visible" is no longer a
+  // default — it's the current filter/pagination WINDOW, and defaulting to it
+  // silently narrowed a rerun to one page (the dental rerun re-enriched 28 of
+  // 122 · run-forensics "rerun scoped 28 not 122"). It stays selectable in the
+  // scope picker for users who genuinely want just the current view.
   const [scope, setScope] = useState<ScopeChoice>(() =>
-    selectedIds.length > 0
-      ? "selected"
-      : visibleIds.length > 0
-        ? "visible"
-        : "all",
+    selectedIds.length > 0 ? "selected" : "all",
   );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();

@@ -83,3 +83,29 @@ describe("buildEnrichLines", () => {
     ).toThrow(/unknown enrichment/);
   });
 });
+
+// ── P3 (2026-07-10) · per-family business-count overrides (dead-pair exclusion) ──
+describe("buildEnrichLines · businessCountByEnrichment (P3)", () => {
+  test("a per-family override changes only that line's total", () => {
+    const lines = buildEnrichLines({
+      enrichments: ["contacts", "reviews"],
+      businessCount: 100,
+      cellCount: 1,
+      // e.g. 40 of 100 contacts pairs are permanently unavailable → 60 eligible.
+      businessCountByEnrichment: { contacts: 60 },
+    });
+    const byKey = Object.fromEntries(lines.map((l) => [l.enrichment, l]));
+    expect(byKey.contacts!.total).toBe(60); // excludes dead pairs
+    expect(byKey.reviews!.total).toBe(100); // no dead reviews pairs → full scope
+  });
+
+  test("a cell line ignores the per-family business override", () => {
+    const lines = buildEnrichLines({
+      enrichments: ["meta_ads"],
+      businessCount: 100,
+      cellCount: 2,
+      businessCountByEnrichment: { meta_ads: 7 },
+    });
+    expect(lines[0]!.total).toBe(2); // cellCount, not the override
+  });
+});

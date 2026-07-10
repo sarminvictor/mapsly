@@ -25,6 +25,14 @@ export interface BuildEnrichLinesInput {
    * not present default to 0 fresh. Clamped to the line total by the estimator.
    */
   freshByEnrichment?: Partial<Record<EnrichmentType, number>>;
+  /**
+   * P5 · optional per-family override of `businessCount` for a line's total —
+   * used when the scope is BROAD (mixed website-dependent + independent
+   * families) so a website-dependent line quotes only the site-havers while
+   * reviews quotes the whole scope. Keys not present use `businessCount`.
+   * Ignored for cell-basis lines.
+   */
+  businessCountByEnrichment?: Partial<Record<EnrichmentType, number>>;
 }
 
 /**
@@ -38,13 +46,17 @@ export function buildEnrichLines(
 ): EstimateLineInput[] {
   const { enrichments, businessCount, cellCount } = input;
   const fresh = input.freshByEnrichment ?? {};
+  const perFamilyCount = input.businessCountByEnrichment ?? {};
 
   return enrichments.map((enrichment) => {
     const price = ENRICHMENT_PRICES[enrichment];
     if (!price) {
       throw new Error(`[enrich-lines] unknown enrichment "${enrichment}"`);
     }
-    const total = price.unit === "cell" ? cellCount : businessCount;
+    const total =
+      price.unit === "cell"
+        ? cellCount
+        : (perFamilyCount[enrichment] ?? businessCount);
     return {
       enrichment,
       total,

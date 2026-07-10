@@ -46,9 +46,14 @@ import {
 import {
   ALL_ENRICHMENT_TYPES,
   enrichmentNeedsWebsite,
+  ENRICHMENT_PRICES,
   type EnrichmentType,
 } from "@/modules/cost/pricing";
 import { buildEnrichLines } from "@/modules/discovery/enrich-lines";
+import {
+  jobFamilyForType,
+  permanentlyUnavailablePairs,
+} from "@/modules/enrichment/dispatch";
 import { countFreshForRun } from "@/modules/discovery/enrich-fresh-db";
 import { countFreeForRun } from "@/modules/discovery/entitlements";
 import { entitlementBillingEnabled } from "@/modules/cost/flags";
@@ -143,6 +148,8 @@ export type PreflightEnrichResult =
       upperBoundUsd: number;
       freshHitUsd: number;
       netCredits: number;
+      /** Credits saved by the fresh cache, in the CREDIT unit (not COGS). */
+      freshCredits: number;
       // WP1-11: no "approval" gate — wallet balance is the only spend gate.
       gate: "auto" | "confirm";
       lines: EnrichQuoteLine[];
@@ -211,16 +218,18 @@ export async function preflightEnrichAction(
     let businessIds = parsed.data.businessIds;
     if (businessIds.length === 0 && parsed.data.cellKeys.length > 0) {
       // Scope to website-havers when ANY selected family needs a live site
-      // (Lighthouse/contacts/tech/services/AI can't run without one). This is
-      // the authoritative gate: `businessIds` here becomes the estimate's
-      // stored scope, which runEnrichAction reconstructs from (anti-tamper),
-      // so the priced set, the held credits, AND the fanned-out jobs all become
-      // the enrichable subset in one place — no website-less business is ever
-      // charged for or queued for a research it can't complete.
+      // (Lighthouse/contacts/tech/services/AI can't run without one). The
+      // WHOLESALE gate is deliberate: the workbench, CSV export, and the
+      // enrichable-count all use the SAME `enrichmentNeedsWebsite` rule to keep
+      // "the visible list == the enrichable list" — so scope, display, quote,
+      // and fan-out stay in lockstep. (A per-family gate that ran reviews for
+      // site-less leads in a mixed goal was reverted: it billed for leads the
+      // workbench/export never rendered — invisible paid data. The reviews-for-
+      // dead-sites asymmetry is a known-minor limitation, not worth breaking the
+      // visible==enrichable invariant across five view-layer consumers.)
       const needsWebsite = enrichmentNeedsWebsite(parsed.data.enrichments);
-      // WP5-4 · compose the caller's free pre-enrich filters with the
-      // website gate (filters first, then topN caps within the filtered
-      // set below). The website gate always wins when a family needs one.
+      // WP5-4 · compose the caller's free pre-enrich filters with the website
+      // gate (filters first, then topN caps within the filtered set below).
       const userFilters = parsed.data.filters;
       const scopeFilters =
         userFilters || needsWebsite
@@ -268,11 +277,53 @@ export async function preflightEnrichAction(
           cellKeys: parsed.data.cellKeys,
           now,
         });
+    // P3 · PER-FAMILY line totals — exclude PERMANENTLY-UNAVAILABLE pairs from
+    // the quote. A (business, family) past the cross-run attempt cap (or with a
+    // structurally non-retryable reason) is "Not available": fan-out skips it,
+    // so the QUOTE must not count it either — else the enrich sheet keeps
+    // quoting hopeless leads ("Enrich 45 · ~55 cr" forever, the retry treadmill).
+    // Uses the SAME permanentlyUnavailablePairs + jobFamilyForType keying as
+    // fan-out, so quote and run agree on which pairs are dead.
+    let businessCountByEnrichment:
+      | Partial<Record<EnrichmentType, number>>
+      | undefined;
+    const businessBasisSelected = parsed.data.enrichments.filter(
+      (e) => ENRICHMENT_PRICES[e].unit === "business",
+    );
+    if (businessBasisSelected.length > 0 && businessIds.length > 0) {
+      const jobFamilies = [
+        ...new Set(
+          businessBasisSelected
+            .map(jobFamilyForType)
+            .filter(
+              (f): f is NonNullable<ReturnType<typeof jobFamilyForType>> =>
+                Boolean(f),
+            ),
+        ),
+      ];
+      const dead = await permanentlyUnavailablePairs(
+        businessIds,
+        jobFamilies,
+        now,
+      );
+      const counts: Partial<Record<EnrichmentType, number>> = {};
+      for (const e of businessBasisSelected) {
+        const fam = jobFamilyForType(e);
+        let eligible = 0;
+        for (const id of businessIds) {
+          if (fam && dead.has(`${id}:${fam}`)) continue;
+          eligible += 1;
+        }
+        counts[e] = eligible;
+      }
+      businessCountByEnrichment = counts;
+    }
     const lines = buildEnrichLines({
       enrichments: parsed.data.enrichments,
       businessCount: businessIds.length,
       cellCount: parsed.data.cellKeys.length,
       freshByEnrichment,
+      ...(businessCountByEnrichment ? { businessCountByEnrichment } : {}),
     });
 
     const { estimate, result } = await createCostEstimate(
@@ -302,6 +353,7 @@ export async function preflightEnrichAction(
       upperBoundUsd: result.upperBoundUsd,
       freshHitUsd: result.freshHitUsd,
       netCredits: result.netCredits,
+      freshCredits: result.freshCredits,
       gate: result.gate,
       lines: result.lines.map((l) => ({
         enrichment: l.enrichment,

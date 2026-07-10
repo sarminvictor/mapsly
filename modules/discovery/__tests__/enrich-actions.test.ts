@@ -218,8 +218,18 @@ vi.mock("@/lib/prisma", () => {
     ),
   };
 
+  // P3 · the preflight's permanent-failure exclusion reads FAILED job history —
+  // empty here, so no pair is "Not available" and line totals stay unchanged.
+  const enrichmentJob = { findMany: vi.fn(async () => []) };
+
   return {
-    default: { agencyMember, costEstimate, enrichmentRun, business },
+    default: {
+      agencyMember,
+      costEstimate,
+      enrichmentRun,
+      business,
+      enrichmentJob,
+    },
     Prisma: {},
   };
 });

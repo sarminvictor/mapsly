@@ -30,6 +30,7 @@
 import prisma, { Prisma } from "@/lib/prisma";
 import {
   metaAdLibrarySearch,
+  type MetaAdLibraryQuery,
   type MetaAdRow,
   type MetaAdvertiser,
   type MetaPageResolution,
@@ -62,10 +63,63 @@ const MAX_SERVICES = 5;
 const MAX_ADVERTISERS = 60;
 const MAX_CREATIVES = 6;
 const META_MAX_ITEMS = 150;
-/** Cap the FB page URLs fed to ONE actor run — the actor resolves each in the
- *  warmed session, so an unbounded cell would balloon a single run's wall time
- *  (still ONE run · not per-business billing). 60 covers a typical cell. */
+/** Cap the FB page URLs a cell feeds the actor IN TOTAL (across chunks). Still
+ *  ONE cell charge · not per-business billing. 60 covers a typical cell. */
 const MAX_PAGE_URLS = 60;
+// P5 (2026-07-10) · CHUNKED TARGETS. 60 page-targets in ONE actor run was
+// structurally over the 280s Apify timeout (~3-5s per resolve+pull + session
+// priming), so big cells timed out deterministically and burned ~$0.87 of
+// residential proxy per attempt for salvage-only yield (run-forensics §C). Now
+// each actor run gets ≤ META_TARGETS_PER_RUN pageUrls — small enough to FINISH
+// (verified outcome → cacheable, complete per-target statuses). The first chunk
+// also carries the searchTerms market facet + precise pageIds pulls. A wall
+// budget stops launching further chunks near the route's 300s ceiling; the
+// remainder is recorded as detailJson.pendingTargets and finished by the
+// meta-reconcile cron (poll-continuation per realtime-runs-adr — no webhook).
+const META_TARGETS_PER_RUN = 20;
+const META_CELL_WALL_BUDGET_MS = 180_000;
+
+/**
+ * Combine per-chunk outcomes into ONE cell outcome. Verified everywhere → ok
+ * (or empty_verified when every chunk verified-empty). A mix of verified and
+ * unverified → partial (real data, not fully trustworthy — uncacheable). All
+ * hard-unverified → the dominant failure class.
+ */
+function combineMetaOutcomes(outcomes: MetaRunOutcome[]): MetaRunOutcome {
+  if (outcomes.length === 0) return "error";
+  if (outcomes.length === 1) return outcomes[0];
+  const verified = (o: MetaRunOutcome) => o === "ok" || o === "empty_verified";
+  if (outcomes.every(verified)) {
+    return outcomes.every((o) => o === "empty_verified")
+      ? "empty_verified"
+      : "ok";
+  }
+  if (outcomes.some((o) => verified(o) || o === "partial")) return "partial";
+  if (outcomes.includes("blocked")) return "blocked";
+  if (outcomes.includes("timeout")) return "timeout";
+  return "error";
+}
+
+/** The detailJson payload persisted on every META AdMarketRun row (P5). */
+function metaDetailJson(o: {
+  outcome: MetaRunOutcome | "error";
+  apifyRunIds: string[];
+  chunksLaunched: number;
+  chunksPlanned: number;
+  pendingTargets: number;
+  costEstimated: boolean;
+  errors: string[];
+}): Prisma.InputJsonValue {
+  return {
+    outcome: o.outcome,
+    apifyRunIds: o.apifyRunIds,
+    chunksLaunched: o.chunksLaunched,
+    chunksPlanned: o.chunksPlanned,
+    pendingTargets: o.pendingTargets,
+    costEstimated: o.costEstimated,
+    errors: o.errors.slice(0, 5),
+  };
+}
 
 export interface CellMetaAdsResult {
   cellKey: string;
@@ -222,10 +276,17 @@ function attributeAd(
 /**
  * Collect the Meta ad market for one cell, gated by the 30-day freshness window.
  * MUST run inside an open CronRun.
+ *
+ * P5 · `opts.ignoreFreshness` is the meta-reconcile cron's CONTINUATION path: a
+ * budget-stopped collection wrote a PARTIAL row (which anchors the freshness
+ * gate), so the cron must bypass the gate to run the remaining chunks. Already-
+ * resolved businesses are excluded by construction (buildPageTargets skips
+ * fbPageId-havers) and verified chunk queries hit the 6h cache at $0.
  */
 export async function runMetaAdsForCell(
   cellKey: string,
   now: Date = new Date(),
+  opts?: { ignoreFreshness?: boolean },
 ): Promise<CellMetaAdsResult> {
   const result: CellMetaAdsResult = {
     cellKey,
@@ -240,10 +301,12 @@ export async function runMetaAdsForCell(
   };
 
   // 1 · freshness gate — serve from DB if a recent run exists.
-  const last = await latestAdMarketRun(cellKey, "META");
-  if (isCellRunFresh(last?.ranAt ?? null, now, CELL_INTEL_FRESHNESS_DAYS)) {
-    result.outcome = "served-from-db";
-    return result;
+  if (!opts?.ignoreFreshness) {
+    const last = await latestAdMarketRun(cellKey, "META");
+    if (isCellRunFresh(last?.ranAt ?? null, now, CELL_INTEL_FRESHNESS_DAYS)) {
+      result.outcome = "served-from-db";
+      return result;
+    }
   }
 
   // 1b · R2 · circuit breaker. When Meta is block-storming (recent block-rate
@@ -291,44 +354,115 @@ export async function runMetaAdsForCell(
     return result;
   }
 
-  // 3 · ONE Meta market run for the cell.
+  // 3 · CHUNKED Meta market runs for the cell (P5). Each actor run gets ≤
+  // META_TARGETS_PER_RUN pageUrls so it FINISHES within the actor timeout; the
+  // first chunk also carries the searchTerms market facet + precise pageIds.
+  // Still ONE cell charge — chunks are a COGS/wall-time shape, not a billing one.
   const country2 = (ctx.country || "US").toUpperCase().slice(0, 2);
-  let rows: MetaAdRow[] = [];
-  let advertisers: MetaAdvertiser[] = [];
-  let resolutions: MetaPageResolution[] = [];
+  const rows: MetaAdRow[] = [];
+  const advertisers: MetaAdvertiser[] = [];
+  const resolutions: MetaPageResolution[] = [];
   // Per-target statuses (A4) — the run's own evidence that Meta's data query
   // actually fired (status ok/empty_verified, graphqlHits ≥ 1). Feeds the
   // soft-block suspicion heuristic before an OK-with-0 is written.
-  let targetStatuses: MetaTargetStatus[] = [];
-  // Verified outcome from the actor's RUN_SUMMARY (block vs timeout vs real
-  // empty). Drives the AdMarketRun status below so the coverage-matrix reads
-  // "failed/retryable" for a blocked cell — NOT "ran, empty". Default `error`
-  // so an exception before the adapter returns records as failed, not empty.
-  let outcome: MetaRunOutcome = "error";
-  try {
-    const out = await metaAdLibrarySearch({
-      // Market coverage keyword(s) — "who advertises for this service in this
-      // city" (populates AdMarketAdvertiser + competitors_advertising).
-      ...(searchTerms.length > 0 ? { searchTerms } : {}),
-      // Per-business page targets — the reliable-attribution half. pageUrls the
-      // actor resolves → pageId (+ seeds fbPageId); pageIds pull precisely for
-      // businesses already resolved. Omitted keys stay undefined (Zod-optional).
-      ...(pageUrls.length > 0 ? { pageUrls } : {}),
-      ...(pageIds.length > 0 ? { pageIds } : {}),
-      countries: [country2],
-      activeStatus: "active",
-      maxItems: META_MAX_ITEMS,
-    });
-    rows = out.rows;
-    advertisers = out.advertisers ?? [];
-    resolutions = out.resolutions ?? [];
-    targetStatuses = out.targetStatuses ?? [];
-    outcome = out.outcome;
-    result.costUsd = out.usageTotalUsd;
-    result.runId = out.runId;
-  } catch (e) {
-    result.errors.push(`meta-run:${(e as Error).message}`.slice(0, 200));
-    // Record a FAILED run so the gate doesn't trip on a partial DB state.
+  const targetStatuses: MetaTargetStatus[] = [];
+
+  const urlChunks: string[][] = [];
+  for (let i = 0; i < pageUrls.length; i += META_TARGETS_PER_RUN) {
+    urlChunks.push(pageUrls.slice(i, i + META_TARGETS_PER_RUN));
+  }
+  const queries: MetaAdLibraryQuery[] =
+    urlChunks.length === 0
+      ? [
+          {
+            ...(searchTerms.length > 0 ? { searchTerms } : {}),
+            ...(pageIds.length > 0 ? { pageIds } : {}),
+            countries: [country2],
+            activeStatus: "active",
+            maxItems: META_MAX_ITEMS,
+          },
+        ]
+      : urlChunks.map((chunk, i) => ({
+          ...(i === 0 && searchTerms.length > 0 ? { searchTerms } : {}),
+          ...(i === 0 && pageIds.length > 0 ? { pageIds } : {}),
+          pageUrls: chunk,
+          countries: [country2],
+          activeStatus: "active",
+          maxItems: META_MAX_ITEMS,
+        }));
+
+  const outcomes: MetaRunOutcome[] = [];
+  const apifyRunIds: string[] = [];
+  let costEstimated = false;
+  let chunksLaunched = 0;
+  let pendingTargets = 0;
+  const wallStartMs = Date.now();
+  for (let i = 0; i < queries.length; i++) {
+    const q = queries[i];
+    // Wall budget — the enrich-cell route (and the inline fan-out fallback)
+    // lives under a ~300s function ceiling. Stop LAUNCHING new chunks past the
+    // budget; the remainder is finished by the meta-reconcile cron.
+    if (i > 0 && Date.now() - wallStartMs > META_CELL_WALL_BUDGET_MS) {
+      pendingTargets += q.pageUrls?.length ?? 0;
+      continue;
+    }
+    try {
+      const out = await metaAdLibrarySearch(q);
+      chunksLaunched += 1;
+      rows.push(...out.rows);
+      advertisers.push(...(out.advertisers ?? []));
+      resolutions.push(...(out.resolutions ?? []));
+      targetStatuses.push(...(out.targetStatuses ?? []));
+      outcomes.push(out.outcome);
+      // A 6h-cache hit re-serves a PRIOR run's data — its cost/runId were that
+      // run's, so this collection doesn't re-count them.
+      if (!out.fromCache) {
+        result.costUsd += out.usageTotalUsd;
+        if (out.runId) apifyRunIds.push(out.runId);
+        if (out.usageWasEstimated) costEstimated = true;
+      }
+    } catch (e) {
+      // A thrown chunk (start failure after retries) → record, stop launching
+      // more (start failures repeat); anything already collected still persists
+      // below. The THROWING chunk's OWN targets are unscanned too, so the
+      // accrual starts at j=i (not i+1) — else the reconcile cron never
+      // re-scans them and they vanish for 30 days (verifier hole · the exact
+      // invisible-loss class this fix targets).
+      result.errors.push(
+        `meta-chunk-${i}:${(e as Error).message}`.slice(0, 200),
+      );
+      outcomes.push("error");
+      for (let j = i; j < queries.length; j++) {
+        pendingTargets += queries[j].pageUrls?.length ?? 0;
+      }
+      break;
+    }
+  }
+  result.runId = apifyRunIds[0] ?? null;
+
+  // Verified outcome, combined across chunks (block vs timeout vs real empty).
+  // Drives the AdMarketRun status below so the coverage-matrix reads
+  // "failed/retryable" for a blocked cell — NOT "ran, empty". Unfinished chunks
+  // (pendingTargets > 0) cap the outcome at `partial` so the cell is never
+  // cached/anchored as fully-verified while targets remain.
+  let outcome: MetaRunOutcome = combineMetaOutcomes(outcomes);
+  if (
+    pendingTargets > 0 &&
+    (outcome === "ok" || outcome === "empty_verified")
+  ) {
+    outcome = "partial";
+  }
+  const detailBase = {
+    apifyRunIds,
+    chunksLaunched,
+    chunksPlanned: queries.length,
+    pendingTargets,
+    costEstimated,
+  };
+
+  // Every chunk threw before anything was collected → the old thrown-run path:
+  // FAILED row (retryable), teach the breaker, stop.
+  if (chunksLaunched === 0) {
     await prisma.adMarketRun.create({
       data: {
         cellKey,
@@ -337,6 +471,12 @@ export async function runMetaAdsForCell(
         costUsd: result.costUsd,
         advertiserCount: 0,
         adCount: 0,
+        apifyRunId: result.runId,
+        detailJson: metaDetailJson({
+          ...detailBase,
+          outcome: "error",
+          errors: result.errors,
+        }),
       },
     });
     // R2 · a thrown run is a block class → teach the breaker + log the spend.
@@ -350,12 +490,21 @@ export async function runMetaAdsForCell(
     return result;
   }
 
-  // A run that never reached Meta's data query (blocked/timeout/error) is a
-  // TRANSIENT failure, not an empty market — record it FAILED (retryable) and
-  // stop, so the 30-day freshness gate doesn't lock in a false "0 advertisers"
-  // for a month and the cache didn't get poisoned. `partial` still carries real
-  // data worth persisting, so it falls through to the normal path below.
-  if (outcome === "blocked" || outcome === "timeout" || outcome === "error") {
+  // SALVAGE (2026-07-10 · Viktor's decision) · a blocked/timeout/error run that
+  // STILL delivered data (creative rows OR the advertiser facet) is treated as a
+  // SUCCESS, not discarded. The Meta actor routinely hits its 280s timeout AFTER
+  // Meta has already returned the "who advertises here" facet — we paid the
+  // residential-proxy $ and got real advertisers (43 + 15 on the dental run), so
+  // throwing them away and billing nothing was pure waste + an invisible result.
+  // We persist the data and mark the run PARTIAL (real, but the run didn't fully
+  // verify → the errors[] push below forces PARTIAL at step 7). Only an
+  // unverified run with NO salvageable data is a true transient failure: FAILED,
+  // retryable, no persistence, freshness gate untouched.
+  const hasSalvageableData = rows.length > 0 || advertisers.length > 0;
+  const unverified =
+    outcome === "blocked" || outcome === "timeout" || outcome === "error";
+  const salvaged = unverified && hasSalvageableData;
+  if (unverified && !hasSalvageableData) {
     result.errors.push(`meta-outcome:${outcome}`);
     await prisma.adMarketRun.create({
       data: {
@@ -365,6 +514,12 @@ export async function runMetaAdsForCell(
         costUsd: result.costUsd,
         advertiserCount: 0,
         adCount: 0,
+        apifyRunId: result.runId,
+        detailJson: metaDetailJson({
+          ...detailBase,
+          outcome,
+          errors: result.errors,
+        }),
       },
     });
     // R2 · feed the breaker a block sample (NOT verified) + attribute the spend.
@@ -376,6 +531,12 @@ export async function runMetaAdsForCell(
       runId: result.runId,
     });
     return result;
+  }
+  if (salvaged) {
+    // Real data off an unverified run → mark PARTIAL (forces PARTIAL at step 7)
+    // and skip caching (a re-run may complete). NOT a block for the breaker: we
+    // reached Meta's data, so recordMetaCellOutcome(true) below still applies.
+    result.errors.push(`meta-salvaged:${outcome}`);
   }
 
   // R2 · a run that reached Meta's data query (ok/empty_verified/partial) is a
@@ -645,8 +806,18 @@ export async function runMetaAdsForCell(
   // persistence errors; PARTIAL when the actor reported `partial` (some targets
   // silently failed) OR a per-row persist errored. blocked/timeout/error never
   // reach here (returned FAILED above).
+  // `salvaged` (an unverified-but-has-data run) and `pendingTargets` are BOTH
+  // load-bearing PARTIAL triggers in their own right — never rely only on the
+  // errors-array side effect (a future refactor filtering errors before here
+  // would silently write a salvaged/incomplete run as OK and let the 30-day
+  // gate cache an unverified result as verified · verifier hole).
   let runStatus: "OK" | "PARTIAL" | "FAILED" =
-    outcome === "partial" || result.errors.length > 0 ? "PARTIAL" : "OK";
+    outcome === "partial" ||
+    salvaged ||
+    pendingTargets > 0 ||
+    result.errors.length > 0
+      ? "PARTIAL"
+      : "OK";
 
   // A4 (filters audit P0) · SOFT-BLOCK SUSPICION heuristic. An UNDETECTED Meta
   // soft-block (session gets pages but Meta withholds all data) surfaces as a
@@ -707,6 +878,12 @@ export async function runMetaAdsForCell(
       costUsd: result.costUsd,
       advertiserCount: result.advertiserCount,
       adCount: result.adCount,
+      apifyRunId: result.runId,
+      detailJson: metaDetailJson({
+        ...detailBase,
+        outcome,
+        errors: result.errors,
+      }),
     },
   });
 

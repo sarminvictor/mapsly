@@ -41,6 +41,7 @@ import { rateLimit, WEBHOOK_LIMIT } from "@/lib/middleware/rate-limit";
 import { provisionSmbFromCheckout } from "@/modules/billing/provision";
 import {
   handleStripeEvent,
+  resolveGrantPeriodEnd,
   type WebhookOutcome,
 } from "@/modules/billing/webhook";
 import { recordLandingConversion } from "@/modules/smb-landing/conversion";
@@ -308,9 +309,21 @@ async function grantAgencyCreditsFromEvent(
   const plan = agency?.plan;
   if (!plan || !(plan in PLAN_CREDITS)) return;
 
-  const periodEnd = agency.currentPeriodEnd ?? null;
   // Dedupe per billing period: a renewal (new period end) grants fresh credits,
-  // but replays of the same period don't double-grant. Fall back to the event id.
+  // but replays of the same period don't double-grant. resolveGrantPeriodEnd
+  // closes the first-purchase ordering gap (checkout lands before the agency
+  // row carries currentPeriodEnd) by resolving the anchor from Stripe itself,
+  // so checkout + subscription.created + invoice.paid share ONE key instead of
+  // writing a duplicate ledger row. Fall back to the event id only when no
+  // period is resolvable.
+  const periodEnd = await resolveGrantPeriodEnd(
+    event,
+    agency.currentPeriodEnd ?? null,
+    // Explicit timeout (validation-and-errors.md — never let fetch hang): a
+    // slow Stripe API must not hold the webhook; the resolver's catch falls
+    // back to the event-id key.
+    (id) => stripeClient.subscriptions.retrieve(id, { timeout: 10_000 }),
+  );
   const dedupeKey = periodEnd ? periodEnd.toISOString() : event.id;
   await grantPlanCredits(
     outcome.targetId,

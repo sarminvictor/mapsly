@@ -343,9 +343,9 @@ describe("group credit helpers · ONE estimator for button + sheet", () => {
     expect(groupLeadCredits(byKey("meta_ads"))).toBe(0);
     expect(groupLeadCredits(byKey("search"))).toBe(0);
   });
-  test("per-cell prices: meta 12/cell + serp 4/cell, lead groups 0", () => {
-    // meta_ads repriced 4→12/cell (real $0.12 COGS); serp stays 4/cell.
-    expect(groupCellCredits(byKey("meta_ads"))).toBe(12);
+  test("per-cell prices: meta 25/cell + serp 4/cell, lead groups 0", () => {
+    // meta_ads repriced 12→25/cell (real ~$0.87/run · 1 charge per market); serp 4/cell.
+    expect(groupCellCredits(byKey("meta_ads"))).toBe(25);
     expect(groupCellCredits(byKey("search"))).toBe(4);
     expect(groupCellCredits(byKey("contacts_tech"))).toBe(0);
   });

@@ -121,7 +121,14 @@ export async function enqueueCellJobs(
     url: callbackUrl,
     payload: { runId: c.runId, cellKey: c.cellKey, family: c.family },
     callerLabel: `mapsly:enrich-cell-${c.family}`,
-    timeoutSec: 120,
+    // 2026-07-10 · 120→310s: the enrich-cell route runs a Meta collection for
+    // up to ~300s (maxDuration). At 120s the worker aborted mid-collection and
+    // RETRIED — launching a duplicate actor run while the first still ran
+    // (double proxy spend · run-forensics §C). 310s outlives the route budget.
+    // Pairs with the worker DTO cap raise (1→360, deployed alongside); an old
+    // worker rejects the batch → enqueued:false → cells run inline (the safe
+    // pre-worker fallback).
+    timeoutSec: 310,
   }));
 
   return enqueueChunked(workerJobs, "enrich-cell");

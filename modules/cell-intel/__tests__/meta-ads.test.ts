@@ -652,3 +652,202 @@ describe("runMetaAdsForCell · attribution", () => {
     expect(ids).not.toContain("meta-facet:PAGE_MARIA");
   });
 });
+
+// ── P5 (2026-07-10) · chunked targets ───────────────────────────────────────
+describe("runMetaAdsForCell · P5 chunked targets", () => {
+  /** A verified-ok adapter result with one facet advertiser (so the soft-block
+   *  heuristic doesn't fire) — override per-chunk as needed. */
+  function okOut(over: Record<string, unknown> = {}) {
+    return {
+      rows: [],
+      resolutions: [],
+      advertisers: [
+        {
+          recordType: "advertiser",
+          pageId: "ADV1",
+          pageName: "Rival Spa",
+          adCount: 3,
+          searchTerm: "medical spa Miami",
+          country: "US",
+        },
+      ],
+      targetStatuses: [],
+      outcome: "ok",
+      runStatus: "SUCCEEDED",
+      runId: "r-chunk",
+      usageTotalUsd: 0.3,
+      usageWasEstimated: false,
+      ...over,
+    };
+  }
+
+  function bizCohort(n: number) {
+    return Array.from({ length: n }, (_, i) => ({
+      id: `b${i}`,
+      name: `Biz ${i}`,
+      website: `https://b${i}.example.com`,
+      domain: null,
+      fbPageId: null,
+    }));
+  }
+
+  test("45 page targets split into 3 actor runs; searchTerms ride only the first", async () => {
+    ctx.resolveCellContext.mockResolvedValueOnce(fakeCtx(bizCohort(45)));
+    apify.metaAdLibrarySearch.mockImplementation(async () =>
+      okOut({ runId: `r${apify.metaAdLibrarySearch.mock.calls.length}` }),
+    );
+
+    const res = await runMetaAdsForCell(CELL, NOW);
+
+    expect(apify.metaAdLibrarySearch).toHaveBeenCalledTimes(3);
+    const calls = apify.metaAdLibrarySearch.mock.calls.map(
+      (c) => c[0] as Record<string, unknown>,
+    );
+    expect((calls[0].searchTerms as string[])?.length).toBeGreaterThan(0);
+    expect(calls[0].pageUrls as string[]).toHaveLength(20);
+    expect(calls[1].searchTerms).toBeUndefined();
+    expect(calls[1].pageUrls as string[]).toHaveLength(20);
+    expect(calls[2].pageUrls as string[]).toHaveLength(5);
+    expect(res.outcome).toBe("collected");
+
+    // ONE telemetry row for the cell, carrying the chunk detail + primary runId.
+    expect(db.adMarketRunRows).toHaveLength(1);
+    const row = db.adMarketRunRows[0];
+    expect(row.apifyRunId).toBe("r1");
+    const detail = row.detailJson as Record<string, unknown>;
+    expect(detail.chunksPlanned).toBe(3);
+    expect(detail.chunksLaunched).toBe(3);
+    expect(detail.pendingTargets).toBe(0);
+    expect(detail.apifyRunIds as string[]).toHaveLength(3);
+  });
+
+  test("wall budget stops launching chunks → PARTIAL with pendingTargets for the reconcile cron", async () => {
+    ctx.resolveCellContext.mockResolvedValueOnce(fakeCtx(bizCohort(45)));
+    // Advance the mocked wall clock ~200s per chunk so the budget (180s) trips
+    // after the first chunk.
+    let t = 1_000_000;
+    const nowSpy = vi.spyOn(Date, "now").mockImplementation(() => t);
+    try {
+      apify.metaAdLibrarySearch.mockImplementation(async () => {
+        t += 200_000;
+        return okOut();
+      });
+
+      await runMetaAdsForCell(CELL, NOW);
+
+      expect(apify.metaAdLibrarySearch).toHaveBeenCalledTimes(1);
+      expect(db.adMarketRunRows).toHaveLength(1);
+      const row = db.adMarketRunRows[0];
+      expect(row.status).toBe("PARTIAL"); // never OK while targets remain
+      const detail = row.detailJson as Record<string, unknown>;
+      expect(detail.pendingTargets).toBe(25); // chunks 2 (20) + 3 (5)
+      expect(detail.chunksLaunched).toBe(1);
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+
+  test("a cache-hit chunk contributes NO cost and NO runId (original run already paid)", async () => {
+    ctx.resolveCellContext.mockResolvedValueOnce(fakeCtx(bizCohort(25)));
+    apify.metaAdLibrarySearch
+      .mockResolvedValueOnce(
+        okOut({ fromCache: true, runId: "cached-run", usageTotalUsd: 0.5 }),
+      )
+      .mockResolvedValueOnce(okOut({ runId: "live-run", usageTotalUsd: 0.2 }));
+
+    const res = await runMetaAdsForCell(CELL, NOW);
+
+    expect(res.costUsd).toBeCloseTo(0.2, 6); // cached 0.5 NOT re-counted
+    expect(res.runId).toBe("live-run");
+    const detail = db.adMarketRunRows[0].detailJson as Record<string, unknown>;
+    expect(detail.apifyRunIds as string[]).toEqual(["live-run"]);
+  });
+
+  test("ignoreFreshness bypasses the 30-day gate (the reconcile continuation path)", async () => {
+    db.setLatestRun({
+      id: "recent",
+      ranAt: new Date(NOW.getTime() - 1 * 86_400_000), // 1 day old → fresh
+      status: "PARTIAL",
+    });
+    ctx.resolveCellContext.mockResolvedValueOnce(fakeCtx([]));
+    apify.metaAdLibrarySearch.mockResolvedValueOnce(okOut());
+
+    const res = await runMetaAdsForCell(CELL, NOW, { ignoreFreshness: true });
+
+    expect(res.outcome).toBe("collected");
+    expect(apify.metaAdLibrarySearch).toHaveBeenCalledTimes(1);
+  });
+
+  test("SALVAGE · a TIMEOUT run that still returned advertisers is PARTIAL (persisted), not FAILED", async () => {
+    ctx.resolveCellContext.mockResolvedValueOnce(fakeCtx([]));
+    // Actor timed out but Meta had already returned the facet → salvage it.
+    apify.metaAdLibrarySearch.mockResolvedValueOnce({
+      rows: [],
+      resolutions: [],
+      advertisers: [
+        {
+          recordType: "advertiser",
+          pageId: "ADV1",
+          pageName: "Rival Spa",
+          adCount: 4,
+          searchTerm: "medical spa Miami",
+          country: "US",
+        },
+      ],
+      targetStatuses: [],
+      outcome: "timeout",
+      runStatus: "TIMED-OUT",
+      runId: "salvage-run",
+      usageTotalUsd: 0.87,
+      usageWasEstimated: true,
+    });
+
+    const res = await runMetaAdsForCell(CELL, NOW);
+
+    expect(res.outcome).toBe("collected"); // NOT discarded
+    expect(res.advertiserCount).toBe(1); // the facet advertiser persisted
+    expect(db.adMarketRunRows).toHaveLength(1);
+    const row = db.adMarketRunRows[0];
+    expect(row.status).toBe("PARTIAL"); // real data off an unverified run
+    expect(row.apifyRunId).toBe("salvage-run");
+    expect((row.detailJson as Record<string, unknown>).costEstimated).toBe(
+      true,
+    );
+  });
+
+  test("SALVAGE · a TIMEOUT run with NO data stays FAILED (retryable, discarded)", async () => {
+    ctx.resolveCellContext.mockResolvedValueOnce(fakeCtx([]));
+    apify.metaAdLibrarySearch.mockResolvedValueOnce({
+      rows: [],
+      resolutions: [],
+      advertisers: [],
+      targetStatuses: [],
+      outcome: "timeout",
+      runStatus: "TIMED-OUT",
+      runId: "empty-timeout",
+      usageTotalUsd: 0.5,
+      usageWasEstimated: true,
+    });
+
+    await runMetaAdsForCell(CELL, NOW);
+
+    expect(db.adMarketRunRows[0].status).toBe("FAILED"); // nothing to salvage
+    expect(db.adMarketRunRows[0].advertiserCount).toBe(0);
+  });
+
+  test("a THROWING chunk's OWN targets are counted in pendingTargets (verifier hole)", async () => {
+    ctx.resolveCellContext.mockResolvedValueOnce(fakeCtx(bizCohort(45)));
+    // Chunk 0 verifies, chunk 1 THROWS (a start failure) → chunks 1 (20) + 2 (5)
+    // = 25 pending, INCLUDING the throwing chunk's own 20.
+    apify.metaAdLibrarySearch
+      .mockResolvedValueOnce(okOut({ runId: "r0" }))
+      .mockRejectedValueOnce(new Error("apify start 503"));
+
+    await runMetaAdsForCell(CELL, NOW);
+
+    expect(apify.metaAdLibrarySearch).toHaveBeenCalledTimes(2);
+    const row = db.adMarketRunRows[0];
+    expect(row.status).toBe("PARTIAL"); // salvaged chunk-0 data
+    expect((row.detailJson as Record<string, unknown>).pendingTargets).toBe(25);
+  });
+});

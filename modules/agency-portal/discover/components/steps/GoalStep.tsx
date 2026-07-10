@@ -1185,9 +1185,17 @@ function SignalLibrary({
   const [query, setQuery] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // Focus the search on open + close on Escape.
+  // Focus the search ONCE on open. This must NOT share an effect with the
+  // Escape listener below: the parent passes an inline `onClose`, so its
+  // identity changes on every goal update — a combined effect re-ran on every
+  // "＋ Add" and re-focused the search, scrolling the modal body back to the
+  // top mid-browse (the user loses their place after each add).
   useEffect(() => {
     searchRef.current?.focus();
+  }, []);
+
+  // Close on Escape (re-subscribing on identity change is scroll-neutral).
+  useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
     }

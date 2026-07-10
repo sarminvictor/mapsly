@@ -33,7 +33,7 @@ import { DATAFORSEO_UNIT_COST_USD } from "@/services/dataforseo/pricing";
 // decoupled from ENRICHMENT_PRICES.usdPerUnit (raw COGS). Any change to either
 // table must bump this so in-flight 15-min quotes re-quote.
 // (Prior: "2026-07-02.1" WP10-7 re-derived serp/google_ads + walled lighthouse.)
-export const PRICE_LIST_VERSION = "2026-07-09.2";
+export const PRICE_LIST_VERSION = "2026-07-10.1";
 
 /** Internal credit price. Apollo charges ~$0.20/credit; we undercut 4×. */
 export const CREDIT_USD = 0.05;
@@ -59,7 +59,7 @@ export const COST_GATE = {
  * contacts (per CREDIT_PRICES: contacts=1, tech=0). A fully-enriched lead
  * layering reviews (2) + site-speed (2) + AI (1) is 6 credits total
  * (CREDIT_MEANING.fullEnrichment), plus whole-market ad/rank fees once/market
- * (meta_ads=12, serp=4 = 16). See CREDIT_PRICES below — do NOT call a credit a
+ * (meta_ads=25, serp=4 = 29). See CREDIT_PRICES below — do NOT call a credit a
  * "fully-enriched lead". The free tier is a one-time 50-credit grant (no Stripe
  * subscription); paid tiers re-grant each billing cycle. Keys match the
  * AgencyPlan enum in prisma/schema.prisma. Source of truth:
@@ -412,13 +412,17 @@ export interface EnrichmentPrice {
 
 /**
  * Apify Meta Ad Library actor run — measured stealth-rebuild cost per cell.
- * 2026-07-09 review: corrected 0.05→0.12 to match real COGS (the repricing
- * doc's own $0.12 claim). Runtime billing already uses the actor's actual
- * usageTotalUsd (modules/cell-intel/meta-ads.ts), so this only fixes the
- * pre-flight quote's netUsd/upperBound + any margin telemetry built on
- * ENRICHMENT_PRICES, which previously understated meta spend ~2.4×.
+ * 2026-07-09 review: corrected 0.05→0.12 to match the repricing doc's claim.
+ * 2026-07-10 CORRECTION: the Apify console showed the REAL per-run cost is
+ * ~$0.72–1.22 (residential proxy + images on a 280s/4GB run), mean ~$0.87 — the
+ * $0.12 estimate was 7× under, because every AdMarketRun had been booking the
+ * $0.02 FALLBACK constant (fixed in services/apify/client.ts). Runtime billing
+ * now records the actor's real usage (or an elapsed×memory estimate on a
+ * timeout), so this constant only drives the pre-flight quote's netUsd/upperBound
+ * + margin telemetry — set to the observed mean so those read honestly. The
+ * Phase-5 target-chunking work will drop the per-run cost; revisit then.
  */
-export const APIFY_META_RUN_USD = 0.12;
+export const APIFY_META_RUN_USD = 0.85;
 
 /** gpt-5.4-nano blended cost per business for AI-assisted text reads. */
 export const NANO_PER_BUSINESS_USD = 0.01;
@@ -573,7 +577,7 @@ export const DISCOVERY_PRICE = {
 //   site speed (Lighthouse)                   2 / lead
 //   AI research                               1 / lead
 //   google ads intel                          1 / lead   (B1 · per-business, target-host)
-//   meta ads intel                           12 / cell
+//   meta ads intel                           25 / cell
 //   search / SERP intel                       4 / cell
 //
 // tech = 0: it rides the one contacts DOM fetch, so a booking-tool goal
@@ -585,6 +589,14 @@ export const DISCOVERY_PRICE = {
 //   reviews    1→2 (COGS $0.015 was thin at 1cr)
 //   lighthouse 1→2 (blended $0.019, covers the walled ~$0.06 tail)
 //   meta_ads   4→12 (real COGS $0.12, up to $0.24 with failures — was $0.03/cr)
+// META RE-REPRICE 2026-07-10 (12→25/cell): Apify console showed the real
+// per-run cost is ~$0.72–1.22 (residential proxy + images), NOT the $0.12
+// estimate — every AdMarketRun had been booking the $0.02 FALLBACK constant, so
+// our books under-counted meta ~40×. At 12cr meta was negative-margin even with
+// perfect salvage. 25cr/market restores healthy margin; it's ONE charge per
+// market (not per lead), so the user impact is small next to per-lead families.
+// See docs/run-forensics-dental-2026-07-10.html §G1. Cost recording is fixed in
+// the same release so future repricing runs off real telemetry, not the fallback.
 export const CREDIT_PRICES: Record<EnrichmentType, number> = {
   contacts: 1,
   tech: 0,
@@ -593,7 +605,7 @@ export const CREDIT_PRICES: Record<EnrichmentType, number> = {
   lighthouse: 2,
   ai_research: 1,
   google_ads: 1,
-  meta_ads: 12,
+  meta_ads: 25,
   serp: 4,
 };
 
@@ -632,7 +644,12 @@ export const WEBSITE_DEPENDENT: ReadonlySet<EnrichmentType> = new Set([
   "google_ads",
 ]);
 
-/** True if ANY of the selected families needs a live website to run. */
+/** True if ANY of the selected families needs a live website to run. The
+ *  enrich scope, the workbench display, the CSV export, and the enrichable
+ *  count all use THIS rule so "the visible list == the enrichable list". (A
+ *  per-family gate that ran reviews for site-less leads in a mixed goal was
+ *  tried + reverted 2026-07-10: it billed for leads the view layer never
+ *  rendered. The reviews-for-dead-sites asymmetry is a known-minor limitation.) */
 export function enrichmentNeedsWebsite(
   enrichments: readonly EnrichmentType[],
 ): boolean {

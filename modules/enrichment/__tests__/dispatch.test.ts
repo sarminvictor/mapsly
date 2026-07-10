@@ -132,6 +132,8 @@ import {
   reconcileStuck,
   updateRunProgress,
   claimAndProcessJob,
+  isNonRetryableFailure,
+  permanentlyUnavailablePairs,
 } from "../dispatch";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -298,8 +300,18 @@ describe("fanOutRun", () => {
     // WP9-5 · the gate query now returns { id, isHidden } for BOTH scoped ids
     // (existence + hidden in one findMany): b1 exists+visible, b2 exists+hidden.
     p.business.findMany.mockResolvedValue([
-      { id: "b1", isHidden: false, suppressedAt: null },
-      { id: "b2", isHidden: true, suppressedAt: null },
+      {
+        id: "b1",
+        isHidden: false,
+        suppressedAt: null,
+        website: "https://b1.example.com",
+      },
+      {
+        id: "b2",
+        isHidden: true,
+        suppressedAt: null,
+        website: "https://b2.example.com",
+      },
     ]);
 
     const out = await fanOutRun("r1", new Date());
@@ -330,7 +342,12 @@ describe("fanOutRun", () => {
     });
     // Only b1 still exists; "ghost" was deleted → absent from the gate query.
     p.business.findMany.mockResolvedValue([
-      { id: "b1", isHidden: false, suppressedAt: null },
+      {
+        id: "b1",
+        isHidden: false,
+        suppressedAt: null,
+        website: "https://b1.example.com",
+      },
     ]);
 
     const out = await fanOutRun("r1", new Date());
@@ -568,13 +585,67 @@ describe("processJob", () => {
     expect(last).toBe("failed");
   });
 
-  // WP1-2 · a CONTACTS worker that returns status FAILED (transient site-down, no
-  // throw) is NOT billed — the job goes FAILED at cost 0 so the retry ladder +
-  // the run settle refund it.
-  test("does NOT bill a CONTACTS unit whose scan returned FAILED", async () => {
+  // WP1-2 + 2026-07-10 · a CONTACTS worker that returns status FAILED (transient
+  // site-down, no throw · reason contacts_fetch_failed) is NOT billed, and now
+  // takes the SAME bounded backoff ladder as a throw: it REQUEUES on an early
+  // attempt (was one-shot terminal FAILED before) and only goes terminal FAILED
+  // once the attempt budget is exhausted. Neither path bills.
+  test("REQUEUES a transient CONTACTS FAILED on an early attempt (never billed)", async () => {
     anyMock(scanBusinessContacts).mockResolvedValue({
       businessId: "b1",
       status: "FAILED",
+      contactsUpserted: 0,
+      techUpserted: 0,
+      reachability: null,
+      reachableChannelCount: 0,
+      isHidden: false,
+    });
+    const out = await processJob({
+      id: "j1",
+      businessId: "b1",
+      family: "CONTACTS",
+      attempts: 0,
+      costUsd: 0.008,
+    });
+    expect(out).toBe("requeued");
+    expect(p.enrichmentJob.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "QUEUED", attempts: 1 }),
+      }),
+    );
+  });
+
+  test("terminal-FAILS a transient CONTACTS FAILED once attempts are exhausted", async () => {
+    anyMock(scanBusinessContacts).mockResolvedValue({
+      businessId: "b1",
+      status: "FAILED",
+      contactsUpserted: 0,
+      techUpserted: 0,
+      reachability: null,
+      reachableChannelCount: 0,
+      isHidden: false,
+    });
+    const out = await processJob({
+      id: "j1",
+      businessId: "b1",
+      family: "CONTACTS",
+      attempts: 2, // nextAttempts = 3 = MAX_JOB_ATTEMPTS → terminal
+      costUsd: 0.008,
+    });
+    expect(out).toBe("failed");
+    expect(p.enrichmentJob.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "FAILED", costUsd: 0 }),
+      }),
+    );
+  });
+
+  // A NON-RETRYABLE soft failure (no source to scan) goes terminal FAILED on the
+  // FIRST attempt — retrying can't help, so it must not burn the ladder.
+  test("terminal-FAILS a non-retryable CONTACTS skip immediately (no requeue)", async () => {
+    anyMock(scanBusinessContacts).mockResolvedValue({
+      businessId: "b1",
+      status: "SKIPPED",
       contactsUpserted: 0,
       techUpserted: 0,
       reachability: null,
@@ -683,6 +754,26 @@ describe("closeRunIfDone", () => {
     });
   }
 
+  // AdMarketRun.findMany is now read by TWO closers: pendingCellCount (all
+  // statuses, ranAt≥now−freshness) and cellCreditsForRun (status∈OK/PARTIAL,
+  // ranAt≥startedAt). A faithful mock honours the WHERE so one row set feeds both
+  // — e.g. a FAILED cell is "attempted this run" (not pending) yet bills 0.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function mockAdMarketRuns(rows: any[]) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    p.adMarketRun.findMany.mockImplementation(async (args: any) => {
+      const w = args?.where ?? {};
+      return rows.filter((r) => {
+        if (w.status?.in && !w.status.in.includes(r.status)) return false;
+        if (w.ranAt?.gte && !(new Date(r.ranAt) >= new Date(w.ranAt.gte)))
+          return false;
+        if (w.cellKey?.in && !w.cellKey.in.includes(r.cellKey)) return false;
+        if (w.platform?.in && !w.platform.in.includes(r.platform)) return false;
+        return true;
+      });
+    });
+  }
+
   test("settles + closes OK when all jobs are terminal", async () => {
     p.enrichmentJob.count.mockResolvedValue(0);
     p.enrichmentRun.findUnique.mockResolvedValue({
@@ -741,20 +832,28 @@ describe("closeRunIfDone", () => {
     routeJobFindMany([
       { status: "DONE", businessId: "b1", costUsd: 0.008, family: "CONTACTS" },
     ]);
-    // The meta cell BLOCKED → NO OK/PARTIAL AdMarketRun exists for it.
-    p.adMarketRun.findMany.mockResolvedValue([]);
+    // The meta cell BLOCKED → a FAILED AdMarketRun exists (attempt finished this
+    // run → NOT pending), but it's not OK/PARTIAL so it bills 0.
+    mockAdMarketRuns([
+      {
+        cellKey: "spa|miami|US",
+        platform: "META",
+        status: "FAILED",
+        ranAt: now,
+      },
+    ]);
 
     const closed = await closeRunIfDone("r1", now);
 
     expect(closed).toBe(true);
-    // contacts = 1 credit; meta_ads = 0 (blocked). NOT 1 + 12 = 13.
+    // contacts = 1 credit; meta_ads = 0 (blocked). NOT 1 + 25 = 26.
     expect(reconcileRunCredits).toHaveBeenCalledWith(
       "r1",
       expect.objectContaining({ actualCredits: 1, hadProgress: true }),
     );
   });
 
-  test("collected meta_ads cell IS billed (12 credits) alongside contacts", async () => {
+  test("collected meta_ads cell IS billed (25 credits) alongside contacts", async () => {
     const now = new Date("2026-07-06T00:00:00Z");
     p.enrichmentJob.count.mockResolvedValue(0);
     p.enrichmentRun.findUnique.mockResolvedValue({
@@ -771,17 +870,75 @@ describe("closeRunIfDone", () => {
       { status: "DONE", businessId: "b1", costUsd: 0.008, family: "CONTACTS" },
     ]);
     // The meta cell COLLECTED → an OK AdMarketRun exists for it this run.
-    p.adMarketRun.findMany.mockResolvedValue([
-      { cellKey: "spa|miami|US", platform: "META" },
+    mockAdMarketRuns([
+      { cellKey: "spa|miami|US", platform: "META", status: "OK", ranAt: now },
     ]);
 
     const closed = await closeRunIfDone("r1", now);
 
     expect(closed).toBe(true);
-    // contacts (1) + meta_ads collected (12 credits/cell, repriced 4→12) = 13.
+    // contacts (1) + meta_ads collected (25 credits/cell, repriced 12→25) = 26.
     expect(reconcileRunCredits).toHaveBeenCalledWith(
       "r1",
-      expect.objectContaining({ actualCredits: 13, hadProgress: true }),
+      expect.objectContaining({ actualCredits: 26, hadProgress: true }),
+    );
+  });
+
+  // S3 · a run whose meta cell is still in flight (no AdMarketRun yet, and no
+  // fresh prior one) must NOT close — the async enrich-cell callback lands later.
+  test("does NOT close while a requested cell is still in flight", async () => {
+    const now = new Date("2026-07-06T00:00:00Z");
+    p.enrichmentJob.count.mockResolvedValue(0);
+    p.enrichmentRun.findUnique.mockResolvedValue({
+      id: "r1",
+      agencyId: "a1",
+      status: "RUNNING",
+      actualUsd: 0,
+      startedAt: now, // within the ceiling
+      scopeRefsJson: { businessIds: ["b1"], cellKeys: ["spa|miami|US"] },
+      enrichmentsJson: ["contacts", "meta_ads"],
+      unitsRequested: 1,
+    });
+    routeJobFindMany([
+      { status: "DONE", businessId: "b1", costUsd: 0.008, family: "CONTACTS" },
+    ]);
+    // No AdMarketRun for the cell yet → the meta cell hasn't landed.
+    mockAdMarketRuns([]);
+
+    const closed = await closeRunIfDone("r1", now);
+
+    expect(closed).toBe(false);
+    expect(reconcileRunCredits).not.toHaveBeenCalled();
+  });
+
+  // S3 ceiling · a genuinely-lost cell (worker died) must not stall the run
+  // forever — past the 15-min ceiling the run closes (cell bills 0).
+  test("closes past the cell ceiling even with no AdMarketRun (reverse-stall guard)", async () => {
+    const start = new Date("2026-07-06T00:00:00Z");
+    const now = new Date(start.getTime() + 16 * 60_000); // past the 15-min ceiling
+    p.enrichmentJob.count.mockResolvedValue(0);
+    p.enrichmentRun.findUnique.mockResolvedValue({
+      id: "r1",
+      agencyId: "a1",
+      status: "RUNNING",
+      actualUsd: 0,
+      startedAt: start,
+      scopeRefsJson: { businessIds: ["b1"], cellKeys: ["spa|miami|US"] },
+      enrichmentsJson: ["contacts", "meta_ads"],
+      unitsRequested: 1,
+    });
+    routeJobFindMany([
+      { status: "DONE", businessId: "b1", costUsd: 0.008, family: "CONTACTS" },
+    ]);
+    mockAdMarketRuns([]);
+
+    const closed = await closeRunIfDone("r1", now);
+
+    expect(closed).toBe(true);
+    // Only contacts bills — the lost cell contributes 0.
+    expect(reconcileRunCredits).toHaveBeenCalledWith(
+      "r1",
+      expect.objectContaining({ actualCredits: 1 }),
     );
   });
 
@@ -1290,7 +1447,7 @@ describe("processJob (WP3-6 backoff · WP3-3 counters)", () => {
   });
 
   // WP3-3 · a terminal DONE transition bumps the run's Redis "done" counter.
-  test("a DONE transition bumps the run progress counter (WP3-3)", async () => {
+  test("a DONE transition bumps the run progress counter once the business is fully done (WP3-3)", async () => {
     const now = new Date();
     anyMock(scanBusinessContacts).mockResolvedValue({
       businessId: "b1",
@@ -1300,6 +1457,13 @@ describe("processJob (WP3-6 backoff · WP3-3 counters)", () => {
       reachability: "PHONE_ONLY",
       reachableChannelCount: 1,
       isHidden: false,
+    });
+    // bumpRunProgress is BUSINESS-unit: it counts a business only when it has no
+    // more open family jobs, and classifies by the business's own verdict.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    p.enrichmentJob.count.mockImplementation(async (args: any) => {
+      const inStatus: string[] = args?.where?.status?.in ?? [];
+      return inStatus.includes("QUEUED") ? 0 : 1; // 0 open · 1 terminal-success
     });
 
     const outcome = await processJob(
@@ -1316,6 +1480,36 @@ describe("processJob (WP3-6 backoff · WP3-3 counters)", () => {
 
     expect(outcome).toBe("done");
     expect(incrRunProgress).toHaveBeenCalledWith("r1", "done");
+  });
+
+  test("does NOT bump progress while the business has other families still open", async () => {
+    const now = new Date();
+    anyMock(scanBusinessContacts).mockResolvedValue({
+      businessId: "b1",
+      status: "OK",
+      contactsUpserted: 1,
+      techUpserted: 0,
+      reachability: "PHONE_ONLY",
+      reachableChannelCount: 1,
+      isHidden: false,
+    });
+    // One family still QUEUED → business not done yet → no counter bump.
+    p.enrichmentJob.count.mockResolvedValue(1);
+
+    const outcome = await processJob(
+      {
+        id: "j1",
+        businessId: "b1",
+        family: "CONTACTS",
+        attempts: 0,
+        costUsd: 0.008,
+        runId: "r1",
+      },
+      now,
+    );
+
+    expect(outcome).toBe("done");
+    expect(incrRunProgress).not.toHaveBeenCalled();
   });
 });
 
@@ -1505,5 +1699,160 @@ describe("dispatchPending (WP3-10 · multi-tenant fairness)", () => {
     const agencyOf = (id: string) => (id.startsWith("a") ? "agA" : "agB");
     expect(claimOrder.length).toBeGreaterThanOrEqual(2);
     expect(agencyOf(claimOrder[0]!)).not.toBe(agencyOf(claimOrder[1]!));
+  });
+});
+
+// 2026-07-10 · P3 · the soft-failure taxonomy + the cross-run permanent-failure
+// cap that renders a hopeless (business, family) "Not available".
+describe("isNonRetryableFailure", () => {
+  test("structural reasons are non-retryable", () => {
+    expect(isNonRetryableFailure("contacts_skipped_no_source")).toBe(true);
+    expect(isNonRetryableFailure("google_ads_no-website")).toBe(true);
+    expect(isNonRetryableFailure("reviews_submit_failed")).toBe(true);
+    expect(isNonRetryableFailure("lighthouse_0_audited")).toBe(true);
+    expect(isNonRetryableFailure("some_family_no_cid")).toBe(true); // regex tail
+  });
+  test("transient reasons (vendor blip, site down) ARE retryable", () => {
+    expect(isNonRetryableFailure("contacts_fetch_failed")).toBe(false);
+    expect(isNonRetryableFailure("google_ads_error")).toBe(false);
+    expect(isNonRetryableFailure("boom")).toBe(false);
+    expect(isNonRetryableFailure(undefined)).toBe(false);
+  });
+});
+
+describe("permanentlyUnavailablePairs (cross-run cap)", () => {
+  test("empty input short-circuits without a query", async () => {
+    const set = await permanentlyUnavailablePairs([], ["CONTACTS"]);
+    expect(set.size).toBe(0);
+    expect(p.enrichmentJob.findMany).not.toHaveBeenCalled();
+  });
+
+  test("flags a pair that hit the 3-attempt cross-run cap", async () => {
+    p.enrichmentJob.findMany.mockResolvedValue([
+      {
+        businessId: "b1",
+        family: "CONTACTS",
+        errorMessage: "boom",
+        finishedAt: new Date(1),
+      },
+      {
+        businessId: "b1",
+        family: "CONTACTS",
+        errorMessage: "boom",
+        finishedAt: new Date(2),
+      },
+      {
+        businessId: "b1",
+        family: "CONTACTS",
+        errorMessage: "boom",
+        finishedAt: new Date(3),
+      },
+      // b2 only failed twice → still retryable.
+      {
+        businessId: "b2",
+        family: "CONTACTS",
+        errorMessage: "boom",
+        finishedAt: new Date(1),
+      },
+      {
+        businessId: "b2",
+        family: "CONTACTS",
+        errorMessage: "boom",
+        finishedAt: new Date(2),
+      },
+    ]);
+    const set = await permanentlyUnavailablePairs(["b1", "b2"], ["CONTACTS"]);
+    expect(set.has("b1:CONTACTS")).toBe(true);
+    expect(set.has("b2:CONTACTS")).toBe(false);
+  });
+
+  test("flags a pair whose latest failure is structurally non-retryable (1 attempt)", async () => {
+    p.enrichmentJob.findMany.mockResolvedValue([
+      {
+        businessId: "b3",
+        family: "GOOGLE_ADS",
+        errorMessage: "google_ads_no-website",
+        finishedAt: new Date(1),
+      },
+    ]);
+    const set = await permanentlyUnavailablePairs(["b3"], ["GOOGLE_ADS"]);
+    expect(set.has("b3:GOOGLE_ADS")).toBe(true);
+  });
+
+  test("bounds the query to the recovery window so failures age out (Medium-2)", async () => {
+    p.enrichmentJob.findMany.mockResolvedValue([]);
+    const now = new Date("2026-07-10T00:00:00Z");
+    await permanentlyUnavailablePairs(["b1"], ["CONTACTS"], now);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const call = (p.enrichmentJob.findMany.mock.calls[0][0] as any).where;
+    expect(call.finishedAt.gte).toBeInstanceOf(Date);
+    const windowMs = now.getTime() - call.finishedAt.gte.getTime();
+    expect(windowMs).toBeGreaterThan(29 * 24 * 3600 * 1000);
+    expect(windowMs).toBeLessThan(31 * 24 * 3600 * 1000);
+  });
+});
+
+// ── P5 (2026-07-10) · parked-reviews stall ceiling ──
+describe("closeRunIfDone · P5 parked-reviews stall ceiling", () => {
+  test("a REVIEWS job parked past the ceiling flips FAILED so the run can close", async () => {
+    const start = new Date("2026-07-06T00:00:00Z");
+    const now = new Date(start.getTime() + 31 * 60_000); // 31 min parked
+    p.enrichmentJob.count.mockResolvedValue(0);
+    p.enrichmentRun.findUnique.mockResolvedValue({
+      id: "r1",
+      agencyId: "a1",
+      status: "RUNNING",
+      actualUsd: 0,
+      startedAt: start,
+      scopeRefsJson: { businessIds: ["b1"], cellKeys: [] },
+      enrichmentsJson: ["reviews"],
+      unitsRequested: 1,
+    });
+    // The reviews-reconcile query returns the parked job; the main jobs query
+    // then sees it FAILED (flipped by the ceiling).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    p.enrichmentJob.findMany.mockImplementation(async (args: any) => {
+      if (args?.where?.family === "REVIEWS") {
+        return [{ id: "ej1", businessId: "b1", costUsd: 0, startedAt: start }];
+      }
+      return [
+        { status: "FAILED", businessId: "b1", costUsd: 0, family: "REVIEWS" },
+      ];
+    });
+    p.reviewJob.findFirst.mockResolvedValue(null); // submit never landed one
+    // failParked flips via a status-guarded updateMany (TOCTOU-safe) — it wins.
+    p.enrichmentJob.updateMany.mockResolvedValue({ count: 1 });
+
+    const closed = await closeRunIfDone("r1", now);
+
+    expect(closed).toBe(true);
+    expect(p.enrichmentJob.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "ej1", status: "RUNNING" },
+        data: expect.objectContaining({
+          status: "FAILED",
+          errorMessage: "reviews_landing_timeout",
+        }),
+      }),
+    );
+  });
+
+  test("a freshly-parked REVIEWS job (under the ceiling) keeps the run open", async () => {
+    const start = new Date("2026-07-06T00:00:00Z");
+    const now = new Date(start.getTime() + 5 * 60_000); // 5 min parked
+    p.enrichmentJob.count.mockResolvedValue(1); // the parked job is still open
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    p.enrichmentJob.findMany.mockImplementation(async (args: any) => {
+      if (args?.where?.family === "REVIEWS") {
+        return [{ id: "ej1", businessId: "b1", costUsd: 0, startedAt: start }];
+      }
+      return [];
+    });
+    p.reviewJob.findFirst.mockResolvedValue(null);
+
+    const closed = await closeRunIfDone("r1", now);
+
+    expect(closed).toBe(false);
+    expect(p.enrichmentJob.update).not.toHaveBeenCalled();
   });
 });

@@ -60,6 +60,9 @@ export interface EstimateResult {
   freshHitUsd: number;
   netUsd: number;
   netCredits: number;
+  /** Credits saved by the fresh cache (fresh units × family credit) — the
+   *  customer-facing "you saved N credits" figure, in the CREDIT unit not COGS. */
+  freshCredits: number;
   upperBoundUsd: number;
   confidence: EstimateConfidence;
   gate: CostGate;
@@ -149,6 +152,16 @@ export function estimateRun(input: {
     0,
   );
 
+  // Credits SAVED by the fresh cache = gross − net, in the CUSTOMER credit unit
+  // (fresh units × their family credit). This is the "you saved N credits"
+  // delight number. It must NOT be usdToCredits(freshHitUsd) — that's the vendor
+  // COGS basis (7× off for meta after the 2026-07-10 COGS bump). Same schedule
+  // as netCredits so the two always reconcile against grossCredits.
+  const freshCredits = lines.reduce(
+    (s, l) => s + l.fresh * CREDIT_PRICES[l.enrichment],
+    0,
+  );
+
   // Bounded if any BILLABLE line has variable cost (upperMultiplier > 1).
   const confidence: EstimateConfidence = lines.some(
     (l) =>
@@ -163,6 +176,7 @@ export function estimateRun(input: {
     freshHitUsd,
     netUsd,
     netCredits,
+    freshCredits,
     upperBoundUsd,
     confidence,
     gate: gateFor(netUsd),

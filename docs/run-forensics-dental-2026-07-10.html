@@ -1,0 +1,1396 @@
+<style>
+  :root {
+    --ink: #1a1d29;
+    --mut: #5b6172;
+    --line: #e4e7ef;
+    --panel: #f7f8fc;
+    --indigo: #5b3df5;
+    --green: #0f9d58;
+    --amber: #b8860b;
+    --red: #c0392b;
+    --g-bg: #eafaf1;
+    --a-bg: #fdf6e3;
+    --r-bg: #fdedeb;
+    --i-bg: #efeaff;
+  }
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    background: #fff;
+  }
+  .doc {
+    font:
+      15px/1.6 -apple-system,
+      "Segoe UI",
+      Roboto,
+      sans-serif;
+    color: var(--ink);
+    max-width: 1020px;
+    margin: 0 auto;
+    padding: 36px 30px 80px;
+  }
+  h1 {
+    font-size: 28px;
+    margin: 0 0 3px;
+    letter-spacing: -0.02em;
+  }
+  .part {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    color: var(--indigo);
+    text-transform: uppercase;
+    margin: 38px 0 -2px;
+  }
+  h2 {
+    font-size: 20px;
+    margin: 6px 0 8px;
+    padding-top: 12px;
+    border-top: 2px solid var(--line);
+  }
+  h3 {
+    font-size: 15.5px;
+    margin: 20px 0 5px;
+  }
+  .sub {
+    color: var(--mut);
+    margin: 0 0 6px;
+  }
+  .hl {
+    color: var(--indigo);
+  }
+  p {
+    margin: 7px 0;
+  }
+  code {
+    background: #eef0f7;
+    color: #4b32c2;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 12.5px;
+  }
+  .src {
+    color: var(--mut);
+    font-size: 12px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0 6px;
+    font-size: 13px;
+  }
+  th,
+  td {
+    text-align: left;
+    padding: 6px 9px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  thead th {
+    background: var(--panel);
+    color: var(--mut);
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border-bottom: 2px solid var(--line);
+  }
+  td.n,
+  th.n {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  tr.hi td {
+    background: var(--i-bg);
+  }
+  tr.bad td {
+    background: var(--r-bg);
+  }
+  .call {
+    border-left: 4px solid var(--indigo);
+    background: var(--panel);
+    padding: 11px 15px;
+    border-radius: 7px;
+    margin: 12px 0;
+  }
+  .call.g {
+    border-color: var(--green);
+    background: var(--g-bg);
+  }
+  .call.a {
+    border-color: var(--amber);
+    background: var(--a-bg);
+  }
+  .call.r {
+    border-color: var(--red);
+    background: var(--r-bg);
+  }
+  b.g {
+    color: var(--green);
+  }
+  b.a {
+    color: var(--amber);
+  }
+  b.r {
+    color: var(--red);
+  }
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 20px;
+  }
+  .p-g {
+    background: var(--g-bg);
+    color: var(--green);
+  }
+  .p-a {
+    background: var(--a-bg);
+    color: var(--amber);
+  }
+  .p-r {
+    background: var(--r-bg);
+    color: var(--red);
+  }
+  .p-i {
+    background: var(--i-bg);
+    color: var(--indigo);
+  }
+  ul {
+    margin: 5px 0;
+    padding-left: 19px;
+  }
+  li {
+    margin: 3px 0;
+  }
+  .score {
+    display: flex;
+    gap: 9px;
+    flex-wrap: wrap;
+    margin: 10px 0;
+  }
+  .sc {
+    flex: 1 1 118px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 9px 11px;
+  }
+  .sc .v {
+    font-size: 23px;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .sc .k {
+    font-size: 11.5px;
+    color: var(--mut);
+    margin-top: 3px;
+  }
+  .foot {
+    color: var(--mut);
+    font-size: 12px;
+    margin-top: 34px;
+    border-top: 1px solid var(--line);
+    padding-top: 11px;
+  }
+  .toc {
+    columns: 2;
+    font-size: 13px;
+    margin: 8px 0;
+  }
+  .toc a {
+    color: var(--indigo);
+    text-decoration: none;
+  }
+</style>
+
+<div class="doc">
+  <h1>Run forensics — <span class="hl">Dental Clinic · 2 markets</span></h1>
+  <p class="sub">
+    2026-07-10 · deep investigation on REAL data · discovery
+    <code>cmre6l5mh000704jp51wk29nm</code> (dental_clinic + hvac_contractor ·
+    Kelowna, CA) · 138 businesses, 122 targeted, 2 runs, 770 credits settled,
+    $3.82 vendor spend. Method: 4 parallel investigators (live Neon DB + code),
+    every number below is a real DB row or a cited file:line. Includes the
+    consolidated fix plan from all of today's investigations (progress sawtooth
+    · ETA · worker 401 · meta salvage).
+  </p>
+
+  <div class="call a" style="margin: 18px 0; border-left-width: 5px">
+    <b
+      >Implementation status — 2026-07-10 (uncommitted · gate-green · 3495 tests
+      pass).</b
+    >
+    Phases 1–4 of the plan below are IMPLEMENTED and tested; Meta repriced to
+    <b>25 credits/market</b> (Viktor's call). What landed:
+    <ul style="margin: 8px 0 0 18px; line-height: 1.5">
+      <li>
+        <b>P1 · stop-the-bleeding</b> — worker-401 dual-auth (+test) · Meta
+        salvage (timeout-with-data = PARTIAL success, bills 25cr) · real cost
+        recording (elapsed×memory, kills the $0.02 fallback) · soft-fail retry
+        ladder + google-ads rethrow · Meta 12→25cr + COGS 0.12→0.85.
+      </li>
+      <li>
+        <b>P2 · run-close truth</b> — <code>pendingCellCount</code>: a run stays
+        open while a cell family is in flight; 15-min reverse-stall ceiling.
+      </li>
+      <li>
+        <b>P3 · permanent-failure lifecycle (server core)</b> — a
+        (business,family) that failed 3× cross-run or hit a non-retryable reason
+        is skipped at fan-out (no job → no vendor $ → no charge).
+        <i
+          >ai_research investigated: it's display-only; auto-quoting it would
+          charge for unread data — left on-demand.</i
+        >
+      </li>
+      <li>
+        <b>P4 · progress + ETA</b> — the counter is now business-unit (kills the
+        46→89→31 sawtooth at the source) + client monotonic guard + EMA-smoothed
+        range ETA ("~2–4 min", never grows).
+      </li>
+    </ul>
+    <b>Reviewed (adversarial chain):</b> payments-auditor —
+    <b>no money-losing or over-charging bug</b> (25cr applied consistently at
+    hold + settle, settle double- clamped, blocked cells refund, salvage bills
+    only when real data persisted). code-reviewer — <b>APPROVE</b> (all
+    billing/data-integrity paths correct). Both Medium findings fixed in this
+    same pass: the cost estimate is now actor-specific (datacenter default
+    $0.4/GB-h; Meta passes $2.8, so a benign DOM/Lighthouse timeout can't
+    over-book COGS) and the permanent-failure cap now has a 30-day recovery
+    window (a transiently-down site isn't skipped forever). Three low nits fixed
+    too (fresh-credits shown in the credit basis not COGS; stale comments). One
+    pre-existing latent nit (dispute refund uses COGS basis) spun off as its own
+    task. <br /><br />
+    <b>P5 + P3 remainder — IMPLEMENTED (second pass, same day):</b> Viktor
+    supplied the Boxly worker repo + approved the prod migration, so the
+    deferred set is now closed: <b>chunked Meta targets</b> (≤20/run,
+    searchTerms ride chunk 1, 180s wall budget →
+    <code>detailJson.pendingTargets</code>);
+    <b>prod migration applied</b> (AdMarketRun.apifyRunId + detailJson +
+    platform/ranAt index · EnrichmentJob (runId,businessId,status) index — 28
+    migrations, DB in sync); <b>meta-reconcile cron</b> (every 10 min: backfills
+    FINALIZED Apify usage onto estimated rows + continues budget-stopped chunk
+    collections · poll-continuation per realtime-runs-adr, chosen over an Apify
+    webhook); <b>120s worker-lane mismatch retired</b> (worker DTO cap 120→360
+    in the Boxly repo — Viktor deploys the worker manually — + enrich-cell lane
+    timeoutSec 310, old-worker rejection degrades to the inline fallback);
+    <b>website gate now per-family</b> (a mixed reviews+contacts run keeps
+    site-less businesses in scope for reviews; dependent lines quote site-havers
+    only; fan-out matches); <b>parked-reviews stall ceiling</b> (30 min →
+    reviews_landing_timeout, unbilled);
+    <b>rerun scope default fixed</b> (EnrichMoreSheet defaults to the WHOLE
+    research, never the visible page window — the 28-vs-122 bug);
+    <b>dead pairs excluded from the quote</b> ("Enrich N" stops counting
+    permanently-unavailable leads). Gate re-run: typecheck · lint · build · 3517
+    tests green; worker repo typechecks. Remaining for Viktor's browser pass:
+    the grey "Not available" cell rendering.
+  </div>
+
+  <div class="toc">
+    <a href="#s">System scorecard</a><br />
+    <a href="#a">A · What actually happened (timeline)</a><br />
+    <a href="#b">B · Per-family truth — 122 leads</a><br />
+    <a href="#c">C · The Meta actor story (S2)</a><br />
+    <a href="#d">D · "Finished" while still running (S3)</a><br />
+    <a href="#e">E · Why the run under-delivered (S4)</a><br />
+    <a href="#f">F · Playbooks / worker 401 (S1)</a><br />
+    <a href="#g">G · Current vs proposed — all gaps</a><br />
+    <a href="#h">H · The fix plan (phased)</a><br />
+    <a href="#i">I · Coverage check — nothing dropped</a><br />
+  </div>
+
+  <!-- ============ SCORECARD ============ -->
+  <div class="part" id="s">Scorecard</div>
+  <h2>Current system, scored on this run's real behavior</h2>
+  <div class="score">
+    <div class="sc">
+      <div class="v" style="color: var(--red)">2</div>
+      <div class="k">Run-completion truth (closed while actors ran)</div>
+    </div>
+    <div class="sc">
+      <div class="v" style="color: var(--red)">2</div>
+      <div class="k">Run-status honesty ("OK 122/122" w/ 62 failures)</div>
+    </div>
+    <div class="sc">
+      <div class="v" style="color: var(--red)">2.5</div>
+      <div class="k">
+        Meta resilience (structural timeouts, results discarded)
+      </div>
+    </div>
+    <div class="sc">
+      <div class="v" style="color: var(--red)">3</div>
+      <div class="k">Retry robustness (soft-fails never retry)</div>
+    </div>
+    <div class="sc">
+      <div class="v" style="color: var(--red)">2</div>
+      <div class="k">Progress display (sawtooth)</div>
+    </div>
+    <div class="sc">
+      <div class="v" style="color: var(--red)">3</div>
+      <div class="k">ETA honesty (1↔5 min flips)</div>
+    </div>
+    <div class="sc">
+      <div class="v" style="color: var(--red)">2</div>
+      <div class="k">Playbooks close-sweep (dead since Jul 2)</div>
+    </div>
+    <div class="sc">
+      <div class="v" style="color: var(--amber)">4</div>
+      <div class="k">Rerun completeness (28 of 122 scoped)</div>
+    </div>
+    <div class="sc">
+      <div class="v" style="color: var(--indigo)">2.6</div>
+      <div class="k"><b>Overall</b> → proposed ≈ 8.8</div>
+    </div>
+  </div>
+  <div class="call g">
+    <b>What held up:</b> billing math was exact (757 + 13 credits settle to the
+    schedule to the credit; failed work was refunded, 94 + 50 cr), the
+    per-business job engine never stranded a QUEUED job, reviews + services hit
+    122/122, and the known cell-settle and soft-block-cache bugs from earlier
+    audits are confirmed fixed. The engine is sound —
+    <b
+      >the truth-reporting and resilience layers around it are what failed
+      you.</b
+    >
+  </div>
+
+  <!-- ============ PART A ============ -->
+  <div class="part" id="a">Part A</div>
+  <h2>
+    What actually happened — the reconstructed timeline (all times Jul 10 UTC)
+  </h2>
+  <table>
+    <thead>
+      <tr>
+        <th class="n">Time</th>
+        <th>Event</th>
+        <th>Truth</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="n">00:12:04</td>
+        <td>
+          Discovery created · 2 cells · 138 businesses found, 122 targeted
+        </td>
+        <td>16 businesses below the Target threshold never entered the run</td>
+      </tr>
+      <tr>
+        <td class="n">00:12:23</td>
+        <td>Quote minted: 851 credits</td>
+        <td>
+          <b class="r">ai_research already missing</b> from the estimate —
+          dropped at goal→researches derivation, silently
+        </td>
+      </tr>
+      <tr>
+        <td class="n">00:16:06</td>
+        <td><b>Run 1 starts</b> · 122 units · 8 families · 851 cr held</td>
+        <td>610 per-business jobs + 2 SERP + 2 META cell runs fan out</td>
+      </tr>
+      <tr>
+        <td class="n">00:19:02</td>
+        <td>SERP hvac lands OK (dental was fresh from Jul 5)</td>
+        <td>✓</td>
+      </tr>
+      <tr class="bad">
+        <td class="n">00:23:23/24</td>
+        <td><b>Both META cells FAIL</b> (actor timeout at 280s)</td>
+        <td>
+          Structural: 60 page-targets per run × ~4–10s each ≫ 280s — failure was
+          deterministic; $0.02 fallback billed to us each, 0 credits charged to
+          you (correct)
+        </td>
+      </tr>
+      <tr class="bad">
+        <td class="n">00:27:37</td>
+        <td>
+          <b>Run 1 closes "OK · 122/122"</b> · 757 cr settled · 94 refunded ·
+          toast + email say 0 failed
+        </td>
+        <td>
+          Reality: 62 family jobs FAILED (5 contacts, 49 google_ads, 8
+          lighthouse) + both META cells failed. Status counts a business "done"
+          if ANY family succeeded — reviews/services went 122/122, masking
+          everything
+        </td>
+      </tr>
+      <tr>
+        <td class="n">00:29:54</td>
+        <td>
+          <b>Run 2 (your rerun)</b> · scoped 28 businesses (not 122) · 63 cr
+          held
+        </td>
+        <td>
+          The sheet's "to-get" set = group-level failed/not_run — recovered 11
+          google_ads + 1 lighthouse; the same one-shot failure classes re-failed
+          instantly (3+13+5)
+        </td>
+      </tr>
+      <tr class="bad">
+        <td class="n">00:33:23</td>
+        <td><b>Run 2 closes "PARTIAL"</b> · 13 cr settled · 50 refunded</td>
+        <td>Both META cells were STILL RUNNING — the app said finished (S3)</td>
+      </tr>
+      <tr class="hi">
+        <td class="n">00:35:11</td>
+        <td>
+          <b>META dental lands OK</b> — 11 advertisers, 3 matched businesses, 3
+          creatives
+        </td>
+        <td>
+          <b class="a">108s after close</b>: never billed (12 cr missed),
+          invisible until a manual page reload, playbooks never recomputed
+        </td>
+      </tr>
+      <tr class="bad">
+        <td class="n">00:35:23</td>
+        <td>META hvac FAILS again (timeout)</td>
+        <td>
+          The 43/15 advertisers you saw exist in the timed-out Apify runs'
+          datasets — <b class="r">never ingested</b> (mechanism in Part C)
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ============ PART B ============ -->
+  <div class="part" id="b">Part B</div>
+  <h2>Per-family truth — what your 122 leads actually got</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Family</th>
+        <th class="n">Done</th>
+        <th class="n">Failed</th>
+        <th class="n">Fresh-skip</th>
+        <th class="n">Coverage</th>
+        <th>Why the gap</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Reviews</td>
+        <td class="n">122</td>
+        <td class="n">0</td>
+        <td class="n">0</td>
+        <td class="n"><b class="g">100%</b></td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td>Services (AI)</td>
+        <td class="n">122</td>
+        <td class="n">0</td>
+        <td class="n">0</td>
+        <td class="n"><b class="g">100%</b></td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td>Contacts</td>
+        <td class="n">107+10 fresh</td>
+        <td class="n">5</td>
+        <td class="n">10</td>
+        <td class="n"><b class="g">96%</b></td>
+        <td>
+          5 permanent (dead sites / WAF after fallback) — legit fails, but
+          one-shot: never retried
+        </td>
+      </tr>
+      <tr>
+        <td>Site speed</td>
+        <td class="n">104+10 fresh</td>
+        <td class="n">8</td>
+        <td class="n">10</td>
+        <td class="n"><b class="g">94%</b></td>
+        <td>
+          walled/0-audited — one-shot terminal, 1 of 6 recovered on your rerun
+        </td>
+      </tr>
+      <tr class="bad">
+        <td>Google ads</td>
+        <td class="n">72+1 fresh · +11 rerun</td>
+        <td class="n">49→38</td>
+        <td class="n">1</td>
+        <td class="n"><b class="a">69%</b></td>
+        <td>
+          <b>Vendor throws swallowed as "skipped"</b> — 49 DfS errors (likely
+          rate-limit at concurrency 6) went terminal on attempt 1; 11 of 13
+          retried by hand succeeded → they were transient all along
+        </td>
+      </tr>
+      <tr class="bad">
+        <td>AI research</td>
+        <td class="n">0</td>
+        <td class="n">0</td>
+        <td class="n">0</td>
+        <td class="n"><b class="r">0%</b></td>
+        <td>
+          <b>Silently dropped before the quote</b> — the goal→researches mapping
+          never requested it; you believed "all researches" ran
+        </td>
+      </tr>
+      <tr class="bad">
+        <td>Meta ads (2 cells)</td>
+        <td class="n">1 cell (late)</td>
+        <td class="n">4 attempts</td>
+        <td class="n">—</td>
+        <td class="n"><b class="r">50%</b></td>
+        <td>
+          Structural 280s timeout vs 60-target input; delivered results
+          discarded (Part C)
+        </td>
+      </tr>
+      <tr>
+        <td>SERP (2 cells)</td>
+        <td class="n">2</td>
+        <td class="n">0</td>
+        <td class="n">1 fresh</td>
+        <td class="n"><b class="g">100%</b></td>
+        <td>—</td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="as src">
+    Credits: run 1 held 851 → settled 757 → refunded 94 · run 2 held 63 →
+    settled 13 → refunded 50. Settle math verified exact against CREDIT_PRICES —
+    you were never overcharged; failed work refunded. The late-landing dental
+    META (12 cr) was delivered <b>free</b> (we also ate the vendor cost).
+  </p>
+
+  <!-- ============ PART C ============ -->
+  <div class="part" id="c">Part C</div>
+  <h2>
+    The Meta actor story — why it failed 3× and where your 43/15 advertisers
+    went (S2)
+  </h2>
+  <ul>
+    <li>
+      <b>Structural timeout:</b> one actor run gets up to
+      <b>60 page-targets</b> (<code>meta-ads.ts:64-68</code>) with a hard Apify
+      timeout of <b>280s</b> (<code>services/apify/client.ts:166</code>). At
+      ~4–10s per target that cannot finish. Your per-market failures — and the
+      identical rerun failure — were <b>deterministic</b>, not bad luck.
+    </li>
+    <li>
+      <b>The salvage that half-exists:</b> the client CAN read a timed-out run's
+      dataset and classify a data-bearing timeout as "partial" — but three bail
+      paths throw the data away: (1) the local poll deadline (295s)
+      <b>throws before reading the dataset</b> when Apify queue/boot time eats
+      the 15s margin (<code>client.ts:226-232</code>) — this is exactly the
+      "actor delivered 43/15 but the app shows nothing" mechanism; (2) the Boxly
+      worker caps the callback at <b>120s</b> vs the ~300s the route needs
+      (<code>enrich-worker-dispatch.ts:124</code>) — it abandons and retries,
+      starting <b>duplicate actor runs</b>; (3) <code>meta-ads.ts:358-379</code>
+      <b>hard-discards</b> rows/advertisers whenever outcome=timeout, even when
+      non-empty.
+    </li>
+    <li>
+      <b>Unrecoverable by design:</b> AdMarketRun stores
+      <b>no Apify run id and no error detail</b> — a run that finishes after we
+      bailed can never be found again; diagnosing failures requires console
+      logs.
+    </li>
+    <li>
+      <b>Money:</b> failed cells correctly bill you 0 credits (the earlier fix
+      works). But we pay the actor for every timed-out run, and the
+      deadline-throw path doesn't even record that spend.
+    </li>
+  </ul>
+  <div class="call g">
+    <b>Your decision, honored in the design:</b> timeout-with-results = SUCCESS.
+    The fix set below (G · Meta rows) makes every bail path salvage the dataset
+    first, persists partial advertisers as <code>PARTIAL</code> (which
+    auto-bills via the existing OK/PARTIAL gate), stores the Apify run id for
+    late completion, and chunks targets to ≤15–20 per run (~4 runs × ~100s ≈
+    $0.18/cell) so timeouts stop being structural. Raising the timeout alone
+    (280→420s) is included as a cheap option but chunking is the real fix.
+  </div>
+
+  <!-- ============ PART D ============ -->
+  <div class="part" id="d">Part D</div>
+  <h2>"Finished" while still running — the run-close blind spot (S3)</h2>
+  <p>
+    <code>closeRunIfDone</code>'s done-ness predicate counts only per-business
+    <code>EnrichmentJob</code> rows (<code>dispatch.ts:1299-1302</code>).
+    Meta/SERP cell work creates <b>no job rows</b> — so the run closes, settles
+    credits, stops the UI poll, toasts "Enriched N leads" and sends the
+    run-finished email while the actors are still working. Proven live: run 2
+    closed 00:33:23; its META cells landed 00:35:11/00:35:23. Consequences, all
+    observed on your run:
+  </p>
+  <ul>
+    <li>
+      <b>Status lies:</b> run 1 closed "OK" with both META cells failed — cell
+      outcomes never influence run status.
+    </li>
+    <li>
+      <b>Late results are unbilled + invisible:</b> the 00:35:11 dental result
+      (12 cr) missed the one-shot settle forever and only appears on a manual
+      reload; under the (dark) entitlement flag it would never appear at all.
+    </li>
+    <li>
+      <b>No UI represents cell work:</b> the Enriching checklist has no "Market
+      signals" stage; the workbench "running" badge dies at close.
+    </li>
+    <li>
+      <b>Cell-only runs close instantly</b> (a "just meta ads for this market"
+      purchase would always deliver late, unbilled, unannounced).
+    </li>
+  </ul>
+
+  <!-- ============ PART E ============ -->
+  <div class="part" id="e">Part E</div>
+  <h2>
+    Why one run didn't fully enrich 122 leads — and the rerun didn't finish the
+    job (S4)
+  </h2>
+  <ul>
+    <li>
+      <b>The dominant mechanism — soft failures never retry.</b> The 3-attempt
+      retry ladder only covers <i>thrown</i> errors. A worker result of
+      ok=false/billable=false goes
+      <b>terminal FAILED on attempt 1</b> (<code>dispatch.ts:1057-1072</code>).
+      That's what hit google_ads (49 swallowed DfS vendor errors —
+      <code>google-ads.ts:214-227</code> catches the throw and returns
+      "skipped"), contacts (5) and lighthouse (8). Proof they were transient: 11
+      of the 13 google_ads you re-ran by hand succeeded. Two code comments
+      falsely claim the ladder covers this.
+    </li>
+    <li>
+      <b>Rerun scope was 28, not 122.</b> The enrich sheet's "to-get" set is the
+      group-level failed/not_run roll-up over your (filtered) view — it
+      re-queued only 28 businesses, correctly skipped fresh work, and the same
+      one-shot failure classes re-failed instantly. Then it closed "finished"
+      again (with its META cells still running).
+    </li>
+    <li>
+      <b>No aggregate truth anywhere:</b> the run-finished email computed "122
+      enriched · 0 failed"; the done-card shows business-level counts only. The
+      per-family reality (62 failures) exists only as scattered red dots in the
+      workbench.
+    </li>
+    <li>
+      <b>ai_research never ran</b> — dropped silently before the quote
+      (goal-template signal mapping), so "all researches" was 7 of 8 from the
+      start.
+    </li>
+    <li>
+      <b>What did NOT fail:</b> no stranded QUEUED jobs (the engine drains +
+      reconciles properly); freshness logic correctly re-quoted failed work;
+      billing exact.
+    </li>
+  </ul>
+
+  <!-- ============ PART F ============ -->
+  <div class="part" id="f">Part F</div>
+  <h2>Playbooks + worker 401 — refined with DB truth (S1)</h2>
+  <p>
+    The 401 diagnosis stands: the worker calls
+    <code>/api/internal/run-playbooks</code> with the worker token; the route
+    only accepts CRON_SECRET (<code>route.ts:78</code>); the worker treats 401
+    as terminal — <b>the close-sweep has been dead since Jul 2</b> (CronRun
+    <code>enrich:playbooks</code>: 0 rows in 10 days). The DB refinement:
+    <b>476 PlaybookFindings DID land for your run</b> via a different path (the
+    reviews-webhook inline recompute during the run) — so playbooks aren't
+    entirely missing, but
+    <b>55 findings are stuck at "missing-enrichment"</b> even though the data
+    has since arrived (25 lighthouse-stale ones now have audits; 14 tech-stale
+    now have contacts), and <b>zero recomputes</b> happened after your rerun or
+    the late META landing. Fix: the 3-line dual-auth + a one-time backfill
+    sweep.
+  </p>
+
+  <!-- ============ PART G ============ -->
+  <div class="part" id="g">Part G</div>
+  <h2>All gaps — current vs proposed, scored</h2>
+
+  <h3>G1 · Meta pipeline (S2)</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Gap</th>
+        <th>Current</th>
+        <th class="n">Now</th>
+        <th>Proposed</th>
+        <th class="n">After</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="hi">
+        <td>
+          <b>Timeout discards delivered results</b>
+          <span class="pill p-r">critical</span>
+        </td>
+        <td>
+          <code>meta-ads.ts:358-379</code> throws away rows/advertisers on any
+          timeout — your 43/15 were paid for and dropped
+        </td>
+        <td class="n">3</td>
+        <td>
+          Discard only when EMPTY; else persist + mark <code>PARTIAL</code> =
+          success (bills automatically). <b>Hours.</b>
+        </td>
+        <td class="n">9</td>
+      </tr>
+      <tr class="hi">
+        <td>
+          <b>Poll-deadline bail reads nothing</b>
+          <span class="pill p-r">critical</span>
+        </td>
+        <td>
+          295s local deadline throws without reading the dataset or billing
+          usage; actor keeps running unseen (<code>client.ts:226-232</code>)
+        </td>
+        <td class="n">2</td>
+        <td>
+          On deadline: fetch dataset + summary once, return salvaged items + run
+          id. <b>~30 lines, half-day.</b>
+        </td>
+        <td class="n">9</td>
+      </tr>
+      <tr>
+        <td>
+          <b>No apifyRunId / error on AdMarketRun</b>
+          <span class="pill p-r">critical</span>
+        </td>
+        <td>Late completion unrecoverable; failures undiagnosable from DB</td>
+        <td class="n">2</td>
+        <td>
+          Add <code>apifyRunId</code> + <code>detailJson</code> (migration);
+          Apify webhook or reconcile cron flips FAILED→PARTIAL when the run
+          finished later. <b>1–2 sessions.</b>
+        </td>
+        <td class="n">9</td>
+      </tr>
+      <tr>
+        <td>
+          <b>Worker 120s cap vs 300s route</b>
+          <span class="pill p-r">critical</span>
+        </td>
+        <td>
+          Worker abandons + retries → duplicate actor runs, double Apify spend
+        </td>
+        <td class="n">2</td>
+        <td>
+          Make enrich-cell async: start actor, persist PENDING + run id, ACK in
+          seconds; webhook/cron completes. <b>M–L, also feeds the S3 fix.</b>
+        </td>
+        <td class="n">9</td>
+      </tr>
+      <tr>
+        <td>
+          <b>60 targets × 280s = structural timeout</b>
+          <span class="pill p-a">major</span>
+        </td>
+        <td>Big cells fail deterministically; reruns repeat identical input</td>
+        <td class="n">3</td>
+        <td>
+          Chunk to ≤15–20 targets/run (~4 runs ≈ $0.18/cell, each salvageable);
+          optional timeout 280→420s + meta COGS 0.12→~0.20. <b>1 session.</b>
+        </td>
+        <td class="n">9</td>
+      </tr>
+      <tr class="hi">
+        <td>
+          <b
+            >Meta cost telemetry is blind — every run books the $0.02
+            fallback</b
+          >
+          <span class="pill p-r">critical (pricing)</span>
+        </td>
+        <td>
+          ALL 10 META AdMarketRuns ever (OK and FAILED alike) recorded exactly
+          $0.02 = FALLBACK_COST_USD, never the real Apify usage.
+          <b
+            >Apify console truth (Viktor's screenshot, the 4 runs of this
+            research): $0.724 + $0.765 + $1.215 + $0.772 = $3.48 — ~43× what our
+            books say ($0.08)</b
+          >, and ~7× the $0.12 estimate constant. The cost driver isn't compute
+          (0.31 CU ≈ $0.12) — it's residential-proxy traffic with images on.
+        </td>
+        <td class="n">1</td>
+        <td>
+          Record real <code>usageTotalUsd</code> on AdMarketRun in every path
+          (incl. timeout/salvage; the INC-48 post-terminal refetch already
+          exists in client.ts — wire it through meta-ads.ts instead of the
+          constant). Add to <b>Phase 1</b>. <b>Hours.</b>
+        </td>
+        <td class="n">9</td>
+      </tr>
+      <tr class="hi">
+        <td>
+          <b
+            >Own-actor meta economics are broken at 12 credits — decision
+            required</b
+          >
+          <span class="pill p-r">critical (pricing)</span>
+        </td>
+        <td>
+          Real cost ≈ <b>$0.87/attempt</b> (timeout-capped; a full 60-target
+          cell would cost ~$2–3.5 at the observed ~$0.04–0.06 per proxied
+          target). 12 cr collects $0.55–0.91 →
+          <b>negative-to-breakeven even with perfect salvage</b>. This research:
+          ~$3.48 meta spend (+ Jul 5 attempts), 11 advertisers ingested, 0
+          credits billed.
+        </td>
+        <td class="n">1</td>
+        <td>
+          Three options: <b>(B, recommended)</b> switch primary meta collection
+          to the store actor — pay-per-result $0.75/1K (your 43-result run would
+          cost ~$0.03), already validated "100% success, fastest reliable path"
+          in the June baseline memory; keep our stealth actor as fallback;
+          <b>12 cr then holds with fat margin</b>. (C) stay on own actor: cap
+          targets ~20/cell + images-off to cut proxy GB + reprice meta 12→20–24
+          cr. (A, interim while deciding) keep the 280s timeout as the de-facto
+          spend cap + salvage results + fix recording. <b>Decision: Viktor.</b>
+        </td>
+        <td class="n">9</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>G2 · Run completion & status (S3)</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Gap</th>
+        <th>Current</th>
+        <th class="n">Now</th>
+        <th>Proposed</th>
+        <th class="n">After</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="hi">
+        <td>
+          <b>Run closes with cells in flight</b>
+          <span class="pill p-r">critical</span>
+        </td>
+        <td>
+          Done-ness ignores AdMarketRuns; premature toast/email/settle; late
+          cells unbilled (12 cr eaten) + invisible
+        </td>
+        <td class="n">3</td>
+        <td>
+          Track <code>pendingCells</code> on the run at fan-out; close waits for
+          each cell's row (any status) with a 15-min ceiling;
+          billing/entitlement then run unchanged at true close.
+          <b>0.5–1 day incl. tests.</b>
+        </td>
+        <td class="n">9</td>
+      </tr>
+      <tr>
+        <td>
+          <b>Status lies (OK with failed cells)</b>
+          <span class="pill p-a">major</span>
+        </td>
+        <td>Status derives from business verdicts only</td>
+        <td class="n">2</td>
+        <td>
+          cellFailed counts flip status PARTIAL; existing PARTIAL
+          toast/breakdown then report it. <b>~15 lines inside the same edit.</b>
+        </td>
+        <td class="n">9</td>
+      </tr>
+      <tr>
+        <td>
+          <b>No "Market signals" stage in UI</b>
+          <span class="pill p-a">major</span>
+        </td>
+        <td>Checklist omits meta/serp; running badge dies at close</td>
+        <td class="n">3</td>
+        <td>
+          Add the stage (landed vs pendingCells); waiting-run keeps existing
+          badges truthful for free. <b>~25 lines.</b>
+        </td>
+        <td class="n">8</td>
+      </tr>
+      <tr>
+        <td>
+          <b>Cell-only runs close instantly</b>
+          <span class="pill p-a">major</span>
+        </td>
+        <td>Guaranteed late/unbilled outcome for "just meta/serp" purchases</td>
+        <td class="n">1</td>
+        <td>
+          Same pendingCells predicate covers it; add one test.
+          <b>Free with the above.</b>
+        </td>
+        <td class="n">9</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>G3 · Retry robustness & rerun (S4)</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Gap</th>
+        <th>Current</th>
+        <th class="n">Now</th>
+        <th>Proposed</th>
+        <th class="n">After</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="hi">
+        <td>
+          <b>Soft failures are one-shot terminal</b>
+          <span class="pill p-r">critical</span>
+        </td>
+        <td>
+          62/610 jobs died on attempt 1; retry ladder only covers thrown errors;
+          11/13 hand-retried google_ads succeeded (transient!)
+        </td>
+        <td class="n">3</td>
+        <td>
+          Requeue retryable reasons (contacts_fetch_failed,
+          lighthouse_0_audited, google_ads_error) with attempts+backoff; keep
+          permanent reasons terminal; make google-ads rethrow instead of
+          swallowing to "skipped". <b>~30 lines + allowlist test.</b>
+        </td>
+        <td class="n">9</td>
+      </tr>
+      <tr>
+        <td>
+          <b>No per-family completion report</b>
+          <span class="pill p-a">major</span>
+        </td>
+        <td>
+          Email said "122 enriched · 0 failed"; truth (62 failures) invisible
+        </td>
+        <td class="n">2</td>
+        <td>
+          Fold {family → done/fresh/failed} into run meta at close; render in
+          done-card, email, workbench banner: "Contacts 112/122 · Google ads
+          72/122 · 62 failed — retry". <b>Small.</b>
+        </td>
+        <td class="n">9</td>
+      </tr>
+      <tr>
+        <td>
+          <b>No one-click "Retry failed (N)"</b>
+          <span class="pill p-a">major</span>
+        </td>
+        <td>
+          Retry = manually re-opening the sheet over a (filtered) scope; your
+          rerun caught 28 of 122
+        </td>
+        <td class="n">4</td>
+        <td>
+          "Retry failed (N)" chip on the done banner: server enumerates FAILED
+          (business×family) across the WHOLE research, preflights exactly that
+          set. <b>Small–medium.</b>
+        </td>
+        <td class="n">9</td>
+      </tr>
+      <tr>
+        <td>
+          <b>ai_research silently dropped</b>
+          <span class="pill p-a">minor→major impact</span>
+        </td>
+        <td>
+          0/122 ran; missing from the quote itself; user believes "all" ran
+        </td>
+        <td class="n">4</td>
+        <td>
+          Fix the goal→researches mapping to include ai_research where intended
+          + show the family list on the run confirmation so omissions are
+          visible. <b>Small.</b>
+        </td>
+        <td class="n">8</td>
+      </tr>
+      <tr>
+        <td>
+          <b>Website-gate asymmetry</b> <span class="pill p-i">minor</span>
+        </td>
+        <td>
+          Market path excludes website-less leads from ALL families; rerun path
+          gates nothing
+        </td>
+        <td class="n">5</td>
+        <td>
+          Per-family gate at fan-out (reviews/meta still run for website-less).
+          <b>Medium.</b>
+        </td>
+        <td class="n">8</td>
+      </tr>
+      <tr class="hi">
+        <td>
+          <b>Permanent failures are retryable forever</b>
+          <span class="pill p-r">critical (trust + money)</span>
+        </td>
+        <td>
+          A dead website or no-data lead shows red "Failed" with a rerun
+          affordance FOREVER — the "Enrich 45 · ~55 cr" button counts and quotes
+          hopeless leads; each rerun burns the user's time, our vendor spend,
+          and trust, and still delivers nothing (your 5 contacts + several
+          lighthouse fails are exactly this)
+        </td>
+        <td class="n">2</td>
+        <td>
+          Failure-reason taxonomy (permanent: no_website, no_source, dead-DNS,
+          no-CID, guard-tripped · transient: vendor error, timeout, WAF-maybe) +
+          a cross-run attempt cap (3 total attempts → flip to
+          <b>"Not available"</b>): grey state with an honest tooltip ("site
+          unreachable — we tried 3×, you weren't charged"), EXCLUDED from the
+          enrich sheet's to-get count and quote ("Enrich 12 · ~14 cr · 33
+          unavailable"), skipped at fan-out. Stops the retry treadmill for both
+          sides. <b>Small–medium.</b>
+        </td>
+        <td class="n">9</td>
+      </tr>
+      <tr>
+        <td>
+          <b>Reverse-stall: parked reviews job can hold a run open forever</b>
+          <span class="pill p-i">minor</span>
+        </td>
+        <td>
+          A RUNNING reviews job awaiting a ReviewJob that never terminates keeps
+          the run open indefinitely (reconcileStuck deliberately skips it)
+        </td>
+        <td class="n">4</td>
+        <td>
+          Add a hard ceiling (e.g. 30 min) after which the parked job goes
+          FAILED-transient and the run can close honestly. <b>Small.</b>
+        </td>
+        <td class="n">8</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>
+    G4 · Playbooks / callbacks (S1) + progress & ETA (from today's earlier
+    investigations)
+  </h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Gap</th>
+        <th>Current</th>
+        <th class="n">Now</th>
+        <th>Proposed</th>
+        <th class="n">After</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="hi">
+        <td>
+          <b>run-playbooks 401 — dead close-sweep</b>
+          <span class="pill p-r">critical</span>
+        </td>
+        <td>
+          Route accepts only CRON_SECRET; worker sends worker token; 401 =
+          terminal, no retry, 0 sweeps in 10 days; 55 findings stuck stale on
+          your run
+        </td>
+        <td class="n">2</td>
+        <td>
+          Dual auth (mirror enrich-job) + route test + one-time backfill sweep
+          for stale findings. <b>3 lines + backfill; hours.</b>
+        </td>
+        <td class="n">9</td>
+      </tr>
+      <tr>
+        <td>
+          <b>Progress counter sawtooth</b>
+          <span class="pill p-r">critical</span>
+        </td>
+        <td>
+          done INCRs per family job (~6×) then re-seeds per business each tick →
+          46→89→31 jumping
+        </td>
+        <td class="n">2</td>
+        <td>
+          Business-unit increments (bump only when the lead's LAST job lands) +
+          client monotonic guard while non-terminal. <b>~100 LOC.</b>
+        </td>
+        <td class="n">9</td>
+      </tr>
+      <tr>
+        <td><b>ETA flips 1↔5 min</b> <span class="pill p-a">major</span></td>
+        <td>
+          Naive elapsed/done×remaining on the sawing input, no smoothing, 1-min
+          floor
+        </td>
+        <td class="n">3</td>
+        <td>
+          Server-computed windowed-throughput
+          <code>etaSeconds</code> (EMA-smoothed, monotone-decreasing), UI
+          formats ranges + "finishing up…"; fix the pre-run "~2 min" (leads÷70)
+          estimate too. <b>~130 LOC.</b>
+        </td>
+        <td class="n">8</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ============ PART H ============ -->
+  <div class="part" id="h">Part H</div>
+  <h2>The fix plan — phased, one phase ≈ one session</h2>
+  <table>
+    <thead>
+      <tr>
+        <th class="n">Phase</th>
+        <th>Scope</th>
+        <th>Why this order</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="hi">
+        <td class="n">1</td>
+        <td>
+          <b>Stop losing paid data (hours each):</b> ① 401 dual-auth + playbooks
+          backfill (55 stale findings + future runs); ② Meta salvage — deadline
+          path reads the dataset, timeout-with-results persists as PARTIAL
+          success (your decision); ③ soft-fail retry allowlist + google-ads
+          rethrow.
+        </td>
+        <td>
+          Every run today silently loses playbooks, meta results, and ~10% of
+          family jobs. These three are small, independent, and stop the
+          bleeding.
+        </td>
+      </tr>
+      <tr>
+        <td class="n">2</td>
+        <td>
+          <b>Run-close truth:</b> pendingCells predicate (+15-min ceiling), cell
+          failures flip status PARTIAL, "Market signals" stage, cell-only wait.
+          Late cells then bill + mint + display through the existing paths
+          untouched.
+        </td>
+        <td>
+          Fixes S3 end-to-end and closes the unbilled-cell revenue leak with ~1
+          focused day.
+        </td>
+      </tr>
+      <tr>
+        <td class="n">3</td>
+        <td>
+          <b>Honest reporting & recovery:</b> per-family completion report
+          (done-card + email + banner) · "Retry failed (N)" one-click chip ·
+          <b>permanent-failure lifecycle</b> (reason taxonomy + 3-attempt
+          cross-run cap → "Not available" state, excluded from enrich
+          counts/quotes) · ai_research mapping fix + family list on the
+          confirmation.
+        </td>
+        <td>
+          Turns "OK 122/122" lies into "Contacts 112/122 · 62 failed — retry
+          (12) · 5 not available" — retry what's retryable, stop selling what
+          isn't.
+        </td>
+      </tr>
+      <tr>
+        <td class="n">4</td>
+        <td>
+          <b>Progress & ETA:</b> business-unit counter fix + client monotonic
+          guard → server etaSeconds (windowed, smoothed) → range display +
+          pre-run estimate fix.
+        </td>
+        <td>
+          Depends on nothing above but reads best after the run actually
+          finishes when it says it does.
+        </td>
+      </tr>
+      <tr>
+        <td class="n">5</td>
+        <td>
+          <b>Meta structural + engine edges:</b> apifyRunId + detailJson
+          migration · chunked targets (≤15–20/run) · async enrich-cell
+          (start/ACK/webhook-complete) · reconcile cron for stored run ids ·
+          retire the 120s worker-lane mismatch · website-gate per-family at
+          fan-out · reverse-stall ceiling on parked reviews jobs. Optional:
+          timeout 420s + meta COGS 0.12→0.20.
+        </td>
+        <td>
+          The durable fix that makes big-market meta reliable instead of
+          salvageable, plus the two engine edge cases.
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ============ PART I ============ -->
+  <div class="part" id="i">Part I</div>
+  <h2>Coverage check — does this plan close everything found today?</h2>
+  <p>
+    Traceability of every finding from today's four investigations (progress ·
+    ETA · worker 401 · this forensics) to its phase.
+    <b
+      >Answer: yes — the 5 phases plus the already-built-but-unshipped items
+      cover every gap found</b
+    >, with three explicitly deferred low-risk leftovers listed at the bottom so
+    nothing is silently dropped.
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th>Finding (source)</th>
+        <th>Where it's fixed</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          Worker 401 → dead playbooks sweep + 55 stale findings
+          <span class="src">(chat: "the worker 401 fix")</span>
+        </td>
+        <td>
+          <b>Phase 1 ①</b> — dual-auth (3 lines, mirrors enrich-job) + route
+          test + one-time backfill sweep
+        </td>
+      </tr>
+      <tr>
+        <td>
+          Meta timeout discards delivered results (43/15) · poll-deadline bail
+          <span class="src"
+            >(this report, your decision: timeout-with-results = success)</span
+          >
+        </td>
+        <td>
+          <b>Phase 1 ②</b> — salvage-on-deadline + persist-as-PARTIAL (bills via
+          existing gate)
+        </td>
+      </tr>
+      <tr>
+        <td>
+          Soft failures one-shot terminal · google_ads throws swallowed
+          <span class="src">(this report)</span>
+        </td>
+        <td><b>Phase 1 ③</b> — retry allowlist + rethrow</td>
+      </tr>
+      <tr>
+        <td>
+          Run closes with cells in flight · status "OK" with failed cells · late
+          cells unbilled/invisible · cell-only instant close · no Market-signals
+          stage <span class="src">(this report)</span>
+        </td>
+        <td>
+          <b>Phase 2</b> — pendingCells predicate + ceiling + PARTIAL + stage
+        </td>
+      </tr>
+      <tr>
+        <td>
+          "OK 122/122 · 0 failed" reporting lie · no retry-failed affordance ·
+          rerun scoped 28/122 <span class="src">(this report)</span>
+        </td>
+        <td>
+          <b>Phase 3</b> — family report + "Retry failed (N)" chip
+          (whole-research scope)
+        </td>
+      </tr>
+      <tr>
+        <td>
+          Permanent failures retryable forever — money + trust leak
+          <span class="src">(your follow-up question)</span>
+        </td>
+        <td>
+          <b>Phase 3</b> — reason taxonomy + attempt cap → "Not available",
+          excluded from counts/quotes
+        </td>
+      </tr>
+      <tr>
+        <td>
+          ai_research silently dropped from "all researches"
+          <span class="src">(this report)</span>
+        </td>
+        <td><b>Phase 3</b> — mapping fix + family list on confirmation</td>
+      </tr>
+      <tr>
+        <td>
+          Progress numbers jumping (46→89→31)
+          <span class="src">(chat: "Proposed fix (~1 session)")</span>
+        </td>
+        <td>
+          <b>Phase 4</b> — business-unit counter increments + client monotonic
+          guard
+        </td>
+      </tr>
+      <tr>
+        <td>
+          ETA flipping 1↔5 min · pre-run "~2 min" estimate
+          <span class="src">(chat: "My recommendation" = O2)</span>
+        </td>
+        <td>
+          <b>Phase 4</b> — server-computed windowed etaSeconds + range display +
+          pre-run fix
+        </td>
+      </tr>
+      <tr>
+        <td>
+          Redis-miss DB fallback shows a third number set
+          <span class="src">(progress analysis)</span>
+        </td>
+        <td>
+          <b>Phase 4</b> — align fallback semantics with the business-unit
+          definition
+        </td>
+      </tr>
+      <tr>
+        <td>
+          Meta structural timeout (60×280s) · duplicate actor runs (120s worker
+          cap) · no apifyRunId · undiagnosable failures
+          <span class="src">(this report)</span>
+        </td>
+        <td>
+          <b>Phase 5</b> — chunking + async enrich-cell + migration + reconcile
+          cron
+        </td>
+      </tr>
+      <tr>
+        <td>
+          Website-gate asymmetry · reverse-stall parked reviews job
+          <span class="src">(this report, minor)</span>
+        </td>
+        <td><b>Phase 5</b> — per-family gate + stall ceiling</td>
+      </tr>
+      <tr>
+        <td>
+          Webhook first-purchase double-grant ledger row + Stripe-retrieve
+          timeout + Basil test · Signal-library scroll jump
+          <span class="src">(chat, earlier today)</span>
+        </td>
+        <td>
+          <b>Already built, gate-green, unshipped</b> — rides the next /ship
+          regardless of phases
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="call a">
+    <b>Explicitly deferred (known, not dropped):</b> (1) JobsTray ↔
+    progress-endpoint source unification (cosmetic once Phase 4 lands — tray is
+    monotonic DB data behind a click); (2) the Enriching checklist's per-family
+    rows keep family units next to the business-unit header (intentional
+    two-unit display; Phase 2's Market-signals stage makes it complete); (3)
+    AdMarketInsight (the per-market AI summary) never ran for this research — 0
+    rows; it's a separate insight-step wiring question, not a run-engine gap:
+    flag for the next signals session. (4) The 16/138 businesses below the
+    Target threshold are by design, but the Preview could say "122 of 138
+    targeted" — one-line copy, folded into Phase 3's confirmation work.
+  </div>
+
+  <div class="call a">
+    <b>Also queued from this session's earlier work (unshipped, gate-green):</b>
+    the webhook first-purchase double-grant fix (+ Stripe-retrieve timeout +
+    Basil test) and the Signal-library scroll fix — ready to ride the next
+    /ship. <b>Incidents to log</b> (per the incident contract): INC ·
+    run-playbooks 401 token-kind drift (silent data loss since Jul 2) · INC ·
+    meta timeout salvage discarded delivered datasets · INC · soft-fail one-shot
+    terminal vs documented retry ladder. I'll write all three into incidents.md
+    when implementing Phase 1.
+  </div>
+
+  <div class="foot">
+    Mapsly · run forensics · 2026-07-10 · Method: 4 parallel investigators over
+    the live Neon DB (SELECT-only) + code at HEAD d7753db; every count is a real
+    row (runs cmre6qc7u000a04jpc9bjay4a + cmre783j4000104l15qwcvubo, ledger, job
+    matrix, AdMarketRun timeline, PlaybookFinding statuses). Companion docs:
+    billing-repricing-review-2026-07-09 · free-target-lock-options-2026-07-09.
+    No code changed — awaiting your go on the phases.
+  </div>
+</div>

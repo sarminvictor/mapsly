@@ -602,7 +602,42 @@ function planToAgencyTier(plan: Plan): AgencyPlan | null {
   }
 }
 
-function subscriptionPeriodEnd(sub: Stripe.Subscription): Date | null {
+/**
+ * Resolve the billing-period anchor a plan-credit grant should dedupe on.
+ *
+ * First-purchase ordering gap: checkout.session.completed lands BEFORE the
+ * subscription events write Agency.currentPeriodEnd, so a grant keyed on the
+ * agency row falls back to the event id while the later subscription.created /
+ * invoice.paid grants key on the period — two dedupe keys → a duplicate
+ * "+N credits" ledger row (the balance stayed correct only because
+ * grantPlanCredits SETs the plan bucket). This resolves the anchor from Stripe
+ * itself for the checkout case so every first-purchase event converges on ONE
+ * key. Best-effort: any retrieve hiccup returns null and the caller keeps the
+ * event-id fallback (worst case = the old cosmetic duplicate, never a miss).
+ *
+ * `retrieveSubscription` is injected so the resolution is unit-testable.
+ */
+export async function resolveGrantPeriodEnd(
+  event: Stripe.Event,
+  agencyPeriodEnd: Date | null,
+  retrieveSubscription: (id: string) => Promise<Stripe.Subscription>,
+): Promise<Date | null> {
+  if (agencyPeriodEnd) return agencyPeriodEnd;
+  if (event.type !== "checkout.session.completed") return null;
+  try {
+    const session = event.data.object as Stripe.Checkout.Session;
+    const subId =
+      typeof session.subscription === "string"
+        ? session.subscription
+        : (session.subscription?.id ?? null);
+    if (!subId) return null;
+    return subscriptionPeriodEnd(await retrieveSubscription(subId));
+  } catch {
+    return null;
+  }
+}
+
+export function subscriptionPeriodEnd(sub: Stripe.Subscription): Date | null {
   // `current_period_end` is a unix timestamp (seconds). Stripe API 2024-12-18
   // exposes it at the top level for active subs and inside `items.data[]` —
   // we use the top-level field. Cast through unknown because Stripe's

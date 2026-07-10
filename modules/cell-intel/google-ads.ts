@@ -133,7 +133,7 @@ async function upsertGoogleCreative(
 
 export interface BusinessGoogleAdsResult {
   businessId: string;
-  outcome: "collected" | "skipped" | "no-website";
+  outcome: "collected" | "skipped" | "no-website" | "error";
   adCount: number;
   entriesUpserted: number;
   errors: string[];
@@ -213,6 +213,13 @@ export async function runGoogleAdsForBusiness(
     }
   } catch (e) {
     result.errors.push(`creatives:${(e as Error).message}`.slice(0, 200));
+    // A DfS ads_search throw is a TRANSIENT vendor error, not a structural skip.
+    // Surface it as outcome:"error" (→ reason "google_ads_error") so the dispatch
+    // soft-fail ladder RETRIES it instead of dying terminal on attempt 1 — before
+    // this, a swallowed throw returned outcome:"skipped" and 49/122 google_ads
+    // jobs on the dental run were one-shot FAILED though 11/13 hand-retries later
+    // succeeded (they were transient). See run-forensics-dental-2026-07-10.
+    result.outcome = "error";
     await prisma.adMarketRun.create({
       data: {
         cellKey: runCellKey,

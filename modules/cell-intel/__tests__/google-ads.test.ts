@@ -226,9 +226,10 @@ describe("runGoogleAdsForBusiness · failure does not stamp", () => {
 
     const res = await runGoogleAdsForBusiness(BUSINESS_ID, NOW);
 
-    // The run failed to collect — outcome stays the initial "skipped" and the
-    // error is captured.
-    expect(res.outcome).toBe("skipped");
+    // 2026-07-10 · a DfS throw is a TRANSIENT vendor error → outcome "error"
+    // (was "skipped"), so the dispatch soft-fail ladder RETRIES it (reason
+    // "google_ads_error" is retryable) instead of dying terminal on attempt 1.
+    expect(res.outcome).toBe("error");
     expect(res.errors.some((e) => e.includes("upstream 503"))).toBe(true);
 
     // CRITICAL billing invariant: the freshness cursor is NOT stamped. If it

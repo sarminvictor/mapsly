@@ -38,6 +38,22 @@ const START_RETRY_BASE_MS = 500;
 // budget (negligible — any started run consumes compute-units).
 const USAGE_REFETCH_ATTEMPTS = 8;
 const USAGE_REFETCH_INTERVAL_MS = 700;
+// INC-48 part 2 (2026-07-10) · when Apify STILL hasn't finalized usage within our
+// window, don't book a flat penny. A TIMED-OUT / ABORTED / FAILED run finalizes
+// its billing a killed run's beat later — often past our ~300s function budget —
+// so `usageTotalUsd` reads 0 and we fell back to $0.02 while the real bill was
+// ~$0.72–1.22 (residential proxy + images on the Meta actor). That under-counted
+// Apify ~40× and blinded the cost-discipline ceiling. Estimate from the run's
+// actual wall time × provisioned memory instead: the observed effective rate on
+// the Meta actor (proxy-dominated, NOT compute) is ~$2.8 per GB-hour. Elapsed-
+// scaled, so a genuinely fast run estimates near $0 and only a full-timeout run
+// books the realistic ~$0.87. The Phase-5 reconcile cron (apifyRunId) makes the
+// lagging ones exact; this keeps the ledger honest synchronously.
+// DEFAULT is the DATACENTER compute rate — the DOM-fetcher / Lighthouse actors
+// share runActor and are NOT proxy-heavy, so estimating THEIR timeouts at the
+// Meta proxy rate would over-book ~20-30× and falsely trip the $5 alert. The
+// Meta adapter passes estUsdPerGbHour: 2.8 explicitly (residential proxy).
+const DEFAULT_EST_USD_PER_GB_HOUR = 0.4;
 // A run-status poll that keeps failing on a NON-retryable status (auth revoked,
 // run gone) will never recover — bail after this many consecutive failures with
 // the real status instead of stalling the whole maxWait window.
@@ -117,6 +133,15 @@ export interface RunActorOptions {
   maxWaitMs?: number;
   /** Billed if the finished run doesn't report usageTotalUsd (rare). */
   fallbackCostUsd?: number;
+  /**
+   * $/GB-hour used to ESTIMATE cost when Apify hasn't finalized usage in our
+   * window (the timeout case). Actor-specific: the Meta actor is residential-
+   * proxy-dominated (~$2.8), but the DOM-fetcher / Lighthouse actors are
+   * datacenter compute (~$0.4). Defaults to the datacenter rate so a benign
+   * DOM/Lighthouse timeout doesn't book a Meta-sized COGS and falsely trip the
+   * $5 cost-ceiling alert; the Meta adapter passes 2.8 explicitly.
+   */
+  estUsdPerGbHour?: number;
 }
 
 export interface RunActorResult<T> {
@@ -124,6 +149,14 @@ export interface RunActorResult<T> {
   runId: string;
   /** Actual USD billed to the open CronRun for this run. */
   usageTotalUsd: number;
+  /**
+   * P5 · true when `usageTotalUsd` is an elapsed×memory ESTIMATE (or the flat
+   * fallback), not Apify's finalized figure — the timeout case where Apify
+   * finalizes usage after our window (INC-56). The caller should persist this
+   * (AdMarketRun.detailJson.costEstimated) so the reconcile cron can fetch the
+   * finalized usage by runId later and correct the books.
+   */
+  usageWasEstimated: boolean;
   /**
    * Terminal Apify run status: SUCCEEDED · FAILED · ABORTED · TIMED-OUT.
    *
@@ -222,7 +255,8 @@ export async function runActor<T = unknown>(
   let keyValueStoreId = startJson.data?.defaultKeyValueStoreId;
   let usageTotalUsd = 0;
   let consecutivePollFailures = 0;
-  const deadline = Date.now() + maxWait;
+  const runStartMs = Date.now();
+  const deadline = runStartMs + maxWait;
   while (!TERMINAL_STATUSES.has(status)) {
     if (Date.now() > deadline) {
       throw new ApifyError({
@@ -310,8 +344,19 @@ export async function runActor<T = unknown>(
   }
 
   // Bill the run's variable cost exactly once — we paid for it whichever exit
-  // path we take below.
-  const billed = usageTotalUsd || (opts.fallbackCostUsd ?? 0);
+  // path we take below. When Apify never finalized usage in our window (the
+  // TIMED-OUT case), fall back to an elapsed×memory estimate rather than the
+  // caller's flat penny, so a full-timeout run books its real ~$0.87 instead of
+  // $0.02 (INC-48 part 2). Elapsed-scaled → a fast run still estimates ~$0.
+  let effectiveFallback = opts.fallbackCostUsd ?? 0;
+  const usageWasEstimated = usageTotalUsd <= 0;
+  if (usageWasEstimated) {
+    const gbHours = (memory / 1024) * ((Date.now() - runStartMs) / 3_600_000);
+    const estimate =
+      gbHours * (opts.estUsdPerGbHour ?? DEFAULT_EST_USD_PER_GB_HOUR);
+    if (estimate > effectiveFallback) effectiveFallback = estimate;
+  }
+  const billed = usageTotalUsd || effectiveFallback;
   if (billed > 0) await incrementCost(billed, opts.operation);
 
   // Read the actor's RUN_SUMMARY record (if it wrote one) so the adapter can
@@ -342,6 +387,7 @@ export async function runActor<T = unknown>(
       items: [],
       runId,
       usageTotalUsd: billed,
+      usageWasEstimated,
       runStatus: status,
       runSummary,
     };
@@ -362,6 +408,7 @@ export async function runActor<T = unknown>(
       items: [],
       runId,
       usageTotalUsd: billed,
+      usageWasEstimated,
       runStatus: status,
       runSummary,
     };
@@ -372,6 +419,7 @@ export async function runActor<T = unknown>(
     items: Array.isArray(items) ? items : [],
     runId,
     usageTotalUsd: billed,
+    usageWasEstimated,
     runStatus: status,
     runSummary,
   };

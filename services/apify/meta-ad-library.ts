@@ -25,6 +25,10 @@ const OPERATION = "apify.meta-ad-library.search";
 /** Apify usage is unpredictable; bill this if a finished run omits
  *  usageTotalUsd (rare). A single batched run is typically a few cents. */
 const FALLBACK_COST_USD = 0.02;
+/** Meta runs are residential-proxy-dominated (~$2.8/GB-hour), NOT datacenter
+ *  compute — so on a timeout (usage finalized after our window) runActor
+ *  estimates elapsed×memory at this rate to book the real ~$0.87, not $0.02. */
+const META_EST_USD_PER_GB_HOUR = 2.8;
 
 // ---- Schemas ------------------------------------------------------------
 
@@ -200,6 +204,12 @@ export interface MetaAdLibraryResult {
   targetStatuses: MetaTargetStatus[];
   runId: string;
   usageTotalUsd: number;
+  /** P5 · true when usageTotalUsd is an elapsed×memory estimate (timeout case)
+   *  — the consumer persists it so the reconcile cron can correct the books. */
+  usageWasEstimated: boolean;
+  /** P5 · true when this result was served from the 6h KV cache — the consumer
+   *  must NOT re-count its cost/runId (they belong to the original run). */
+  fromCache?: boolean;
 }
 
 // ---- Adapter ------------------------------------------------------------
@@ -245,13 +255,20 @@ async function metaAdLibrarySearchRaw(
   query: MetaAdLibraryQuery,
 ): Promise<MetaAdLibraryResult> {
   const parsed = MetaAdLibraryQuerySchema.parse(query);
-  const { items, runId, usageTotalUsd, runStatus, runSummary } =
-    await runActor<unknown>({
-      actorId: ACTOR_ID,
-      operation: OPERATION,
-      input: parsed,
-      fallbackCostUsd: FALLBACK_COST_USD,
-    });
+  const {
+    items,
+    runId,
+    usageTotalUsd,
+    usageWasEstimated,
+    runStatus,
+    runSummary,
+  } = await runActor<unknown>({
+    actorId: ACTOR_ID,
+    operation: OPERATION,
+    input: parsed,
+    fallbackCostUsd: FALLBACK_COST_USD,
+    estUsdPerGbHour: META_EST_USD_PER_GB_HOUR,
+  });
   // Partition: resolution markers (handle→id), per-target status, advertiser
   // facet rows, and ads. Tolerate per-row drift — skip any malformed item
   // rather than failing the whole batch (Meta reshapes its payload over time).
@@ -302,6 +319,7 @@ async function metaAdLibrarySearchRaw(
     targetStatuses,
     runId,
     usageTotalUsd,
+    usageWasEstimated,
   };
 }
 
@@ -343,10 +361,13 @@ export async function metaAdLibrarySearch(
   const key = metaCacheKey(query);
 
   // 1 · read-through. A stored value is verified by construction (we only ever
-  // write verified outcomes), so a hit is safe to return as-is.
+  // write verified outcomes), so a hit is safe to return — flagged fromCache so
+  // a chunked consumer doesn't re-count the ORIGINAL run's cost/runId as spend
+  // of this collection.
   try {
     const cached = await kv.get<MetaAdLibraryResult>(key);
-    if (cached !== null && cached !== undefined) return cached;
+    if (cached !== null && cached !== undefined)
+      return { ...cached, fromCache: true };
   } catch {
     // KV read failed — fall through to a direct call; don't fail the caller.
     return metaAdLibrarySearchUncached(query);

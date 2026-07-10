@@ -62,7 +62,6 @@ import {
   enrichmentNeedsWebsite,
   type EnrichmentType,
 } from "@/modules/cost/pricing";
-import { usdToCredits } from "@/modules/cost/estimate";
 import {
   CELL_RELATIVE_MIN_SAMPLE,
   CELL_RELATIVE_SIGNAL_KEYS,
@@ -778,7 +777,9 @@ export function PreviewStep({
             forKey: countKey,
             forN: n,
             netCredits: pre.netCredits,
-            freshCredits: usdToCredits(pre.freshHitUsd),
+            // Credits saved from fresh cache — CREDIT basis, not COGS-USD (which
+            // was 7× off for meta after the 2026-07-10 COGS bump).
+            freshCredits: pre.freshCredits,
             estimateId: pre.estimateId,
           });
         }

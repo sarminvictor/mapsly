@@ -109,6 +109,109 @@ function backoffUntil(attempts: number, now: Date): Date {
   return new Date(now.getTime() + minutes * 60_000);
 }
 
+// 2026-07-10 · SOFT-FAILURE TAXONOMY. A worker soft failure (ok=false OR
+// billable=false, e.g. a contacts fetch that FAILED, a google_ads vendor error)
+// used to go terminal FAILED on attempt 1 — the backoff ladder above only ever
+// covered THROWN errors, so a recoverable miss (WAF blip, DfS 5xx) never got a
+// second try. These reasons are the ones a retry can NEVER fix (structurally
+// impossible) OR is not worth the vendor cost of re-running, so they stay
+// terminal; every OTHER soft failure now flows through the same bounded backoff
+// ladder as a throw. This same set seeds P3's "permanent" lifecycle (a job whose
+// terminal reason is non-retryable is rendered "Not available", not "retry").
+//   - contacts_skipped_no_source  · no website/handle to scan — nothing to retry
+//   - reviews_submit_failed        · no CID / task_post exhausted — no async land
+//   - lighthouse_0_audited         · open+walled already tried; retry risks the
+//                                    $0.06 walled actor for ~no recall gain
+//   - google_ads_no-website        · no host to target the ads_search on
+//   - google_ads_skipped           · unknown business / nothing to collect
+const NON_RETRYABLE_FAILURE_REASONS: ReadonlySet<string> = new Set([
+  "contacts_skipped_no_source",
+  "reviews_submit_failed",
+  "lighthouse_0_audited",
+  "google_ads_no-website",
+  "google_ads_skipped",
+]);
+/** True when a soft-failure reason cannot (or should not) be auto-retried. */
+export function isNonRetryableFailure(reason: string | undefined): boolean {
+  if (!reason) return false;
+  return (
+    NON_RETRYABLE_FAILURE_REASONS.has(reason) ||
+    /_no[-_](source|website|cid)$/.test(reason)
+  );
+}
+
+// 2026-07-10 · P3 · PERMANENT-FAILURE LIFECYCLE (cross-run cap). Within a run the
+// backoff ladder already bounds retries at MAX_JOB_ATTEMPTS. But a dead site / a
+// business with no scrapeable source fails EVERY run — and today the workbench
+// showed "Failed · Enrich 45 · ~55 cr" forever, so the user could re-pay to
+// re-run a job that can NEVER succeed (money leak + eroded trust). A (business,
+// family) is "Not available" once it has FAILED this many times ACROSS runs OR
+// its latest failure was structurally non-retryable. Such pairs are skipped at
+// fan-out (no job, no vendor $, no charge) and must be excluded from the enrich
+// sheet's to-get count + quote (the paired UX surface).
+const PERMANENT_FAILURE_ATTEMPT_CAP = 3;
+// RECOVERY WINDOW (code-review Medium-2): only FAILED rows within this window
+// count toward the cap, so a transiently-down site (or a vendor flaky for a
+// stretch) isn't skipped FOREVER. Once its old failures age out the pair is
+// retried; a genuinely-dead one just re-fails and re-marks (≈ monthly retry),
+// and a business that later ADDS a website gets a fresh chance. This is what
+// gives "Not available" a recovery path instead of a life sentence.
+const PERMANENT_FAILURE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** Key a (business, family) pair for the permanent-failure set. */
+function pairKey(businessId: string, family: JobFamily): string {
+  return `${businessId}:${family}`;
+}
+
+/**
+ * The set of (business, family) pairs that are PERMANENTLY UNAVAILABLE — they've
+ * exhausted the cross-run attempt cap or hit a structurally non-retryable reason
+ * WITHIN the recovery window, so re-running them now can't help. Keyed
+ * `${businessId}:${family}`. Computed from recent EnrichmentJob FAILED history in
+ * ONE indexed read; empty input → empty set.
+ */
+export async function permanentlyUnavailablePairs(
+  businessIds: readonly string[],
+  families: readonly JobFamily[],
+  now: Date = new Date(),
+): Promise<Set<string>> {
+  if (businessIds.length === 0 || families.length === 0) return new Set();
+  const failed = await prisma.enrichmentJob.findMany({
+    where: {
+      businessId: { in: [...businessIds] },
+      family: { in: [...families] },
+      status: "FAILED",
+      // Recovery window — old failures age out so a recovered business is retried.
+      finishedAt: {
+        gte: new Date(now.getTime() - PERMANENT_FAILURE_WINDOW_MS),
+      },
+    },
+    select: {
+      businessId: true,
+      family: true,
+      errorMessage: true,
+      finishedAt: true,
+    },
+  });
+  const count = new Map<string, number>();
+  const latest = new Map<string, { at: number; reason: string | null }>();
+  for (const j of failed) {
+    const k = pairKey(j.businessId, j.family as JobFamily);
+    count.set(k, (count.get(k) ?? 0) + 1);
+    const at = j.finishedAt ? j.finishedAt.getTime() : 0;
+    const prev = latest.get(k);
+    if (!prev || at >= prev.at) latest.set(k, { at, reason: j.errorMessage });
+  }
+  const dead = new Set<string>();
+  for (const [k, n] of count) {
+    const reason = latest.get(k)?.reason ?? undefined;
+    if (n >= PERMANENT_FAILURE_ATTEMPT_CAP || isNonRetryableFailure(reason)) {
+      dead.add(k);
+    }
+  }
+  return dead;
+}
+
 // WP3-7 · tick budget. A dispatch tick recovers stuck work, drains discoveries,
 // fans out runs, works a job batch, and closes runs — all under Vercel's 300s
 // cap. Discovery processing is the heaviest (a full DfS market pull), so we cap
@@ -230,6 +333,29 @@ const JOB_FAMILY_TO_TYPE: Record<JobFamily, EnrichmentType> = {
   LIGHTHOUSE: "lighthouse",
   GOOGLE_ADS: "google_ads",
 };
+
+/** P3 · business-basis EnrichmentType → its JobFamily (tech rides CONTACTS;
+ *  cell families have no job family → null). Exported so the preflight quote
+ *  can exclude permanently-unavailable pairs with the SAME keying as fan-out. */
+export function jobFamilyForType(t: EnrichmentType): JobFamily | null {
+  switch (t) {
+    case "contacts":
+    case "tech":
+      return "CONTACTS";
+    case "services":
+      return "SERVICES";
+    case "reviews":
+      return "REVIEWS";
+    case "ai_research":
+      return "AI_RESEARCH";
+    case "lighthouse":
+      return "LIGHTHOUSE";
+    case "google_ads":
+      return "GOOGLE_ADS";
+    default:
+      return null; // meta_ads / serp — cell-basis, no per-business job
+  }
+}
 
 interface JobPlanEntry {
   family: JobFamily;
@@ -446,6 +572,81 @@ const CELL_PLATFORM: Partial<Record<EnrichmentType, string>> = {
   serp: "SERP",
 };
 
+// 2026-07-10 · S3 fix · a run's per-cell families (meta_ads/serp) create NO
+// EnrichmentJob rows — when the Boxly worker collects them they land via an async
+// /api/internal/enrich-cell callback. closeRunIfDone counted ONLY EnrichmentJobs,
+// so it closed the run while a cell was still in flight (dental rerun closed
+// 00:33:23, META landed 00:35:11 → 11 advertisers unbilled + invisible until
+// reload). We hold the run open until every requested cell has either COMPLETED
+// an attempt this run OR is being served fresh from a prior run. A hard ceiling
+// caps the wait so a genuinely-lost cell attempt (worker died) can't stall the
+// run forever (the reverse-stall).
+const CELL_PENDING_CEILING_MS = 15 * 60_000;
+
+/**
+ * How many requested cells are still in flight for a run — i.e. NOT yet
+ * collected this run and NOT served fresh from a prior one. A cell counts as
+ * settled when EITHER (a) any terminal AdMarketRun (OK/PARTIAL/FAILED) exists
+ * with `ranAt >= startedAt` — the attempt finished this run, success or fail —
+ * OR (b) a non-FAILED AdMarketRun sits within the family's freshness window (it
+ * was served from DB, so no new run was needed). Past the ceiling we stop
+ * waiting (return 0) so a dead worker can't hold the run open indefinitely.
+ */
+async function pendingCellCount(
+  scopeRefsJson: unknown,
+  families: readonly EnrichmentType[],
+  startedAt: Date | null,
+  now: Date,
+): Promise<number> {
+  const cellFamilies = families.filter((f) => CELL_FAMILIES.includes(f));
+  const cellKeys =
+    ((scopeRefsJson ?? {}) as { cellKeys?: string[] }).cellKeys ?? [];
+  if (cellFamilies.length === 0 || cellKeys.length === 0) return 0;
+  // Ceiling: never hold a run open indefinitely on a lost cell attempt.
+  if (
+    startedAt &&
+    now.getTime() - startedAt.getTime() > CELL_PENDING_CEILING_MS
+  ) {
+    return 0;
+  }
+
+  const platforms = cellFamilies
+    .map((f) => CELL_PLATFORM[f])
+    .filter((p): p is string => Boolean(p));
+  if (platforms.length === 0) return 0;
+  const maxFreshMs =
+    Math.max(...cellFamilies.map((f) => ENRICHMENT_PRICES[f].freshnessDays)) *
+    86_400_000;
+  const rows = await prisma.adMarketRun.findMany({
+    where: {
+      cellKey: { in: [...cellKeys] },
+      platform: { in: platforms },
+      ranAt: { gte: new Date(now.getTime() - maxFreshMs) },
+    },
+    select: { cellKey: true, platform: true, status: true, ranAt: true },
+  });
+
+  let pending = 0;
+  for (const f of cellFamilies) {
+    const platform = CELL_PLATFORM[f];
+    if (!platform) continue;
+    const freshMs = ENRICHMENT_PRICES[f].freshnessDays * 86_400_000;
+    for (const k of cellKeys) {
+      const rowsFor = rows.filter(
+        (r) => r.cellKey === k && r.platform === platform,
+      );
+      const attemptedThisRun =
+        !!startedAt && rowsFor.some((r) => r.ranAt >= startedAt);
+      const servedFresh = rowsFor.some(
+        (r) =>
+          r.status !== "FAILED" && now.getTime() - r.ranAt.getTime() <= freshMs,
+      );
+      if (!attemptedThisRun && !servedFresh) pending += 1;
+    }
+  }
+  return pending;
+}
+
 /**
  * Cell-family credits for a run — OUTCOME-GATED (BUG1). A cell family bills ONLY
  * for cells that actually COLLECTED this run: a cell with an OK/PARTIAL
@@ -629,10 +830,18 @@ export async function fanOutRun(
     : null;
 
   // Flip RUNNING first so a concurrent tick won't re-fan-out this run (the
-  // findUnique+guard above + this flip together gate re-entry).
+  // findUnique+guard above + this flip together gate re-entry). RE-STAMP
+  // startedAt to FAN-OUT time (it was defaulted at ENQUEUE): the pendingCellCount
+  // ceiling + the cell-billing `ranAt >= startedAt` anchor both key off it, and a
+  // run held PENDING past the ceiling (per-agency concurrency cap, or a
+  // reconcileStuck re-fan-out which is ≥15 min old by construction) would
+  // otherwise fan out with the ceiling ALREADY expired → a cell-only run closes
+  // on the same tick with its cell still collecting (the original S3 symptom
+  // reopened · verifier hole). Fan-out time is also the correct/tighter billing
+  // anchor since cells are only ever collected at/after fan-out.
   await prisma.enrichmentRun.update({
     where: { id: runId },
-    data: { status: "RUNNING" },
+    data: { status: "RUNNING", startedAt: now },
   });
 
   // ── Reachability gate (Phase 4) + scope-existence validation (WP9-5) ──
@@ -677,8 +886,9 @@ export async function fanOutRun(
     // resolves these into scopeRefs.businessIds, but a cellKeys-only run from
     // any other path must still work). Use rawListWhere so the set matches the
     // visible raw market — excludes hidden/unreachable AND permanently-closed.
-    // Mirror preflight's website scoping: a family that needs a live site can't
-    // run on a website-less listing, so never queue those jobs.
+    // Mirror preflight's WHOLESALE website scoping (visible==enrichable): a
+    // family that needs a live site can't run on a website-less listing, so
+    // never queue those jobs.
     const needsWebsite = enrichmentNeedsWebsite(families);
     const inCell = await prisma.business.findMany({
       where: rawListWhere({
@@ -718,6 +928,16 @@ export async function fanOutRun(
     });
   }
 
+  // P3 · don't re-queue (business, family) pairs that are permanently
+  // unavailable (dead site / no source / exhausted cross-run attempts) — a job
+  // that can never succeed just burns credits + vendor $ and shows "Failed"
+  // forever. One indexed read over the fan-out cohort.
+  const deadPairs = await permanentlyUnavailablePairs(
+    orderedIds,
+    plan.map((e) => e.family),
+    now,
+  );
+
   const jobRows: {
     businessId: string;
     family: JobFamily;
@@ -725,9 +945,14 @@ export async function fanOutRun(
     costUsd: number;
     runId: string;
   }[] = [];
+  let skippedUnavailable = 0;
   for (const id of orderedIds) {
     const pb = fresh.perBusiness.get(id) ?? {};
     for (const entry of plan) {
+      if (deadPairs.has(pairKey(id, entry.family))) {
+        skippedUnavailable += 1;
+        continue; // permanently unavailable — no job, no vendor $, no charge
+      }
       const cursorVal = entry.cursor ? pb[entry.cursor] : null;
       const alreadyFresh = isFresh(cursorVal, entry.freshDays, now);
       if (entMode && entitlements) {
@@ -762,6 +987,19 @@ export async function fanOutRun(
   // array order), so the first-screen jobs get the earliest createdAt.
   for (let i = 0; i < jobRows.length; i += 1000) {
     await prisma.enrichmentJob.createMany({ data: jobRows.slice(i, i + 1000) });
+  }
+  // P3 · never silently drop coverage — surface how many (business, family)
+  // pairs the permanent-failure cap skipped this run (they're "Not available").
+  if (skippedUnavailable > 0) {
+    console.log(
+      JSON.stringify({
+        level: "info",
+        event: "enrich.fanout.skipped_unavailable",
+        feature: "enrichment",
+        runId,
+        pairs: skippedUnavailable,
+      }),
+    );
   }
 
   // ── WP3-2 · route QUEUED root-family jobs through the Boxly worker ──
@@ -1007,7 +1245,7 @@ export async function processJob(
         finishedAt: now,
       },
     });
-    await bumpRunProgress(job.runId, "failed");
+    await bumpRunProgress(job.runId, job.businessId);
     return "failed";
   }
 
@@ -1036,7 +1274,7 @@ export async function processJob(
       where: { id: job.id },
       data: { status: flip, costUsd: 0, finishedAt: now },
     });
-    await bumpRunProgress(job.runId, "done");
+    await bumpRunProgress(job.runId, job.businessId);
     return "skipped";
   }
 
@@ -1051,23 +1289,49 @@ export async function processJob(
     // WP1-2 · a non-billable unit is not charged. This covers both a soft failure
     // (ok=false, e.g. contacts fetch FAILED) and a completed-but-empty result
     // (ok=true, billable=false, e.g. lighthouse 0 audits / reviews-submit failed).
-    // Both are recorded FAILED at cost 0 so the retry ladder re-attempts a
-    // transient miss and the run settle refunds it. The one exception is the
-    // async-landing case (terminal===false), handled next.
+    // A TRANSIENT soft failure now re-queues through the bounded backoff ladder
+    // (2026-07-10); a NON-RETRYABLE reason is recorded FAILED at cost 0 and the
+    // run settle refunds it. The one exception is the async-landing case
+    // (terminal===false), handled next.
     if (
       (outcome.ok === false || outcome.billable === false) &&
       outcome.terminal !== false
     ) {
+      const reason = (outcome.reason ?? "non_billable").slice(0, 500);
+      // A TRANSIENT soft failure (vendor blip, temporarily-unreachable site) now
+      // takes the SAME bounded backoff ladder as a thrown error, instead of dying
+      // terminal on attempt 1. A NON-RETRYABLE reason (no source/website/CID, an
+      // already-exhausted submit) can't be helped by a retry → terminal FAILED
+      // now (P3 renders it "Not available"). Bounded by MAX_JOB_ATTEMPTS so the
+      // shared attempt budget still stops the treadmill.
+      const nextAttempts = job.attempts + 1;
+      if (
+        !isNonRetryableFailure(outcome.reason) &&
+        nextAttempts < MAX_JOB_ATTEMPTS
+      ) {
+        await prisma.enrichmentJob.update({
+          where: { id: job.id },
+          data: {
+            status: "QUEUED",
+            attempts: nextAttempts,
+            errorMessage: reason,
+            startedAt: null,
+            nextAttemptAt: backoffUntil(nextAttempts, now),
+          },
+        });
+        return "requeued";
+      }
       await prisma.enrichmentJob.update({
         where: { id: job.id },
         data: {
           status: "FAILED",
           costUsd: 0,
-          errorMessage: (outcome.reason ?? "non_billable").slice(0, 500),
+          attempts: nextAttempts,
+          errorMessage: reason,
           finishedAt: new Date(),
         },
       });
-      await bumpRunProgress(job.runId, "failed");
+      await bumpRunProgress(job.runId, job.businessId);
       return "failed";
     }
 
@@ -1098,7 +1362,7 @@ export async function processJob(
         finishedAt: new Date(),
       },
     });
-    await bumpRunProgress(job.runId, "done");
+    await bumpRunProgress(job.runId, job.businessId);
     return "done";
   } catch (err) {
     logErr(family, job.businessId, err);
@@ -1115,7 +1379,7 @@ export async function processJob(
           finishedAt: new Date(),
         },
       });
-      await bumpRunProgress(job.runId, "failed");
+      await bumpRunProgress(job.runId, job.businessId);
       return "failed";
     }
     // WP3-6 · Requeue with EXPONENTIAL BACKOFF. Stamp nextAttemptAt = now +
@@ -1137,16 +1401,37 @@ export async function processJob(
 }
 
 /**
- * WP3-3 · Bump a run's Redis progress counter on a terminal job transition
- * (DONE/SKIPPED_FRESH → "done", FAILED → "failed"). Best-effort · degrades open.
- * A parked-then-landed REVIEWS job is counted by reconcileReviewJobs, not here.
+ * WP3-3 · Bump a run's Redis progress counter when a BUSINESS finishes.
+ *
+ * BUSINESS-UNIT (2026-07-10, the "46→89→31" sawtooth fix): the counters must
+ * march in the SAME unit as `total` (= unitsRequested businesses) and the tick
+ * re-seed (updateRunProgress), or `done` overshoots in family-sized jumps and
+ * each re-seed snaps it back down. So a terminal FAMILY job only bumps the
+ * counter when it was the business's LAST open family — and we classify by the
+ * business's OWN verdict (any terminal-success family → "done", else "failed"),
+ * never this one job's outcome. The tick re-seed stays authoritative and self-
+ * heals any drift from the rare concurrent double-count. Best-effort · degrades
+ * open. A parked REVIEWS job bumps here too once it lands (reconcileReviewJobs).
  */
 async function bumpRunProgress(
   runId: string | null | undefined,
-  kind: "done" | "failed",
+  businessId: string,
 ): Promise<void> {
   if (!runId) return;
-  await incrRunProgress(runId, kind);
+  const open = await prisma.enrichmentJob.count({
+    where: { runId, businessId, status: { in: ["QUEUED", "RUNNING"] } },
+  });
+  if (open > 0) return; // business still has families in flight — not done yet
+  const success = await prisma.enrichmentJob.count({
+    where: {
+      runId,
+      businessId,
+      status: {
+        in: ["DONE", "SKIPPED_FRESH", "CHARGED_FROM_DB", "SKIPPED_ENTITLED"],
+      },
+    },
+  });
+  await incrRunProgress(runId, success > 0 ? "done" : "failed");
 }
 
 /**
@@ -1208,6 +1493,16 @@ export async function runEnrichCellForRun(
 /** ReviewJob statuses that mean the async reviews pull has finished (either way). */
 const REVIEW_JOB_TERMINAL = ["DONE", "FAILED", "RECONCILED"] as const;
 
+// P5 (2026-07-10) · REVERSE-STALL CEILING for parked REVIEWS jobs. A parked
+// EnrichmentJob (RUNNING, waiting for its ReviewJob to land) holds the whole
+// run open — closeRunIfDone counts RUNNING as open. Reviews normally land in
+// 1–10 min; when the DfS pingback is lost the hourly reviews-reconcile sweep
+// has its own 2h/24h ladder for the DATA, but the user's RUN must not hang on
+// it. Past this ceiling the unit flips FAILED ("reviews_landing_timeout",
+// unbilled — reviews were only ever billed on landing) so the run can close;
+// if the data lands later anyway, it persists for free via the ReviewJob path.
+const REVIEWS_PARK_CEILING_MS = 30 * 60_000;
+
 /**
  * WP1-9 · Reconcile a run's parked REVIEWS EnrichmentJobs against the async
  * ReviewJob state machine. A REVIEWS EnrichmentJob sits in RUNNING (parked by
@@ -1233,6 +1528,31 @@ async function reconcileReviewJobs(
 
   let flipped = 0;
   for (const job of parked) {
+    // P5 · reverse-stall ceiling: a unit parked past the ceiling flips FAILED
+    // (unbilled, transient reason) so the RUN can close — whether the ReviewJob
+    // is missing (submit crashed mid-park) or simply never landing.
+    const parkedTooLong =
+      !!job.startedAt &&
+      now.getTime() - job.startedAt.getTime() > REVIEWS_PARK_CEILING_MS;
+    const failParked = async (): Promise<void> => {
+      // Guard on status='RUNNING' so a concurrent reconcile that flips this same
+      // parked job DONE (its ReviewJob landed microseconds after our read) isn't
+      // clobbered with a FAILED — last-writer-wins TOCTOU otherwise (verifier
+      // nit). Only the tick that still sees it RUNNING counts it.
+      const res = await prisma.enrichmentJob.updateMany({
+        where: { id: job.id, status: "RUNNING" },
+        data: {
+          status: "FAILED",
+          costUsd: 0,
+          errorMessage: "reviews_landing_timeout",
+          finishedAt: now,
+        },
+      });
+      if (res.count === 0) return; // lost the race — a DONE flip already won
+      await bumpRunProgress(runId, job.businessId);
+      flipped += 1;
+    };
+
     const rj = await prisma.reviewJob.findFirst({
       where: {
         businessId: job.businessId,
@@ -1241,11 +1561,19 @@ async function reconcileReviewJobs(
       orderBy: { createdAt: "desc" },
       select: { status: true },
     });
-    if (!rj) continue; // submit hasn't created a ReviewJob yet — wait.
+    if (!rj) {
+      // submit hasn't created a ReviewJob yet — wait (or fail past the ceiling).
+      if (parkedTooLong) await failParked();
+      continue;
+    }
     const terminal = (REVIEW_JOB_TERMINAL as readonly string[]).includes(
       rj.status,
     );
-    if (!terminal) continue; // still QUEUED/SUBMITTED/AWAITING/FETCHING — wait.
+    if (!terminal) {
+      // still QUEUED/SUBMITTED/AWAITING/FETCHING — wait (or fail past ceiling).
+      if (parkedTooLong) await failParked();
+      continue;
+    }
 
     if (rj.status === "DONE") {
       await prisma.enrichmentJob.update({
@@ -1258,7 +1586,7 @@ async function reconcileReviewJobs(
           finishedAt: now,
         },
       });
-      await bumpRunProgress(runId, "done"); // WP3-3
+      await bumpRunProgress(runId, job.businessId); // WP3-3
     } else {
       await prisma.enrichmentJob.update({
         where: { id: job.id },
@@ -1269,7 +1597,7 @@ async function reconcileReviewJobs(
           finishedAt: now,
         },
       });
-      await bumpRunProgress(runId, "failed"); // WP3-3
+      await bumpRunProgress(runId, job.businessId); // WP3-3
     }
     flipped += 1;
   }
@@ -1323,6 +1651,21 @@ export async function closeRunIfDone(
   const families = (
     Array.isArray(run.enrichmentsJson) ? run.enrichmentsJson : []
   ) as EnrichmentType[];
+
+  // S3 · don't close while a requested cell family is still in flight. Cell
+  // collection creates no EnrichmentJob rows (it lands via an async enrich-cell
+  // worker callback), so the open-jobs count above can be 0 with a meta/serp cell
+  // still collecting. Hold the run open until every cell has settled (or the
+  // ceiling trips). Cheap: one indexed AdMarketRun read, only when the run
+  // actually requested a cell family.
+  const pendingCells = await pendingCellCount(
+    run.scopeRefsJson,
+    families,
+    run.startedAt ?? null,
+    now,
+  );
+  if (pendingCells > 0) return false;
+
   const entMode = entitlementBillingEnabled();
 
   const jobs = await prisma.enrichmentJob.findMany({

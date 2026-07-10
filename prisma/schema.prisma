@@ -2330,6 +2330,11 @@ model EnrichmentJob {
   // ORDER BY createdAt, id). nextAttemptAt leads so the range predicate is an
   // index scan; createdAt keeps the deterministic ordering (WP3-12).
   @@index([status, nextAttemptAt, createdAt])
+  // P5 (2026-07-10) · covering index for the business-unit progress bump —
+  // bumpRunProgress runs 2 COUNTs per terminal transition filtered on exactly
+  // (runId, businessId, status); without this, businessId filtered in-memory
+  // off [runId, status] on high-fan-out runs (code-review Low-3).
+  @@index([runId, businessId, status])
 }
 
 // Per-agency research entitlement ledger (entitlement model · 2026-07-08).
@@ -2555,8 +2560,19 @@ model AdMarketRun {
   costUsd         Float    @default(0)
   advertiserCount Int      @default(0)
   adCount         Int      @default(0)
+  // P5 (2026-07-10) · primary Apify run id (META only) — lets the reconcile
+  // cron fetch the run's FINALIZED usage after the fact instead of trusting a
+  // same-second estimate (Apify finalizes usage a beat after terminal, often
+  // past our function budget · INC-56). Null for non-Apify platforms/old rows.
+  apifyRunId      String?
+  // P5 · per-collection telemetry: { outcome, apifyRunIds[], chunks,
+  // pendingTargets, costEstimated, errors[] }. The reconcile cron keys off
+  // costEstimated (backfill real usage) + pendingTargets (chunk continuation).
+  detailJson      Json?
 
   @@index([cellKey, platform, ranAt(sort: Desc)])
+  // P5 · the reconcile cron scans "recent META rows" with no cellKey bound.
+  @@index([platform, ranAt(sort: Desc)])
 }
 
 // ── Services taxonomy (§4.7) ─────────────────────────────────────────────────

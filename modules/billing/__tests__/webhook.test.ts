@@ -8,7 +8,11 @@
 import { describe, expect, test, vi } from "vitest";
 import type Stripe from "stripe";
 
-import { handleStripeEvent, type PrismaSeam } from "../webhook";
+import {
+  handleStripeEvent,
+  resolveGrantPeriodEnd,
+  type PrismaSeam,
+} from "../webhook";
 
 // ─── Fake Prisma ────────────────────────────────────────────────────────────
 
@@ -643,5 +647,103 @@ describe("handleStripeEvent · unhandled types", () => {
     });
     expect(ctx.userUpdates).toHaveLength(0);
     expect(ctx.agencyUpdates).toHaveLength(0);
+  });
+});
+
+// ─── resolveGrantPeriodEnd · first-purchase dedupe-key alignment ─────────────
+//
+// The plan-credit grant dedupes on the billing-period anchor. On a FIRST
+// purchase, checkout.session.completed arrives before the agency row carries
+// currentPeriodEnd — the resolver must fetch the subscription's period from
+// Stripe so checkout + subscription.created + invoice.paid all share ONE
+// dedupe key (the old event-id fallback wrote a duplicate ledger row).
+
+function checkoutEvent(subscription: string | null): Stripe.Event {
+  return {
+    id: "evt_checkout_1",
+    type: "checkout.session.completed",
+    api_version: "2024-12-18.acacia",
+    livemode: false,
+    created: 1,
+    pending_webhooks: 0,
+    request: { id: null, idempotency_key: null },
+    object: "event",
+    data: {
+      object: { subscription } as unknown as Stripe.Checkout.Session,
+    },
+  } as Stripe.Event;
+}
+
+const PERIOD_END_TS = 1_790_000_000; // unix seconds
+
+describe("resolveGrantPeriodEnd", () => {
+  test("agency period wins when present — no Stripe call", async () => {
+    const retrieve = vi.fn();
+    const anchor = new Date("2026-08-09T00:00:00Z");
+    const out = await resolveGrantPeriodEnd(
+      checkoutEvent("sub_1"),
+      anchor,
+      retrieve,
+    );
+    expect(out).toBe(anchor);
+    expect(retrieve).not.toHaveBeenCalled();
+  });
+
+  test("checkout-first purchase resolves the period from the subscription", async () => {
+    const retrieve = vi.fn(async () => ({
+      current_period_end: PERIOD_END_TS,
+      items: { data: [] },
+    })) as unknown as (id: string) => Promise<Stripe.Subscription>;
+    const out = await resolveGrantPeriodEnd(
+      checkoutEvent("sub_1"),
+      null,
+      retrieve,
+    );
+    expect(out).toEqual(new Date(PERIOD_END_TS * 1000));
+    // The invariant: this ISO key equals what invoice.paid later dedupes on,
+    // so the first purchase writes exactly ONE plan-grant ledger row.
+  });
+
+  test("retrieve failure falls back to null (event-id key) — never throws", async () => {
+    const retrieve = vi.fn(async () => {
+      throw new Error("stripe down");
+    }) as unknown as (id: string) => Promise<Stripe.Subscription>;
+    await expect(
+      resolveGrantPeriodEnd(checkoutEvent("sub_1"), null, retrieve),
+    ).resolves.toBeNull();
+  });
+
+  test("checkout with no subscription id → null", async () => {
+    const retrieve = vi.fn();
+    await expect(
+      resolveGrantPeriodEnd(checkoutEvent(null), null, retrieve),
+    ).resolves.toBeNull();
+    expect(retrieve).not.toHaveBeenCalled();
+  });
+
+  test("non-checkout events never trigger a Stripe call", async () => {
+    const retrieve = vi.fn();
+    const evt = {
+      ...checkoutEvent("sub_1"),
+      type: "invoice.paid",
+    } as Stripe.Event;
+    await expect(
+      resolveGrantPeriodEnd(evt, null, retrieve),
+    ).resolves.toBeNull();
+    expect(retrieve).not.toHaveBeenCalled();
+  });
+
+  test("Basil API shape: item-level current_period_end is read when top-level is absent", async () => {
+    // Stripe 2025-03+ (Basil) moved current_period_end onto items.data[] —
+    // subscriptionPeriodEnd reads both; lock the item-level fallback in.
+    const retrieve = vi.fn(async () => ({
+      items: { data: [{ current_period_end: PERIOD_END_TS }] },
+    })) as unknown as (id: string) => Promise<Stripe.Subscription>;
+    const out = await resolveGrantPeriodEnd(
+      checkoutEvent("sub_1"),
+      null,
+      retrieve,
+    );
+    expect(out).toEqual(new Date(PERIOD_END_TS * 1000));
   });
 });

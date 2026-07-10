@@ -35,9 +35,9 @@ describe("price list (golden)", () => {
     //         adsSearch = 0.004 amortized across the cell).
     expect(ENRICHMENT_PRICES.serp.usdPerUnit).toBeCloseTo(0.043, 6);
     expect(ENRICHMENT_PRICES.google_ads.usdPerUnit).toBeCloseTo(0.002, 6);
-    // 2026-07-09 review: corrected 0.05→0.12 to match real meta COGS (the
-    // repricing doc's $0.12 claim); upperMultiplier 1→2 for the retry case.
-    expect(ENRICHMENT_PRICES.meta_ads.usdPerUnit).toBeCloseTo(0.12, 6);
+    // 2026-07-10: corrected 0.12→0.85 to match the REAL Apify console cost
+    // (~$0.72–1.22/run, mean ~$0.87 · proxy-dominated); upperMultiplier 2.
+    expect(ENRICHMENT_PRICES.meta_ads.usdPerUnit).toBeCloseTo(0.85, 6);
     expect(ENRICHMENT_PRICES.meta_ads.upperMultiplier).toBe(2);
     expect(CREDIT_USD).toBe(0.05);
   });
@@ -98,7 +98,7 @@ describe("CREDIT_PRICES (customer billing schedule)", () => {
     expect(CREDIT_PRICES.lighthouse).toBe(2); // 1→2 (covers walled tail)
     expect(CREDIT_PRICES.ai_research).toBe(1);
     expect(CREDIT_PRICES.google_ads).toBe(1);
-    expect(CREDIT_PRICES.meta_ads).toBe(12); // 4→12 (real $0.12 COGS)
+    expect(CREDIT_PRICES.meta_ads).toBe(25); // 12→25 (real ~$0.87/run · 1/market)
     expect(CREDIT_PRICES.serp).toBe(4);
   });
 
@@ -187,6 +187,9 @@ describe("estimateRun", () => {
     // sites honestly: 80 billable × 0.00425 × 14.117647 = 0.34 × 14.117647 = 4.80.
     expect(r.upperBoundUsd).toBeCloseTo(4.8, 4);
     expect(r.netCredits).toBe(160); // CREDIT_PRICES: 80 billable × 2 credits
+    // freshCredits is CREDIT-basis (20 fresh × 2 credits = 40), NOT
+    // usdToCredits(freshHitUsd)=usdToCredits(0.085)=2 (the old COGS-basis bug).
+    expect(r.freshCredits).toBe(40);
     // Confidence is now "bounded" (lighthouse has upperMultiplier > 1 · a
     // billable walled audit can cost up to ~14× the open quote).
     expect(r.confidence).toBe("bounded");
