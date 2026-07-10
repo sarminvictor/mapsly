@@ -49,6 +49,7 @@ import {
 } from "@/modules/discovery/freshness-decision";
 import { discoveryIdempotencyKey } from "@/modules/discovery/run-discovery";
 import { kickDispatch } from "@/modules/enrichment/kick-dispatch";
+import { markCronWork, GATED_CRON } from "@/lib/cron/idle-gate";
 import { requireSpendMember } from "@/modules/agency-portal/roles";
 import {
   isPaidAgency,
@@ -800,6 +801,11 @@ export async function runDiscoveryAction(
       where: { id: parsed.data.estimateId },
       data: { status: "CONSUMED", consumedByRunId: discovery.id },
     });
+
+    // Arm the Neon idle gate so the next dispatch tick runs (not skipped) — set
+    // BEFORE the kick so a gated GET tick can never miss this just-enqueued
+    // discovery. Best-effort; the gate's safety scan is the backstop.
+    await markCronWork(GATED_CRON.dispatch);
 
     // Kick the dispatch drain AFTER the response is sent so PENDING → RUNNING is
     // near-instant instead of waiting up to 2 min for the cron. Best-effort —

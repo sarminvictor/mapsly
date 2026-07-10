@@ -38,6 +38,7 @@ import {
 import { reconcileRunCredits } from "@/modules/cost/server";
 import { entitlementBillingEnabled } from "@/modules/cost/flags";
 import { trackProductEvent } from "@/lib/analytics/product-events";
+import { markCronWork, GATED_CRON } from "@/lib/cron/idle-gate";
 import { loadFreshTimestamps } from "@/modules/discovery/enrich-fresh-db";
 import { loadEntitlements } from "@/modules/discovery/entitlements";
 import { decideUnit } from "@/modules/enrichment/unit-decision";
@@ -277,6 +278,14 @@ export interface DispatchResult {
    *  immediately re-kick the dispatch (self-chain) so batches run back-to-back
    *  instead of waiting for the next 2-min cron tick. */
   hasMoreWork: boolean;
+  /** True when this tick observed a FULLY-DRAINED system: no pending discoveries,
+   *  no pending/running runs, and no runnable QUEUED jobs (and the tick actually
+   *  looked at the pool — i.e. was not cut short by the time budget). Drives the
+   *  Neon idle gate: the route clears the wake flag on `idle` so the next tick
+   *  can skip. Conservative — future-dated backoff jobs make it false only while
+   *  their run is RUNNING; a run whose only remaining work is a future retry is
+   *  still picked up by the gate's safety scan. */
+  idle: boolean;
 }
 
 interface ScopeRefs {
@@ -1839,6 +1848,10 @@ export async function closeRunIfDone(
     },
   });
 
+  // Arm the run-finished-emails idle gate — this run just went terminal, so its
+  // next tick should run (not skip) and email the outcome. Best-effort.
+  await markCronWork(GATED_CRON.runFinishedEmails);
+
   const hadProgress = done.length + fresh.length > 0 || totalUsd > 0;
   // WP4-6 · capture the settle result (charged/refunded) so the run carries a
   // truthful close receipt (held / charged / refunded) for the workbench header
@@ -2225,6 +2238,7 @@ export async function dispatchPending(limit = 10): Promise<DispatchResult> {
     jobsRequeued: 0,
     runsClosed: 0,
     hasMoreWork: false,
+    idle: false,
   };
   const now = new Date();
   // WP3-7 · monotonic tick-start marker to budget wall-clock (performance.now is
@@ -2351,6 +2365,25 @@ export async function dispatchPending(limit = 10): Promise<DispatchResult> {
     moreDiscoveriesQueued ||
     (overBudget && candidates.length === 0);
   res.hasMoreWork = forwardProgress && workRemains;
+
+  // Neon idle gate · this tick observed a fully-drained system iff there were
+  // no pending discoveries, no pending or RUNNING runs, no runnable QUEUED jobs
+  // this tick, no overflow beyond the batch, and the job pool was actually
+  // inspected (not skipped for the tick budget). When true the route clears the
+  // wake flag so the next scheduled tick can skip and let Neon suspend. Anything
+  // still in flight (a RUNNING run, queued/overflow work, an untested pool)
+  // keeps it false → the */2 cadence continues until the queue truly empties.
+  // (A run whose only remaining work is a future-dated backoff retry is not
+  // "RUNNING" here once its jobs park, so it relies on the gate's safety scan —
+  // an acceptable ≤13-min pickup for already-minutes-delayed retry work.)
+  res.idle =
+    pendingDiscoveries.length === 0 &&
+    !moreDiscoveriesQueued &&
+    pendingRuns.length === 0 &&
+    runningRuns.length === 0 &&
+    !overBudget &&
+    candidates.length === 0 &&
+    !poolHadOverflow;
 
   return res;
 }

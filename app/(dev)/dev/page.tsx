@@ -200,7 +200,7 @@ export default function DevDashboard() {
         <SignalsSection />
       </Suspense>
 
-      <AutoRefresh intervalMs={30000} />
+      <AutoRefresh intervalMs={60000} />
       <footer
         style={{
           fontFamily: "JetBrains Mono, monospace",

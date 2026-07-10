@@ -36,6 +36,7 @@ import {
 import { requireSpendMember } from "@/modules/agency-portal/roles";
 import { rawListWhere } from "./raw-list";
 import { kickDispatch } from "@/modules/enrichment/kick-dispatch";
+import { markCronWork, GATED_CRON } from "@/lib/cron/idle-gate";
 import { seedRunProgress } from "@/modules/enrichment/run-progress-counter";
 import {
   createCostEstimate,
@@ -592,6 +593,11 @@ export async function runEnrichAction(
       retrying: 0,
       status: "PENDING",
     });
+
+    // Arm the Neon idle gate so the next dispatch tick runs (not skipped) — set
+    // BEFORE the kick so a gated GET tick can never miss this just-enqueued run.
+    // Best-effort; the gate's safety scan is the backstop.
+    await markCronWork(GATED_CRON.dispatch);
 
     // Kick the dispatch drain post-response so enrichment starts near-instantly
     // instead of waiting for the */2 cron. Best-effort (see kickDispatch).

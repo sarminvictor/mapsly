@@ -105,6 +105,13 @@ export function EnrichingStep({
     let runStartedAt: string | null = null;
 
     async function poll() {
+      // Neon cost guard: a backgrounded tab shouldn't poll — the jobs feed hits
+      // Prisma every tick. Skip the fetch while hidden and re-check one interval
+      // later; the run advances server-side and this view catches up on re-focus.
+      if (typeof document !== "undefined" && document.hidden) {
+        if (!cancelled) timer = setTimeout(poll, 3000);
+        return;
+      }
       try {
         const [progressRes, jobsRes] = await Promise.all([
           fetch(`/api/agency/runs/${encodeURIComponent(runId)}/progress`, {

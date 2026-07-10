@@ -143,6 +143,14 @@ export function LiveRunGate({
     }
 
     async function poll() {
+      // Neon cost guard: a backgrounded tab shouldn't poll — each poll is a DB
+      // touch on the progress route. Skip the fetch while hidden and re-check
+      // one interval later (the loop keeps its 4s heartbeat); the run advances
+      // server-side and the banner catches up within one interval on re-focus.
+      if (typeof document !== "undefined" && document.hidden) {
+        if (!cancelled) timer = setTimeout(poll, POLL_MS);
+        return;
+      }
       try {
         const res = await fetch(
           `/api/agency/runs/${encodeURIComponent(runId!)}/progress`,

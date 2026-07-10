@@ -30,6 +30,7 @@ import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import prisma, { Prisma } from "@/lib/prisma";
+import { markCronWork, GATED_CRON } from "@/lib/cron/idle-gate";
 import { CREDIT_PRICES } from "@/modules/cost/pricing";
 import {
   getOrCreateWallet,
@@ -282,6 +283,10 @@ export async function searchIndexLeadsAction(
           finishedAt: new Date(),
         },
       });
+
+      // This search run is born terminal → arm the run-finished-emails gate so
+      // its next tick emails the outcome instead of waiting for the safety scan.
+      await markCronWork(GATED_CRON.runFinishedEmails);
     } catch (err) {
       // Nothing charged yet (settle runs below) → refund the whole hold.
       await refundHold(runId);

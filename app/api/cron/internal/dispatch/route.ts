@@ -15,6 +15,7 @@ import { after } from "next/server";
 
 import { verifyCronAuth } from "@/lib/auth/cron-secret";
 import { withCronRun } from "@/lib/cost/cost-counter";
+import { shouldRunCronTick, recordCronTick } from "@/lib/cron/idle-gate";
 import { dispatchPending } from "@/modules/enrichment/dispatch";
 import {
   kickDispatch,
@@ -30,7 +31,7 @@ const JOB = "enrichment:dispatch";
 /** Max PENDING rows of each kind to drain per invocation (bounded work). */
 const DEFAULT_LIMIT = 10;
 
-async function handle(req: Request): Promise<Response> {
+async function handle(req: Request, gate: boolean): Promise<Response> {
   const authResult = verifyCronAuth(req);
   if (!authResult.ok) {
     if (authResult.reason === "not_configured") {
@@ -42,6 +43,14 @@ async function handle(req: Request): Promise<Response> {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
 
+  // Neon idle gate (GET only). A scheduled tick with no pending/running work
+  // skips WITHOUT touching Prisma so the endpoint can suspend. POST (kickDispatch
+  // + admin kicks) always bypasses — a kick means work was just enqueued. Fails
+  // OPEN: Redis absent/unreachable → run the tick. See lib/cron/idle-gate.ts.
+  if (gate && !(await shouldRunCronTick(JOB))) {
+    return Response.json({ ok: true, skipped: "idle" });
+  }
+
   const url = new URL(req.url);
   const limitParam = Number.parseInt(url.searchParams.get("limit") ?? "", 10);
   const limit =
@@ -50,6 +59,12 @@ async function handle(req: Request): Promise<Response> {
       : DEFAULT_LIMIT;
 
   const result = await withCronRun(JOB, () => dispatchPending(limit));
+
+  // Stamp the safety-scan clock; clear the wake flag only when the system is
+  // fully drained (no pending/running discoveries, runs, or jobs) so the next
+  // idle tick can skip. While ANY work remains the flag stays set → the */2
+  // cadence continues until the queue empties. Best-effort (degrades open).
+  await recordCronTick(JOB, { idle: result.idle });
 
   // WP3-1 · Self-chain (two guarantees, one condition). When this batch made
   // forward progress AND more work remains (`hasMoreWork`), we chain the next
@@ -79,9 +94,11 @@ async function handle(req: Request): Promise<Response> {
 }
 
 export async function GET(req: Request): Promise<Response> {
-  return handle(req);
+  return handle(req, /* gate */ true);
 }
 
 export async function POST(req: Request): Promise<Response> {
-  return handle(req);
+  // POST = kickDispatch fast-path + admin kick → work was just enqueued, always
+  // drain (bypass the idle gate).
+  return handle(req, /* gate */ false);
 }

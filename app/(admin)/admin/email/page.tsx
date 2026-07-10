@@ -78,7 +78,7 @@ export default function ColdEmailAdminPage() {
       <Suspense fallback={<p style={{ color: "#999" }}>Loading…</p>}>
         <Overview />
       </Suspense>
-      <AutoRefresh intervalMs={30000} />
+      <AutoRefresh intervalMs={60000} />
     </div>
   );
 }
