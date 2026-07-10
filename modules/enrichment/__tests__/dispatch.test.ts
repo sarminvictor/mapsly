@@ -135,6 +135,8 @@ import {
   claimAndProcessJob,
   isNonRetryableFailure,
   permanentlyUnavailablePairs,
+  backoffUntil,
+  requeueBackoff,
 } from "../dispatch";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -2049,5 +2051,45 @@ describe("processJob · INC-59 site-gone verdicts", () => {
     expect(isNonRetryableFailure("contacts_site_gone_conn")).toBe(true);
     expect(isNonRetryableFailure("contacts_domain_parked")).toBe(true);
     expect(isNonRetryableFailure("contacts_fetch_failed")).toBe(false);
+  });
+});
+
+// 2026-07-10 · near-done backoff cap — a straggler in a 98%-complete run gets a
+// short (≤60s) retry delay instead of the full 1→2→4-min ladder, so one dead-ish
+// site can't hold a near-finished run's "Enriching… 1 retrying" banner for
+// minutes. The full ladder still applies to a genuinely mid-flight run.
+describe("requeueBackoff (near-done cap)", () => {
+  const NOW = new Date("2026-07-10T18:00:00Z");
+  const minutesUntil = (d: Date) =>
+    Math.round((d.getTime() - NOW.getTime()) / 60_000);
+
+  test("run ≥90% complete → capped to ≤60s (not the 4-min ladder)", async () => {
+    p.enrichmentRun.findUnique.mockResolvedValue({
+      unitsRequested: 55,
+      unitsCompleted: 54, // 98% done
+    });
+    // attempts=2 would normally ladder to 4 min; near-done caps it to 1 min.
+    const at = await requeueBackoff("run1", 2, NOW);
+    expect(minutesUntil(at)).toBe(1);
+    // vs the uncapped ladder for the same attempt:
+    expect(minutesUntil(backoffUntil(2, NOW))).toBe(4);
+  });
+
+  test("run mid-flight (<90%) → the FULL ladder (rate-limited vendors unaffected)", async () => {
+    p.enrichmentRun.findUnique.mockResolvedValue({
+      unitsRequested: 55,
+      unitsCompleted: 20, // 36% done
+    });
+    expect(minutesUntil(await requeueBackoff("run1", 2, NOW))).toBe(4);
+  });
+
+  test("degrades to the normal ladder on a null run / missing runId / read error", async () => {
+    p.enrichmentRun.findUnique.mockResolvedValue(null);
+    expect(minutesUntil(await requeueBackoff("run1", 2, NOW))).toBe(4);
+    // no runId at all → no query, normal ladder
+    expect(minutesUntil(await requeueBackoff(null, 2, NOW))).toBe(4);
+    // read throws → normal ladder (never blocks the requeue)
+    p.enrichmentRun.findUnique.mockRejectedValueOnce(new Error("db blip"));
+    expect(minutesUntil(await requeueBackoff("run1", 2, NOW))).toBe(4);
   });
 });

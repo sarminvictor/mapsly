@@ -105,9 +105,55 @@ const MS_PER_DAY = 86_400_000;
 // still picked up by the very next tick, so the cron cadence only bounds the
 // LOWER edge of the delay.
 const RETRY_BACKOFF_CAP_MIN = 60;
-function backoffUntil(attempts: number, now: Date): Date {
+export function backoffUntil(attempts: number, now: Date): Date {
   const minutes = Math.min(2 ** Math.max(0, attempts), RETRY_BACKOFF_CAP_MIN);
   return new Date(now.getTime() + minutes * 60_000);
+}
+
+// 2026-07-10 · NEAR-DONE backoff cap. A single failing straggler on the
+// 1→2→4-minute ladder held a 54-of-55 run's "Enriching… 1 retrying" banner for
+// 6+ minutes (the "98%-done feels stuck" complaint). When a run is almost
+// complete, its remaining retries don't need the full ladder — cap them so the
+// run resolves fast. The full ladder still applies to a genuinely mid-flight run
+// (so a rate-limited vendor isn't hammered). Kept as a heuristic on the DB's
+// business-unit progress (unitsCompleted/unitsRequested), which the tick keeps
+// current.
+const NEAR_DONE_FRACTION = 0.9;
+const NEAR_DONE_BACKOFF_MIN = 1; // 60s · below the ~2-min cron cadence's floor
+
+/**
+ * The requeue backoff for a failing job, SHORTENED to {@link NEAR_DONE_BACKOFF_MIN}
+ * when its run is ≥{@link NEAR_DONE_FRACTION} complete. One indexed read by
+ * runId; degrades to the normal {@link backoffUntil} on a null run / read
+ * hiccup / missing runId. Exported for testing.
+ */
+export async function requeueBackoff(
+  runId: string | null | undefined,
+  attempts: number,
+  now: Date,
+): Promise<Date> {
+  if (runId) {
+    try {
+      const run = await prisma.enrichmentRun.findUnique({
+        where: { id: runId },
+        select: { unitsRequested: true, unitsCompleted: true },
+      });
+      if (
+        run &&
+        run.unitsRequested > 0 &&
+        run.unitsCompleted / run.unitsRequested >= NEAR_DONE_FRACTION
+      ) {
+        const minutes = Math.min(
+          2 ** Math.max(0, attempts),
+          NEAR_DONE_BACKOFF_MIN,
+        );
+        return new Date(now.getTime() + minutes * 60_000);
+      }
+    } catch {
+      // fall through to the normal ladder
+    }
+  }
+  return backoffUntil(attempts, now);
 }
 
 // 2026-07-10 · SOFT-FAILURE TAXONOMY. A worker soft failure (ok=false OR
@@ -1399,7 +1445,7 @@ export async function processJob(
             attempts: nextAttempts,
             errorMessage: reason,
             startedAt: null,
-            nextAttemptAt: backoffUntil(nextAttempts, now),
+            nextAttemptAt: await requeueBackoff(job.runId, nextAttempts, now),
           },
         });
         return "requeued";
@@ -1479,7 +1525,7 @@ export async function processJob(
         attempts: nextAttempts,
         errorMessage: msg.slice(0, 500),
         startedAt: null,
-        nextAttemptAt: backoffUntil(nextAttempts, now),
+        nextAttemptAt: await requeueBackoff(job.runId, nextAttempts, now),
       },
     });
     return "requeued";

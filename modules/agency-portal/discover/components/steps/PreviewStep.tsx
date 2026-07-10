@@ -416,10 +416,39 @@ export function PreviewStep({
     const myId = requestIdRef.current;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let warnedThrow = false; // one-shot guard for the poll-read catch below
     const startedAt = Date.now();
 
     async function poll() {
-      const s = await getDiscoverySummary({ discoveryId });
+      // 2026-07-10 · getDiscoverySummary is a server action — a THROWN error
+      // (network blip, a version-skew server-action reference after a deploy,
+      // a cold-start hiccup) is NOT a returned `status !== "ok"`. Without this
+      // guard, one throw rejected `poll()` before it scheduled the next timer,
+      // KILLING the loop for good: the mapping UI then sat on "Querying Google
+      // Maps… 31s" forever even after the discovery completed with results (the
+      // exact stuck-preview bug). Catch it and keep polling — the discovery
+      // finishes server-side regardless; the loop just has to survive to see it.
+      let s: Awaited<ReturnType<typeof getDiscoverySummary>>;
+      try {
+        s = await getDiscoverySummary({ discoveryId });
+      } catch (e) {
+        // Surface the FIRST throw only (guarded — this catch re-fires every 2s
+        // and must not spam). A persistent throw here is the "version-skew
+        // server-action after a deploy" case; without a breadcrumb it'd retry
+        // silently forever, invisible in logs (observability.md · warn level).
+        if (!warnedThrow) {
+          warnedThrow = true;
+          console.warn(
+            `[PreviewStep] discovery poll read threw (retrying): ${
+              e instanceof Error ? e.message : String(e)
+            }`,
+          );
+        }
+        if (!cancelled && requestIdRef.current === myId) {
+          timer = setTimeout(poll, 2000);
+        }
+        return;
+      }
       if (cancelled || requestIdRef.current !== myId) return;
       setElapsedSec(Math.round((Date.now() - startedAt) / 1000));
       if (s.status !== "ok") {
