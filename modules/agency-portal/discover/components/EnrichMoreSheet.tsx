@@ -37,6 +37,7 @@ import {
   enrichTypesForGroups,
   groupCellCredits,
   groupLeadCredits,
+  groupHasMissingType,
   rollUpGroupState,
   type DataGroup,
   type DataGroupKey,
@@ -264,21 +265,23 @@ export function EnrichMoreSheet({
       let dataN = 0;
       for (const id of scopeIds) {
         const ts = coverageTypeStates[id];
-        // Build the full per-TYPE map (every one of the 9 keys, default not_run)
-        // and roll it up through the CANONICAL precedence so the popup agrees
-        // with the drawer/dot-strip. "to get" = never ran (not_run) OR the scan
-        // FAILED (re-offerable for retry — a failed scan is NOT "already done").
-        // enriched / ran-but-empty / in-flight all count as HAVE (a
-        // completed-but-empty enrichment must NOT read as "to get" — that was the
-        // exact bug; the server preflight dedups already-fresh units at run so a
-        // retry only re-bills the failed half).
+        // Build the full per-TYPE map (every one of the 9 keys, default not_run).
+        // "to get" is PURCHASE truth (2026-07-10): a lead still needs the group
+        // when ANY of its types is missing (not_run/failed) — NOT the display
+        // roll-up, whose ANY-enriched rule made "AI brief" read "already done"
+        // off services data alone while ai_research (the AI-summary text) had
+        // never run, leaving it unpurchasable (toGet 0 · 0 credits · nothing to
+        // run) while the AI-summary column showed "— enrich" on every row.
+        // enriched / ran-but-empty / in-flight types all count as covered (a
+        // completed-but-empty type must NOT read as "to get"; the server
+        // preflight dedups already-fresh types at run, so buying a partially-
+        // covered group only re-bills the missing half).
         const perType = {} as Record<EnrichmentTypeKey, TypeState>;
         for (const k of ENRICHMENT_TYPE_KEYS) perType[k] = ts?.[k] ?? "not_run";
-        const state = rollUpGroupState(perType, group);
-        if (state === "not_run" || state === "failed") toGet += 1;
+        if (groupHasMissingType(perType, group)) toGet += 1;
         else {
           have += 1;
-          if (state === "enriched") dataN += 1;
+          if (rollUpGroupState(perType, group) === "enriched") dataN += 1;
         }
       }
       // ISSUE-12 · "already done" now applies to MARKET groups too: the per-lead

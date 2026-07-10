@@ -58,6 +58,14 @@ export interface FetchSiteResult {
   finalUrl: string;
   /** Lower-cased response headers. Empty object when `ok` is false. */
   headers: Record<string, string>;
+  /**
+   * INC-59 · WHY the fetch failed, when known — the raw evidence the site
+   * verdict is classified from ("ENOTFOUND", "ECONNREFUSED", "HTTP_500",
+   * "ETIMEDOUT", …). Collapsing every failure to a bare `ok:false` was how a
+   * domain that DOESN'T EXIST IN DNS spent three runs on the "transient —
+   * retry" ladder. Absent on success or when the cause is genuinely unknown.
+   */
+  errorCode?: string;
 }
 
 const FAILED: FetchSiteResult = Object.freeze({
@@ -66,6 +74,25 @@ const FAILED: FetchSiteResult = Object.freeze({
   finalUrl: "",
   headers: {},
 });
+
+/** Dig the most specific error code/name out of a (possibly wrapped) fetch
+ *  error — undici wraps network errors as `TypeError: fetch failed` with the
+ *  real `code` on `cause` (sometimes nested one level deeper). */
+function errorCodeOf(err: unknown): string | undefined {
+  const seen = new Set<unknown>();
+  let cur: unknown = err;
+  let fallback: string | undefined;
+  while (cur && typeof cur === "object" && !seen.has(cur)) {
+    seen.add(cur);
+    const e = cur as { code?: unknown; name?: string; cause?: unknown };
+    if (typeof e.code === "string" && e.code) return e.code;
+    if (!fallback && typeof e.name === "string" && e.name !== "TypeError") {
+      fallback = e.name;
+    }
+    cur = e.cause;
+  }
+  return fallback;
+}
 
 /**
  * Normalize a possibly-bare website value into a fetchable absolute https URL.
@@ -126,7 +153,7 @@ export async function fetchSiteHtml(
       signal: AbortSignal.timeout(timeoutMs),
     });
 
-    if (!res.ok) return FAILED;
+    if (!res.ok) return { ...FAILED, errorCode: `HTTP_${res.status}` };
 
     const headers = headersToRecord(res.headers);
 
@@ -152,8 +179,10 @@ export async function fetchSiteHtml(
       finalUrl: res.url || target,
       headers,
     };
-  } catch {
-    // Timeout, DNS failure, connection reset, abort — all collapse to FAILED.
-    return FAILED;
+  } catch (err) {
+    // Timeout, DNS failure, connection reset, abort — FAILED, but KEEP the
+    // cause (INC-59): "ENOTFOUND" vs "ETIMEDOUT" is the difference between a
+    // domain that doesn't exist and a slow afternoon.
+    return { ...FAILED, errorCode: errorCodeOf(err) };
   }
 }

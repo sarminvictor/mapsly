@@ -134,8 +134,15 @@ function backoffUntil(attempts: number, now: Date): Date {
 // collector writes `google_ads_error` for transient vendor errors and
 // "skipped" only for an unknown-business edge — rare enough that the cross-run
 // 3-attempt cap covers it without a reason-level sentence.
+// INC-59 · authoritative website-gone verdicts (named at the FIRST failed
+// fetch): the domain doesn't resolve, nothing listens, or the domain serves a
+// registrar parking page — retrying can never help; the 30-day recovery window
+// re-probes monthly in case the site comes back.
 const NON_RETRYABLE_FAILURE_REASONS: ReadonlySet<string> = new Set([
   "contacts_skipped_no_source",
+  "contacts_site_gone_dns",
+  "contacts_site_gone_conn",
+  "contacts_domain_parked",
   "reviews_submit_failed",
   "lighthouse_0_audited",
   "google_ads_no-website",
@@ -421,8 +428,17 @@ const WORKER: Record<JobFamily, (businessId: string) => Promise<WorkerResult>> =
       // WP1-2 · a FAILED fetch (transient site-down) or a SKIPPED no-op is not
       // billable — cost 0, mark FAILED (retryable) so the 3-attempt ladder + the
       // stuck-reset re-try it and the settle refunds it. Only OK bills.
+      // INC-59 · a NAMED permanent verdict (site_gone_dns / site_gone_conn /
+      // domain_parked) rides through as `contacts_<verdict>` — non-retryable on
+      // the FIRST strike, so a domain that doesn't exist never burns the ladder.
       if (r.status === "FAILED") {
-        return { ok: false, billable: false, reason: "contacts_fetch_failed" };
+        return {
+          ok: false,
+          billable: false,
+          reason: r.failureReason
+            ? `contacts_${r.failureReason}`
+            : "contacts_fetch_failed",
+        };
       }
       if (r.status === "SKIPPED") {
         return {

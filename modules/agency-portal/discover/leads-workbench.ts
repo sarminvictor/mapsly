@@ -1259,18 +1259,22 @@ export function filterBreakdown(
 // Numeric-field availability stays window-scoped (stable option list).
 
 /**
- * The signal keys whose data is present on EVERY row of the given view — i.e.
- * every row's `perSignal[key]` is a real verdict (`true`/`false`), never `null`
- * (not-yet-computed). Only these are offered as filters (#2 · strict gating
- * over the view): a signal missing data on even one VISIBLE lead is hidden,
- * because filtering on a partially-computed signal would silently drop the
- * not-yet-enriched leads (dishonest). AUDIT B4 · the caller passes the
- * NARROWED view (state filters + enriched-only + search + numeric filters
- * applied; signal filters excluded), so partially-enriched cohorts unlock
- * their paid signals once the view is scoped to the enriched slice. `signals`
- * is the candidate set — the goal signals (seed) or the whole library
- * (picker). A signal absent from a row's `perSignal` (pruned null) reads as
- * not-present → excludes it. Pure.
+ * The signal keys computable on AT LEAST ONE row of the given view — these are
+ * offered as "+ Signal" filter options.
+ *
+ * 2026-07-10 · RELAXED from the old EVERY-row gate (#2 "strict gating"): that
+ * rule hid a signal the moment ONE visible lead lacked its data, so a single
+ * failed/dead-site lead in the view collapsed the whole picker to the handful
+ * of free-Maps signals (reply rate, hours, phone-only, review trends) — the
+ * entire paid library (booking, tech, ads, socials…) vanished with no
+ * explanation. The strictness defended against "filtering silently drops
+ * unevaluated leads", but {@link evalFilter} already handles that honestly: a
+ * null verdict NEVER matches, so filtering by a partially-computed signal
+ * simply narrows to the leads that can answer — which is what a filter is
+ * for. AUDIT B4 still applies: the caller passes the NARROWED view (state
+ * filters + enriched-only + search + numeric filters; never signal filters —
+ * circular). `signals` is the candidate set — the goal signals (seed) or the
+ * whole library (picker). Pure.
  */
 export function availableSignalKeys(
   rows: readonly WorkbenchLeadRow[],
@@ -1279,7 +1283,7 @@ export function availableSignalKeys(
   const out = new Set<string>();
   if (rows.length === 0) return out;
   for (const s of signals) {
-    if (rows.every((r) => r.perSignal[s.key] != null)) out.add(s.key);
+    if (rows.some((r) => r.perSignal[s.key] != null)) out.add(s.key);
   }
   return out;
 }

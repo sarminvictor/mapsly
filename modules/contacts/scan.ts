@@ -55,6 +55,11 @@ import {
   type FetchSiteResult,
 } from "@/modules/contacts/fetch-site";
 import { fetchDoms } from "@/services/dom-fetcher/fetcher";
+import {
+  classifySiteFailure,
+  looksParkedDomain,
+  type SiteFailureVerdict,
+} from "./site-verdict";
 
 /**
  * Cap on the persisted site-text extract (A2). Bounds both the DB row size and
@@ -132,6 +137,16 @@ export interface ContactScanSummary {
   readonly reachableChannelCount: number;
   /** Whether the business ended up hidden (always false on FAILED). */
   readonly isHidden: boolean;
+  /**
+   * INC-59 · a NAMED PERMANENT failure verdict when the evidence is
+   * authoritative — "site_gone_dns" (domain doesn't resolve), "site_gone_conn"
+   * (nothing listening), "domain_parked" (registrar/broker lander, not the
+   * business's site). The dispatch worker maps it to `contacts_<verdict>`,
+   * which isNonRetryableFailure treats as permanent on the FIRST strike —
+   * no more three-run retry treadmills on a domain that doesn't exist.
+   * Undefined for OK/SKIPPED and for failures that may be transient.
+   */
+  readonly failureReason?: SiteFailureVerdict | "domain_parked";
 }
 
 /** The subset of Business columns the scan reads — explicit select (perf). */
@@ -326,6 +341,15 @@ async function fetchViaDomFetcher(website: string): Promise<FetchSiteResult> {
         headers: {},
       };
     }
+    // INC-59 · keep the actor's error string (e.g. net::ERR_NAME_NOT_RESOLVED)
+    // — it's the evidence the site-gone verdict is classified from.
+    return {
+      ok: false,
+      html: "",
+      finalUrl: "",
+      headers: {},
+      errorCode: r?.error ?? undefined,
+    };
   } catch {
     // Actor error / cost-ceiling / timeout → treat as still-failed (the caller
     // records FAILED, which the retry ladder re-attempts later).
@@ -435,9 +459,15 @@ export async function scanBusinessContacts(
   // real browser loads them fine — so on ANY failure, fall back to the headless
   // dom-fetcher (residential proxy + Playwright), the same actor the contacts
   // price already covers, so a WAF doesn't cost us the contacts + email.
-  let fetched = await fetchSiteHtml(website);
+  const direct = await fetchSiteHtml(website);
+  let fetched = direct;
   if (!fetched.ok) {
-    fetched = await fetchViaDomFetcher(website);
+    // INC-59 · when the direct fetch already proved the domain GONE
+    // (NXDOMAIN / connection refused), don't burn a paid dom-fetch on it —
+    // a headless browser can't render a domain that doesn't resolve.
+    if (!classifySiteFailure(direct.errorCode)) {
+      fetched = await fetchViaDomFetcher(website);
+    }
   }
 
   // ── Fetch failed → FAILED, NEVER hidden ─────────────────────────────────────
@@ -449,6 +479,17 @@ export async function scanBusinessContacts(
     // re-scan for 90 days. The dispatch CONTACTS worker maps this FAILED result
     // to a non-billable outcome (WP1-2), so the 3-attempt retry ladder + the
     // stuck-reset re-attempt it, and the run's settle refunds it.
+    //
+    // INC-59 · EXCEPT when the failure is authoritatively PERMANENT: a domain
+    // that doesn't resolve (NXDOMAIN) or refuses every connection isn't
+    // "transient site-down" — retrying it burns runs and shows a lying
+    // "failed · retry" forever. Classify from EITHER fetch path's error code
+    // (the direct Node fetch usually carries the DNS verdict; the actor's
+    // net::ERR_* string is the fallback evidence).
+    const failureReason =
+      classifySiteFailure(direct.errorCode) ??
+      classifySiteFailure(fetched.errorCode) ??
+      undefined;
     await prisma.business.update({
       where: { id: businessId },
       data: {
@@ -463,6 +504,32 @@ export async function scanBusinessContacts(
       reachability: null,
       reachableChannelCount: 0,
       isHidden: false,
+      ...(failureReason ? { failureReason } : {}),
+    };
+  }
+
+  // ── INC-59 · parked-domain gate ─────────────────────────────────────────────
+  // The domain resolved and served a page — but if it's a registrar/broker
+  // PARKING lander ("this domain may be for sale"), it is NOT the business's
+  // website: extracting from it would store the BROKER's links as the
+  // business's contacts. Verdict is permanent (first strike); the 30-day
+  // recovery window re-probes in case the business re-launches on the domain.
+  if (looksParkedDomain(fetched.html)) {
+    await prisma.business.update({
+      where: { id: businessId },
+      data: {
+        contactScanStatus: "FAILED",
+      },
+    });
+    return {
+      businessId,
+      status: "FAILED",
+      contactsUpserted: 0,
+      techUpserted: 0,
+      reachability: null,
+      reachableChannelCount: 0,
+      isHidden: false,
+      failureReason: "domain_parked",
     };
   }
 

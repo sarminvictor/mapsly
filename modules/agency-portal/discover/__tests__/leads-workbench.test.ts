@@ -269,14 +269,14 @@ describe("toneForPercentile", () => {
   });
 });
 
-describe("availableSignalKeys (#2 · strict all-rows gating)", () => {
+describe("availableSignalKeys (2026-07-10 · any-row availability)", () => {
   const signals = [
     { key: "sig_a", title: "A" },
     { key: "sig_b", title: "B" },
     { key: "sig_c", title: "C" },
   ];
 
-  test("a signal is available only when EVERY row has a verdict", () => {
+  test("a signal is available when ANY row has a verdict; never-computed stays hidden", () => {
     const rows = [
       row({ perSignal: { sig_a: true, sig_b: false } }),
       row({ perSignal: { sig_a: false, sig_b: null } }),
@@ -284,20 +284,23 @@ describe("availableSignalKeys (#2 · strict all-rows gating)", () => {
     ];
     const avail = availableSignalKeys(rows, signals);
     expect(avail.has("sig_a")).toBe(true); // non-null on both rows
-    expect(avail.has("sig_b")).toBe(false); // null on row 2 → hidden until enriched
-    expect(avail.has("sig_c")).toBe(false); // never present
+    expect(avail.has("sig_b")).toBe(true); // computable on row 1 → offered
+    expect(avail.has("sig_c")).toBe(false); // never present anywhere → hidden
   });
 
-  test("a single not-yet-computed lead hides the signal (honest gating)", () => {
+  test("one dead/failed lead no longer hides the signal for the whole view", () => {
+    // The OLD every-row gate collapsed the picker to free-Maps signals the
+    // moment one lead (a dead-site "None" row) lacked data. evalFilter treats
+    // null verdicts as never-matching, so offering the signal is honest.
     const rows = [
       row({ perSignal: { sig_a: true } }),
       row({ perSignal: { sig_a: true } }),
-      row({ perSignal: {} }), // an absent/pruned key reads as no-data → hides it
+      row({ perSignal: {} }), // absent/pruned key on one lead
     ];
-    expect(availableSignalKeys(rows, signals).has("sig_a")).toBe(false);
+    expect(availableSignalKeys(rows, signals).has("sig_a")).toBe(true);
   });
 
-  test("all rows enriched → available (true AND false verdicts both count)", () => {
+  test("true AND false verdicts both count as computable", () => {
     const rows = [
       row({ perSignal: { sig_a: true } }),
       row({ perSignal: { sig_a: false } }),

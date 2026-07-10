@@ -509,6 +509,31 @@ export function deriveGroupStates(
   return out;
 }
 
+/**
+ * PURCHASE truth (2026-07-10) — distinct from {@link rollUpGroupState}'s
+ * DISPLAY truth. A lead still NEEDS a group when ANY of the group's types is
+ * missing (not_run | failed), even if another type already produced data.
+ *
+ * Why two truths: the roll-up's ANY-enriched rule is right for DISPLAY (a real
+ * AI brief must not read "no data" just because the services sub-scan found no
+ * menu — the Boise 3/7 ticket), but WRONG for buying: services data made the
+ * whole "AI brief" group read "already done" in the enrich sheet, so
+ * ai_research (the AI-summary text itself — never auto-run by any goal) became
+ * UNPURCHASABLE: toGet 0, 0 credits, nothing to run, while the workbench's AI
+ * summary column honestly showed "— enrich" on every row. Billing stays exact
+ * either way — the server freshness-dedup skips the already-done types at $0
+ * and quotes only the missing ones. Pure.
+ */
+export function groupHasMissingType(
+  types: Record<EnrichmentTypeKey, TypeState>,
+  group: DataGroup,
+): boolean {
+  return group.types.some((t) => {
+    const s = types[t];
+    return s === "not_run" || s === "failed";
+  });
+}
+
 /** The per-LEAD group keys — `basis:"lead"` only (excludes the per-market
  *  `meta_ads`/`search`). A cell-level ad/SERP scan must NOT read as a personal
  *  enrichment on every lead in the cohort. */

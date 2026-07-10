@@ -16,6 +16,7 @@ import {
   ENRICHMENT_TYPE_KEYS,
   CELL_BASIS_TOKENS,
   groupCellCredits,
+  groupHasMissingType,
   groupLeadCredits,
   typeKeyForEnrichToken,
   rollUpGroupState,
@@ -364,5 +365,48 @@ describe("typeKeyForEnrichToken", () => {
   });
   test("CELL_BASIS_TOKENS is exactly the dispatch cell families", () => {
     expect([...CELL_BASIS_TOKENS].sort()).toEqual(["meta_ads", "serp"]);
+  });
+});
+
+// ── 2026-07-10 · purchase truth vs display truth ─────────────────────────────
+describe("groupHasMissingType (purchase truth)", () => {
+  const aiBrief = DATA_GROUPS.find((g) => g.key === "ai_brief")!;
+  const contactsTech = DATA_GROUPS.find((g) => g.key === "contacts_tech")!;
+
+  test("THE AI-BRIEF DEADLOCK: services enriched + ai_research not_run → still to-get", () => {
+    // Display roll-up says "enriched" (right — there IS data to show), but the
+    // AI summary itself never ran. The old sheet counted this lead as
+    // "already done", making ai_research unpurchasable while the AI-summary
+    // column showed "— enrich" on every row.
+    const perType = { ...allNotRun(), SERVICES: "enriched" };
+    expect(rollUpGroupState(perType as never, aiBrief)).toBe("enriched");
+    expect(groupHasMissingType(perType as never, aiBrief)).toBe(true);
+  });
+
+  test("every type covered (enriched / ran-but-empty) → nothing missing", () => {
+    const done = { ...allNotRun(), SERVICES: "enriched", AI_RESEARCH: "empty" };
+    expect(groupHasMissingType(done as never, aiBrief)).toBe(false);
+  });
+
+  test("a FAILED type counts as missing (retry affordance)", () => {
+    const failed = {
+      ...allNotRun(),
+      CONTACTS: "failed",
+      TECH: "enriched",
+    };
+    expect(groupHasMissingType(failed as never, contactsTech)).toBe(true);
+  });
+
+  test("in-flight (running) types are NOT missing (don't double-buy)", () => {
+    const running = {
+      ...allNotRun(),
+      SERVICES: "enriched",
+      AI_RESEARCH: "running",
+    };
+    expect(groupHasMissingType(running as never, aiBrief)).toBe(false);
+  });
+
+  test("all not_run → missing", () => {
+    expect(groupHasMissingType(allNotRun(), aiBrief)).toBe(true);
   });
 });

@@ -2011,3 +2011,43 @@ describe("zero-job fan-out (INC-58 · all pairs dead)", () => {
     expect(reconcileRunCredits).not.toHaveBeenCalled();
   });
 });
+
+// ── INC-59 · named permanent website verdicts ride through to first-strike ──
+describe("processJob · INC-59 site-gone verdicts", () => {
+  test("a site_gone_dns scan goes terminal FAILED on the FIRST attempt (no requeue ladder)", async () => {
+    anyMock(scanBusinessContacts).mockResolvedValue({
+      businessId: "b1",
+      status: "FAILED",
+      failureReason: "site_gone_dns", // NXDOMAIN — retrying can never help
+      contactsUpserted: 0,
+      techUpserted: 0,
+      reachability: null,
+      reachableChannelCount: 0,
+      isHidden: false,
+    });
+    const out = await processJob({
+      id: "j1",
+      businessId: "b1",
+      family: "CONTACTS",
+      attempts: 0, // FIRST attempt
+      costUsd: 0.008,
+    });
+    expect(out).toBe("failed"); // NOT "requeued"
+    expect(p.enrichmentJob.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "FAILED",
+          costUsd: 0,
+          errorMessage: "contacts_site_gone_dns",
+        }),
+      }),
+    );
+  });
+
+  test("the new verdict reasons are all non-retryable; plain fetch-failed stays retryable", () => {
+    expect(isNonRetryableFailure("contacts_site_gone_dns")).toBe(true);
+    expect(isNonRetryableFailure("contacts_site_gone_conn")).toBe(true);
+    expect(isNonRetryableFailure("contacts_domain_parked")).toBe(true);
+    expect(isNonRetryableFailure("contacts_fetch_failed")).toBe(false);
+  });
+});

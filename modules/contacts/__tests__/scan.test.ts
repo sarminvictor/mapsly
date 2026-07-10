@@ -533,3 +533,89 @@ describe("siteTextFromHtml (A2 · pure)", () => {
     expect(siteTextFromHtml("<div></div>\n  \t")).toBe("");
   });
 });
+
+// ── INC-59 · dead-website / parked-domain verdicts ──────────────────────────
+describe("scanBusinessContacts · INC-59 permanent verdicts", () => {
+  test("NXDOMAIN direct fetch → FAILED with site_gone_dns, and the paid dom-fetch is SKIPPED", async () => {
+    fetchSiteHtmlMock.mockResolvedValue({
+      ok: false,
+      html: "",
+      finalUrl: "",
+      headers: {},
+      errorCode: "ENOTFOUND", // livingwaterplumbing.ca — domain not in DNS
+    });
+    fetchDomsMock.mockClear();
+
+    const summary = await scanBusinessContacts("biz_1");
+
+    expect(summary.status).toBe("FAILED");
+    expect(summary.failureReason).toBe("site_gone_dns");
+    // A headless browser can't render a domain that doesn't resolve — the
+    // actor call (real money) must not fire.
+    expect(fetchDomsMock).not.toHaveBeenCalled();
+    // Still never hidden — gone-site is a verdict, not a reachability change.
+    expect(summary.isHidden).toBe(false);
+  });
+
+  test("connection-refused on BOTH paths → FAILED with site_gone_conn", async () => {
+    fetchSiteHtmlMock.mockResolvedValue({
+      ok: false,
+      html: "",
+      finalUrl: "",
+      headers: {},
+      errorCode: "ETIMEDOUT", // ambiguous on the direct path → fallback runs
+    });
+    fetchDomsMock.mockResolvedValueOnce({
+      results: [
+        {
+          url: "",
+          blocked: false,
+          failed: true,
+          html: "",
+          error: "net::ERR_CONNECTION_REFUSED",
+        } as never,
+      ],
+      runId: "r1",
+      usageTotalUsd: 0.001,
+    });
+
+    const summary = await scanBusinessContacts("biz_1");
+
+    expect(summary.status).toBe("FAILED");
+    expect(summary.failureReason).toBe("site_gone_conn");
+  });
+
+  test("a transient failure carries NO verdict (stays on the retry ladder)", async () => {
+    fetchSiteHtmlMock.mockResolvedValue({
+      ok: false,
+      html: "",
+      finalUrl: "",
+      headers: {},
+      errorCode: "ETIMEDOUT",
+    });
+    // default fetchDoms mock: failed with no error string
+
+    const summary = await scanBusinessContacts("biz_1");
+
+    expect(summary.status).toBe("FAILED");
+    expect(summary.failureReason).toBeUndefined();
+  });
+
+  test("a parked 'buy this domain' page → FAILED domain_parked, NO broker junk extracted", async () => {
+    fetchSiteHtmlMock.mockResolvedValue({
+      ok: true,
+      html: '<html><head><title>example.ca — this domain may be for sale</title></head><body><a href="https://www.hugedomains.com/domain_profile.cfm?d=example">Buy it</a></body></html>',
+      finalUrl: "https://example.ca/",
+      headers: {},
+    });
+
+    const summary = await scanBusinessContacts("biz_1");
+
+    expect(summary.status).toBe("FAILED");
+    expect(summary.failureReason).toBe("domain_parked");
+    // The broker page's links must never become the business's contacts.
+    expect(summary.contactsUpserted).toBe(0);
+    expect(db.contacts).toHaveLength(0);
+    expect(db.business?.contactScanStatus).toBe("FAILED");
+  });
+});
