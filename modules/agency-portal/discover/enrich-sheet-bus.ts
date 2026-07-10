@@ -34,6 +34,50 @@ export interface EnrichSheetRequest {
   preselect?: boolean;
   /** The scope the opener had at hand — the sheet offers it as options. */
   scope?: EnrichSheetScope;
+  /**
+   * 2026-07-10 · which scope the sheet OPENS on. The toolbar "Enrich N" button
+   * is a VISIBLE action → passes "visible"; the bulk-action bar (only present
+   * when the user has checked rows) → passes "selected". Without it the sheet
+   * falls back to the legacy "selection-wins-else-all" default — which made a
+   * STALE row selection silently drive the run ("Selected (8)" the user never
+   * made). Ignored if the named scope has no ids (falls back sensibly).
+   */
+  defaultScope?: EnrichScopeChoice;
+}
+
+export type EnrichScopeChoice = "selected" | "visible" | "all";
+
+/**
+ * Resolve the scope an EnrichMoreSheet opens on (pure — unit-tested).
+ *
+ * The OPENER names its intent via `defaultScope`: the toolbar "Enrich N" button
+ * is a VISIBLE action ("visible"); the bulk-action bar — only present when the
+ * user has checked rows — passes "selected"; the coverage CTA passes "visible".
+ * A named scope with no ids falls back sensibly so the sheet never opens on an
+ * empty scope: "selected" with no selection → "visible" (or "all" if the view
+ * is also empty); "visible" with no visible ids → "all".
+ *
+ * When the opener names NO scope (legacy / single-lead paths) we keep the P3
+ * rule: an explicit SELECTION wins, else the WHOLE research ("all") — "visible"
+ * is NEVER an implicit default, because it's the current filter/pagination
+ * WINDOW and silently defaulting to it narrowed a rerun to one page (the dental
+ * rerun re-enriched 28 of 122). This is also the fix for the phantom
+ * "Selected (8)": the toolbar now passes "visible", so a STALE row selection no
+ * longer drives its run.
+ */
+export function resolveDefaultScope(
+  defaultScope: EnrichScopeChoice | undefined,
+  selectedCount: number,
+  visibleCount: number,
+): EnrichScopeChoice {
+  if (defaultScope === "selected") {
+    if (selectedCount > 0) return "selected";
+    return visibleCount > 0 ? "visible" : "all";
+  }
+  if (defaultScope === "visible") return visibleCount > 0 ? "visible" : "all";
+  if (defaultScope === "all") return "all";
+  // No explicit opener intent → P3 fallback.
+  return selectedCount > 0 ? "selected" : "all";
 }
 
 const EVENT = "mapsly:enrich-sheet-open";

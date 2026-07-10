@@ -47,10 +47,12 @@ import {
 import {
   emitEnrichStarted,
   emitEnrichScope,
+  resolveDefaultScope,
+  type EnrichScopeChoice,
   type EnrichSheetRequest,
 } from "../enrich-sheet-bus";
 
-type ScopeChoice = "selected" | "visible" | "all";
+type ScopeChoice = EnrichScopeChoice;
 
 interface ScopeInfo {
   cellKeys: string[];
@@ -142,14 +144,23 @@ export function EnrichMoreSheet({
     () => request.scope?.visibleBusinessIds ?? [],
     [request],
   );
-  // P3 (2026-07-10) · default scope: explicit row SELECTION wins (deliberate
-  // user intent), else the WHOLE research ("all"). "visible" is no longer a
-  // default — it's the current filter/pagination WINDOW, and defaulting to it
-  // silently narrowed a rerun to one page (the dental rerun re-enriched 28 of
-  // 122 · run-forensics "rerun scoped 28 not 122"). It stays selectable in the
-  // scope picker for users who genuinely want just the current view.
+  // Default scope. The OPENER now names it (2026-07-10): the toolbar "Enrich N"
+  // button is a VISIBLE action (defaultScope "visible"); the bulk-action bar —
+  // which only exists when the user has checked rows — passes "selected". This
+  // is the fix for the phantom "Selected (8)": a STALE row selection no longer
+  // drives the toolbar run, because the toolbar explicitly opens on "visible".
+  // When the opener names no scope (the coverage CTA / single-cell paths) we
+  // keep the P3 fallback: selection-wins-else-WHOLE-research ("visible" is never
+  // an implicit default — it's the current filter/pagination WINDOW, and
+  // defaulting to it silently narrowed the dental rerun to 28 of 122). A named
+  // scope with no ids falls back sensibly so the sheet never opens on an empty
+  // scope.
   const [scope, setScope] = useState<ScopeChoice>(() =>
-    selectedIds.length > 0 ? "selected" : "all",
+    resolveDefaultScope(
+      request.defaultScope,
+      selectedIds.length,
+      visibleIds.length,
+    ),
   );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();

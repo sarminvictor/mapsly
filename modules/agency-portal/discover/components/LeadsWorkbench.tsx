@@ -2183,15 +2183,16 @@ export function LeadsWorkbench({
     [rowToGetGroups],
   );
 
-  // The scope for the toolbar's one primary enrich action: the selected rows if
-  // any are selected, else the filtered rows that still have a to-get group.
-  const enrichTargetRows = useMemo(() => {
-    const base =
-      selected.size > 0
-        ? filtered.filter((r) => selected.has(r.leadId))
-        : filtered;
-    return base.filter(rowIsEnrichable);
-  }, [filtered, selected, rowIsEnrichable]);
+  // The scope for the toolbar's one primary enrich action: ALWAYS the VISIBLE
+  // (filtered) rows that still have a to-get group — NEVER the row selection
+  // (2026-07-10 · owner: "show for visible here, and show selected only if the
+  // user selects leads in the table"). The selection is reachable only via the
+  // bulk-action bar, which appears when the user checks rows — so a STALE
+  // selection can no longer make the toolbar read a phantom "Enrich 8".
+  const enrichTargetRows = useMemo(
+    () => filtered.filter(rowIsEnrichable),
+    [filtered, rowIsEnrichable],
+  );
   const enrichTargetCount = enrichTargetRows.length;
   const enrichTargetCredits = useMemo(
     () => grossCreditsForRows(enrichTargetRows),
@@ -2207,25 +2208,30 @@ export function LeadsWorkbench({
    *  advertised to-get groups PRE-SELECTED so the sheet's net matches the
    *  button's number. */
   function openToolbarEnrichSheet() {
-    const ids = enrichTargetRows.map((r) => r.businessId);
+    // The toolbar is a VISIBLE action — open the sheet on the "visible" scope
+    // and do NOT hand it a `selectedBusinessIds` scope, so the sheet never
+    // offers (or defaults to) a stale row selection from this entry point. The
+    // bulk-action bar is the only "selected" entry point.
     openEnrichSheet({
       enrichments: enrichTypesForGroups(
         toGetGroupsForRows(enrichTargetRows),
       ) as EnrichmentType[],
       preselect: true,
+      defaultScope: "visible",
       scope: {
-        selectedBusinessIds: ids,
         visibleBusinessIds: filtered.map((r) => r.businessId),
       },
     });
   }
 
-  /** Coverage CTA → open the sheet pre-seeded with every missing data group. */
+  /** Coverage CTA → open the sheet pre-seeded with every missing data group,
+   *  scoped to the current VIEW (not a stale selection). */
   function openMissingGroupsSheet() {
     openEnrichSheet({
       enrichments: enrichTypesForGroups(
         coverageSummary.missingGroups,
       ) as EnrichmentType[],
+      defaultScope: "visible",
       scope: enrichScope,
     });
   }
@@ -3564,20 +3570,13 @@ export function LeadsWorkbench({
           <button
             type="button"
             className="btn primary sm"
-            data-tip={
-              selected.size > 0
-                ? "Enrich the selected leads that still have data to pull"
-                : "Enrich the filtered leads that still have data to pull"
-            }
+            // 2026-07-10 · the toolbar action is ALWAYS the visible/filtered set
+            // (the selection lives in the bulk-action bar), so the label is a
+            // plain "Enrich {visible count}" — no phantom "selected".
+            data-tip="Enrich the leads in the current view that still have data to pull"
             onClick={openToolbarEnrichSheet}
           >
-            {/* E2 (2026-07-10) · NAME the scope in the visible label (was just
-                "Enrich 8", so a stale row selection looked like the default).
-                "Enrich selected 8" vs "Enrich 118" makes a leftover selection
-                obvious at the point of click. */}
-            {selected.size > 0
-              ? `Enrich selected ${enrichTargetCount.toLocaleString()}`
-              : `Enrich ${enrichTargetCount.toLocaleString()}`}
+            {`Enrich ${enrichTargetCount.toLocaleString()}`}
             {enrichTargetCredits > 0
               ? ` · ~${fmtCredits(enrichTargetCredits)} cr`
               : ""}
@@ -4623,12 +4622,15 @@ export function LeadsWorkbench({
           onClick={() => {
             const rowsSel = filtered.filter((r) => selected.has(r.leadId));
             // ISSUE-2 · pre-select the exact to-get groups the button priced,
-            // so the sheet opens matching its advertised number.
+            // so the sheet opens matching its advertised number. The bulk bar is
+            // the ONLY "selected" entry point (it appears only when the user has
+            // checked rows) — so it opens the sheet on the "selected" scope.
             openEnrichSheet({
               enrichments: enrichTypesForGroups(
                 toGetGroupsForRows(rowsSel),
               ) as EnrichmentType[],
               preselect: true,
+              defaultScope: "selected",
               scope: {
                 selectedBusinessIds: rowsSel.map((r) => r.businessId),
                 visibleBusinessIds: filtered.map((r) => r.businessId),
