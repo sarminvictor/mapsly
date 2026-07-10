@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Meta Ad Library actor · forensics + build-vs-buy · 2026-07-10</title>
+<style>
+  :root{
+    --bg:#0f1117; --panel:#171a22; --panel2:#1d2130; --ink:#e8ecf4; --sub:#9aa4b8;
+    --line:#2a2f3d; --accent:#5b3df5; --accent2:#7c66ff; --good:#2fbf71; --warn:#e0a500;
+    --bad:#e5484d; --badbg:#2a1618; --goodbg:#132318; --warnbg:#241f10; --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f6f7fb; --panel:#ffffff; --panel2:#f0f2f8; --ink:#1a1d26; --sub:#5c667c;
+      --line:#e2e6ef; --badbg:#fdecec; --goodbg:#e8f7ee; --warnbg:#fbf4dd; }
+  }
+  :root[data-theme="dark"]{ --bg:#0f1117; --panel:#171a22; --panel2:#1d2130; --ink:#e8ecf4; --sub:#9aa4b8; --line:#2a2f3d; --badbg:#2a1618; --goodbg:#132318; --warnbg:#241f10; }
+  :root[data-theme="light"]{ --bg:#f6f7fb; --panel:#ffffff; --panel2:#f0f2f8; --ink:#1a1d26; --sub:#5c667c; --line:#e2e6ef; --badbg:#fdecec; --goodbg:#e8f7ee; --warnbg:#fbf4dd; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:40px 22px 90px}
+  header.top{border-bottom:1px solid var(--line);padding-bottom:22px;margin-bottom:30px}
+  .kicker{font:600 12px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent2)}
+  h1{font-size:29px;line-height:1.2;margin:12px 0 8px;letter-spacing:-.02em}
+  h2{font-size:21px;margin:44px 0 14px;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
+  h2 .n{font:700 13px/1 var(--mono);color:var(--accent2);background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:6px 9px}
+  h3{font-size:16px;margin:26px 0 10px}
+  p{margin:10px 0}
+  .sub{color:var(--sub)}
+  .meta{color:var(--sub);font:500 13px/1.5 var(--mono)}
+  a{color:var(--accent2);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{font:600 12.5px/1 var(--mono);background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:2px 5px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 24px;margin:16px 0}
+  .tldr{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:14px;padding:22px 24px}
+  .tldr b{color:var(--ink)}
+  .grid{display:grid;gap:14px}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  @media(max-width:760px){.g4,.g3,.g2{grid-template-columns:1fr 1fr}}
+  @media(max-width:480px){.g4,.g3,.g2{grid-template-columns:1fr}}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px 16px}
+  .stat .v{font:800 26px/1 var(--mono);letter-spacing:-.02em}
+  .stat .l{color:var(--sub);font-size:12.5px;margin-top:6px}
+  .stat.bad .v{color:var(--bad)} .stat.good .v{color:var(--good)} .stat.warn .v{color:var(--warn)}
+  .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;margin:16px 0}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:640px}
+  th,td{text-align:left;padding:11px 13px;border-bottom:1px solid var(--line);vertical-align:top}
+  thead th{background:var(--panel2);font:700 12px/1.3 var(--mono);letter-spacing:.03em;color:var(--sub);text-transform:uppercase;position:sticky;top:0}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:var(--panel2)}
+  .mono{font-family:var(--mono)}
+  .num{font-family:var(--mono);text-align:right;white-space:nowrap}
+  .pill{display:inline-block;font:700 11px/1 var(--mono);padding:4px 8px;border-radius:20px;white-space:nowrap}
+  .p-bad{background:var(--badbg);color:var(--bad)} .p-good{background:var(--goodbg);color:var(--good)} .p-warn{background:var(--warnbg);color:var(--warn)}
+  .p-neu{background:var(--panel2);color:var(--sub)}
+  .score{font:800 15px/1 var(--mono);padding:3px 8px;border-radius:7px;display:inline-block;min-width:42px;text-align:center}
+  .s-lo{background:var(--badbg);color:var(--bad)} .s-mid{background:var(--warnbg);color:var(--warn)} .s-hi{background:var(--goodbg);color:var(--good)}
+  .bar{height:7px;border-radius:5px;background:var(--panel2);overflow:hidden;margin-top:7px}
+  .bar>span{display:block;height:100%;border-radius:5px}
+  ul.tight{margin:8px 0;padding-left:20px} ul.tight li{margin:5px 0}
+  ol.rc{margin:8px 0;padding-left:22px} ol.rc li{margin:9px 0}
+  .flag{border-left:3px solid var(--warn);background:var(--warnbg);border-radius:0 10px 10px 0;padding:13px 16px;margin:14px 0;font-size:13.5px}
+  .flag.dec{border-left-color:var(--accent)}
+  .lbl{font:700 11px/1 var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--sub);display:block;margin-bottom:4px}
+  .foot{margin-top:60px;padding-top:20px;border-top:1px solid var(--line);color:var(--sub);font-size:12.5px}
+  .src{font:500 12px/1.7 var(--mono);color:var(--sub);word-break:break-all}
+  .track{border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .track .hd{padding:15px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line)}
+  .track .hd h3{margin:0}
+  .track .bd{padding:14px 18px}
+  .track.A .hd{background:var(--goodbg)} .track.B .hd{background:var(--warnbg)} .track.C .hd{background:linear-gradient(90deg,var(--panel2),transparent)}
+  .win{color:var(--good);font-weight:700} .lose{color:var(--bad);font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="kicker">Enrichment · Cell-intel · Forensics + strategy</div>
+  <h1>Meta Ad Library actor — why it fails, why it's expensive, and the cheaper path</h1>
+  <div class="meta">2026-07-10 · grounded in production DB (last 30 days) + full actor/adapter code review + 8-actor market scan + 2026 technique research (19 sources)</div>
+</header>
+
+<div class="tldr">
+  <p style="margin-top:0"><b>Bottom line.</b> Our Meta actor is failing <b>73% of runs</b>, and the failures are the <b>expensive</b> ones — a dead run burns <b>up to $0.90</b> of residential-proxy bandwidth over a 280-second timeout and returns <b>zero</b>. A working competitor returns the same data at <b>~$0.001 per ad</b>. The cause is not tuning — it's the <b>wrong transport</b>: we drive a full 4&nbsp;GB Chromium browser (loading images since 2026-07-06) to make what is ultimately a single form-encoded POST. Every reliable, cheap actor on the market does it <b>without a browser</b>, hitting the GraphQL JSON endpoint directly.</p>
+  <p style="margin-bottom:0">The decisive line: <b>we pay $0.90 to receive nothing; a pay-per-result rented actor pays $0.0005 for the same block.</b> Three moves — <span class="win">stop the bleeding today</span> (config), <span class="win">rent the creative path</span>, and (optionally) <span class="win">rebuild on an HTTP client</span> — are laid out with cost, effort, and risk below.</p>
+</div>
+
+<!-- ============================================================= -->
+<h2><span class="n">1</span> What production actually shows</h2>
+<p class="sub">Every number here is from the live <code>AdMarketRun</code> table, platform = META, last 30 days (15 runs).</p>
+
+<div class="grid g4" style="margin-top:6px">
+  <div class="stat bad"><div class="v">73%</div><div class="l">of runs FAILED (11 / 15)</div></div>
+  <div class="stat bad"><div class="v">$0.899</div><div class="l">worst single run — 0 advertisers returned</div></div>
+  <div class="stat warn"><div class="v">$0.093</div><div class="l">our cost per advertiser found</div></div>
+  <div class="stat good"><div class="v">$0.02</div><div class="l">cost of an OK run (45× cheaper than a failure)</div></div>
+</div>
+
+<h3>The 2026-07-06 "stealth rebuild" made failure slower and 24× more expensive</h3>
+<p>Before the rebuild, a blocked run <b>failed fast</b> — it gave up in ~15&nbsp;s and cost $0.02. The rebuild turned images <b>ON</b> and told the browser to ride one session until blocked. Failures now grind the full 280&nbsp;s with images streaming, on a proxy metered <b>by the byte</b>. Same failure rate, radically higher bill:</p>
+<div class="tblwrap">
+<table>
+  <thead><tr><th>Week</th><th>Status</th><th class="num">Runs</th><th class="num">Total cost</th><th>What changed</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">2026-06-29</td><td><span class="pill p-bad">FAILED</span></td><td class="num">3</td><td class="num">$0.06</td><td>Failures gave up fast (~$0.02 each)</td></tr>
+    <tr><td class="mono">2026-06-29</td><td><span class="pill p-good">OK</span></td><td class="num">2</td><td class="num">$0.04</td><td>—</td></tr>
+    <tr><td class="mono">2026-07-06</td><td><span class="pill p-bad">FAILED</span></td><td class="num">8</td><td class="num" style="color:var(--bad);font-weight:700">$1.44</td><td>Images-ON + ride-one-session → 5 timeouts up to $0.90, ~16 targets left unscanned each</td></tr>
+    <tr><td class="mono">2026-07-06</td><td><span class="pill p-good">OK</span></td><td class="num">2</td><td class="num">$0.04</td><td>—</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="sub">Same-day (2026-07-10, after the INC-58 CA-proxy-pin) the actor still logged timeout burns of $0.90, $0.25, $0.23 — so the proxy-geo fix addressed the block <i>signature</i> but not the underlying cost of full-browser-on-residential.</p>
+
+<h3>Anatomy of a $0.90 burn — it is arithmetic, not bad luck</h3>
+<div class="grid g2">
+  <div class="panel" style="margin:8px 0">
+    <span class="lbl">The cost product</span>
+    <p class="mono" style="font-size:13px;margin:6px 0">4&nbsp;GB memory × 280&nbsp;s wall × $2.8/GB-hr residential ≈ <b>$0.87</b></p>
+    <div class="bar"><span style="width:93%;background:var(--bad)"></span></div>
+    <p class="sub" style="font-size:12.5px;margin:8px 0 0"><b>~93% is proxy bandwidth</b> (~105&nbsp;MB of Facebook page traffic through an $8/GB residential proxy). Only ~$0.06 is compute. The browser routes <i>every</i> asset — HTML, JS, CSS, and now images — through the by-the-byte lane.</p>
+  </div>
+  <div class="panel" style="margin:8px 0">
+    <span class="lbl">Why a good run is cheap</span>
+    <p class="mono" style="font-size:13px;margin:6px 0">reaches GraphQL on target 1 in ~18&nbsp;s → exits → <b>~$0.02</b></p>
+    <div class="bar"><span style="width:6%;background:var(--good)"></span></div>
+    <p class="sub" style="font-size:12.5px;margin:8px 0 0">The engine can be cheap. It's <b>failure</b> that's expensive — and with 73% of runs failing, the blended bill is dominated by runs that produced nothing. That is the worst possible cost/yield inversion.</p>
+  </div>
+</div>
+
+<!-- ============================================================= -->
+<h2><span class="n">2</span> Our actor — scorecard</h2>
+<p class="sub">Adversarial code review of <code>apify-actors/meta-ad-library/src/main.js</code> (1,200 lines), the adapter, the transport, and the cell collector. Overall <b>3.5 / 10</b>.</p>
+
+<div class="tblwrap">
+<table>
+  <thead><tr><th>Dimension</th><th class="num">Score</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td><b>Reliability</b></td><td class="num"><span class="score s-lo">2</span></td><td>73% FAILED in prod is dispositive. The entire block-avoidance investment (warm sticky session, pinned fingerprint, images-on, cross-run datr) has <b>not moved the failure rate</b>. A single Chromium on one residential session, serialized over ~20 targets, deterministically overruns the 280&nbsp;s budget.</td></tr>
+    <tr><td><b>Cost efficiency</b></td><td class="num"><span class="score s-lo">2</span></td><td>Failures cost ~45× the successes and return zero. The images-ON hook doubled proxy GB "for no measured reliability gain" and converted fast-cheap failures into slow-expensive ones. 4&nbsp;GB memory is oversized for a token-harvest + one POST.</td></tr>
+    <tr><td><b>Reach / yield</b></td><td class="num"><span class="score s-lo">3</span></td><td>Structural ceiling: automated keyword/cell sessions get only the advertiser <b>facet</b> (~4 advertisers), rarely creatives. 73% of runs yield nothing. The high-yield per-page-id creative path is bolted onto the same costly browser instead of being the cheap primary path.</td></tr>
+    <tr><td><b>Maintainability</b></td><td class="num"><span class="score s-mid">5</span></td><td>Exceptionally documented and cleanly layered, but fragile in substance: a 1,200-line single file, correctness bound to Meta's live GraphQL shape via rot-prone regexes, and a dense layer of incident-patches that signals high churn against a moving target.</td></tr>
+    <tr><td><b>Honesty / observability</b></td><td class="num"><span class="score s-hi">9</span></td><td><b>Best-in-class — keep all of it.</b> The <code>graphqlHits</code> discriminator, machine-readable <code>RUN_SUMMARY</code> + per-target status, <code>Actor.fail()</code> on block so it can't cache as a clean 0, verified-only cache writes, the soft-block suspicion heuristic, and honest timeout-cost estimation. This layer prevents the worst downstream harm <i>even while the engine is broken</i> — it is the moat to preserve through any rebuild or buy.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Ranked root causes</h3>
+<ol class="rc">
+  <li><b>Wrong transport (the master cause).</b> A full Playwright browser on residential proxy to make what is ultimately a plain form POST to <code>/api/graphql</code>. Priming facebook.com, rendering the React shell, loading images — all of it is expensive ceremony just to harvest 3 tokens (<code>datr</code>, <code>lsd</code>, <code>doc_id</code>) that a single lightweight HTML GET could yield. This is simultaneously the block-surface driver <i>and</i> the GB-hour cost driver.</li>
+  <li><b>The burn is deterministic.</b> Nothing kills a run early when it's block-storming — the serial target loop grinds every target to the 280&nbsp;s wall. Oversized memory × full timeout × residential rate = ~$0.87 every time a big cell fails.</li>
+  <li><b>Images-ON regression (2026-07-06).</b> Doubled the GB half of the cost, converted $0.02 failures into $0.90 failures, with no measured reduction in the 73% failure rate. Pure cost regression on a speculative bot-tell theory the data refuted.</li>
+  <li><b>Chunking multiplies risk, not throughput.</b> Splitting a cell into <code>ceil(N/20)</code> separate actor runs — each a fresh 4&nbsp;GB cold-boot + fresh prime + independent session — compounds block probability and makes each chunk its own independent $0.90 dice-roll.</li>
+  <li><b>Priming on facebook.com root</b> (Meta's most bot-hostile, login-gated surface) flags the session before it ever reaches the public Ad Library data endpoint. <b>+ Waiting up to 9&nbsp;s per target for the React app</b> to fire a query Meta structurally withholds from automated keyword sessions.</li>
+</ol>
+
+<!-- ============================================================= -->
+<h2><span class="n">3</span> The market — how competitors score</h2>
+<p class="sub">8 Apify Store actors on the same public surface. "Fit" = reliability + cost + whether it returns real US/CA creatives + maintenance-free, scored for <i>our</i> use case.</p>
+
+<div class="tblwrap">
+<table>
+  <thead><tr><th>Actor</th><th>Transport</th><th>Pricing</th><th class="num">Success</th><th>Creatives (US/CA)</th><th class="num">Fit</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>curious_coder</b><br><span class="src">facebook-ads-library-scraper</span><br><span class="sub" style="font-size:12px">4.9k mo · 4.77★ · upd 2026-01-30</span></td>
+      <td>HTTP / GraphQL-light</td>
+      <td class="mono">$0.75 / 1k ads<br><span class="pill p-good">pay-per-result</span></td>
+      <td class="num"><span class="pill p-good">100%</span></td>
+      <td>Yes — via page-id</td>
+      <td class="num"><span class="score s-hi">9</span></td>
+    </tr>
+    <tr>
+      <td><b>automation-lab</b><br><span class="src">facebook-ads-library</span><br><span class="sub" style="font-size:12px">363 mo</span></td>
+      <td>HTTP</td>
+      <td class="mono">$0.50 / 1k + $0.005/run</td>
+      <td class="num"><span class="pill p-good">100%</span></td>
+      <td>Yes (500-ad/task cap)</td>
+      <td class="num"><span class="score s-hi">8</span></td>
+    </tr>
+    <tr>
+      <td><b>apify official</b><br><span class="src">apify/facebook-ads-scraper</span><br><span class="sub" style="font-size:12px">3.8k mo · 3.04★</span></td>
+      <td>Full browser</td>
+      <td class="mono">$3.40–5.80 / 1k</td>
+      <td class="num"><span class="pill p-good">99.3%</span></td>
+      <td>Yes (rich)</td>
+      <td class="num"><span class="score s-mid">7</span></td>
+    </tr>
+    <tr>
+      <td><b>memo23 (cheerio)</b><br><span class="src">…-scraper-cheerio</span><br><span class="sub" style="font-size:12px">4.86★ · 57 fields + EU reach</span></td>
+      <td><b>No browser (cheerio)</b></td>
+      <td class="mono">$31/mo + ~$1/1k</td>
+      <td class="num"><span class="pill p-good">100%</span></td>
+      <td>Yes (richest)</td>
+      <td class="num"><span class="score s-mid">7</span></td>
+    </tr>
+    <tr>
+      <td><b>scraper-engine</b><br><span class="sub" style="font-size:12px">4 mo · 4.19★</span></td>
+      <td>Browser + reversed GraphQL</td>
+      <td class="mono">$15.99/mo + usage</td>
+      <td class="num"><span class="pill p-good">97.8%</span></td>
+      <td>Yes (EU-leaning)</td>
+      <td class="num"><span class="score s-mid">6</span></td>
+    </tr>
+    <tr>
+      <td><b>easyapi</b><br><span class="sub" style="font-size:12px">2.18★ ⚠</span></td>
+      <td>Full browser</td>
+      <td class="mono">$2.99 / 1k</td>
+      <td class="num"><span class="pill p-warn">100%*</span></td>
+      <td>Yes</td>
+      <td class="num"><span class="score s-lo">4</span></td>
+    </tr>
+    <tr>
+      <td><b>harvestlab</b><br><span class="sub" style="font-size:12px">official Graph API v21</span></td>
+      <td>Official API + web fallback</td>
+      <td class="mono">$0.005 / ad</td>
+      <td class="num"><span class="pill p-warn">91%</span></td>
+      <td><b>No</b> — API is EU-only</td>
+      <td class="num"><span class="score s-lo">2</span></td>
+    </tr>
+    <tr style="opacity:.85">
+      <td><b>Mapsly (ours)</b><br><span class="src">CcN2BafzaiuLOpCGg</span></td>
+      <td>Full browser + residential + images</td>
+      <td class="mono">up to <b>$0.90 / dead run</b><br><span class="pill p-bad">pay-per-second, win or lose</span></td>
+      <td class="num"><span class="pill p-bad">27%</span></td>
+      <td>Rarely (facet only)</td>
+      <td class="num"><span class="score s-lo">3.5</span></td>
+    </tr>
+  </tbody>
+</table>
+</div>
+<p class="sub">* easyapi reports 100% but its 2.18★ rating flags real-world dissatisfaction the success metric doesn't capture. Avoid harvestlab (official <code>ads_archive</code> returns commercial ads only for EU/UK-reached countries — a hard dead-end for US/CA local) and viralanalyzer ($50/1k, omitted).</p>
+
+<h3>Why they're reliable <i>and</i> cheaper — the one insight</h3>
+<div class="panel">
+  <p style="margin-top:0">The reliable actors don't drive a browser. They hit the <b>GraphQL JSON endpoint directly</b>. <code>memo23</code>'s cheerio actor — <b>100% success, no browser at all</b> — is the existence proof that Meta's <code>/api/graphql</code> is directly callable with the right request shape. Because a JSON POST moves a few KB versus a browser pulling images + JS + CSS, their residential bandwidth drops <b>~50×</b>, and a blocked session is detectable in <b>one ~1&nbsp;KB request</b> — so a bad run costs a fraction of a cent, not $0.90 over 280&nbsp;s.</p>
+  <p style="margin-bottom:0">Their <b>pay-per-result</b> pricing then moves the block cost <b>off our books entirely</b>: a rented run must return ~1,200 ads to reach $0.90 — ours hits $0.90 returning <i>nothing</i>.</p>
+</div>
+
+<!-- ============================================================= -->
+<h2><span class="n">4</span> Robust technique in 2026 (what actually works now)</h2>
+<p class="sub">Cross-confirmed by three independent 2026 write-ups (ScrapFly, Scraperly, dev.to) + Apify/Crawlee docs. Verdict up front: <b>a no-browser HTTP+JSON approach is viable in 2026 and is the specific fix for our $0.90 burn.</b></p>
+
+<div class="tblwrap">
+<table>
+  <thead><tr><th>Technique</th><th>Why it works / why it's cheaper</th><th class="num">Effort</th></tr></thead>
+  <tbody>
+    <tr><td><b>HTTP-only <code>/api/graphql</code> behind a TLS-impersonation client</b><br>(Impit in Node · curl_cffi in Python)</td>
+      <td>Meta's WAF fingerprints the <b>TLS handshake + HTTP/2 SETTINGS frame before the page renders</b> — which is why plain fetch/axios and even default headless Chromium are flagged on the first request. A forged Chrome/Safari TLS fingerprint defeats exactly that layer. This is the <b>one layer three build-cycles never touched.</b> Turns the $0.90 residential burn into ~$0.01.</td>
+      <td class="num"><span class="pill p-warn">med</span></td></tr>
+    <tr><td><b>"Browser to mint, HTTP to harvest"</b> (the hybrid most stable scrapers converge on)</td>
+      <td>Keep one tiny headless nav whose <i>only</i> job is to mint <code>datr</code> + <code>lsd</code> + <code>doc_id</code>, then close the browser and run all search + cursor pagination over the HTTP client. Removes ~95% of proxy bytes and the slow-timeout tail while keeping real-app token provenance. <b>We already harvest all three tokens today</b> — the change is to stop navigating per target.</td>
+      <td class="num"><span class="pill p-good">low-med</span></td></tr>
+    <tr><td><b>Impit HTTP client</b> (Crawlee's maintained successor to got-scraping)</td>
+      <td>got-scraping only forged HTTP headers, <b>not the TLS handshake</b> — insufficient against Meta. Impit adds TLS + HTTP/2 + HTTP/3 fingerprinting inside the same Crawlee/Apify runtime we already use. No Python sidecar, smaller footprint than a 4&nbsp;GB browser.</td>
+      <td class="num"><span class="pill p-good">low-med</span></td></tr>
+    <tr><td><b>Fast-fail block classifier</b> (cost governor)</td>
+      <td>Detect a block on the <b>first</b> failed POST (login redirect / empty facet / checkpoint HTML) and abort the session instead of grinding to 280&nbsp;s. Over HTTP a block is knowable in ~1 request, so a dead session costs ~$0.001. <b>Worth shipping even before the transport rewrite.</b></td>
+      <td class="num"><span class="pill p-good">low</span></td></tr>
+    <tr><td><b>Re-harvest <code>doc_id</code>+<code>lsd</code> every run</b> — never hardcode</td>
+      <td>Meta rotates the persisted-query hash on every JS-bundle deploy; a hardcoded <code>doc_id</code> is the #1 cause of a scraper that "suddenly returns zero." We already do this — <b>preserve it in any refactor.</b></td>
+      <td class="num"><span class="pill p-good">already done</span></td></tr>
+    <tr><td><b>Two-stage: facet → per-page-id creative query</b></td>
+      <td>No transport trick unlocks creatives on a keyword search — Meta withholds them from automated sessions by policy. The only path to creatives is: harvest advertiser page-ids cheaply from the facet, then fan out a second per-page-id query. <b>Our "structural truth" is correct and matches every source.</b></td>
+      <td class="num"><span class="pill p-warn">med</span></td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="flag">
+  <span class="lbl">The limit no rewrite changes</span>
+  Keyword/cell searches yield <b>advertisers, not creatives</b>, on any transport. Creatives require the per-page-id fan-out. So "reach" is a data-model decision, not a scraper bug — plan the pipeline as two explicit stages.
+</div>
+
+<!-- ============================================================= -->
+<h2><span class="n">5</span> Proposed solutions — three tracks</h2>
+<p class="sub">Not mutually exclusive. The recommendation is <b>A now + C in parallel</b>, with B as the in-house alternative to C.</p>
+
+<div class="grid" style="grid-template-columns:1fr;gap:16px;margin-top:8px">
+
+  <div class="track A">
+    <div class="hd"><h3>Track A · Stop the bleeding</h3><span class="pill p-good">ships today · config only · zero reach risk</span></div>
+    <div class="bd">
+      <p style="margin-top:0">Four actor-side changes, no app changes. Deployed via <code>apify push</code> + a live smoke test.</p>
+      <ul class="tight">
+        <li><b>Revert images-ON</b> — restore the media/asset block in the pre-navigation hook. Undoes the 2× GB regression directly.</li>
+        <li><b>Consecutive-block circuit breaker</b> — after 3 blocked/timeout targets in a row, abandon the run. If the first 3 block, the session is in a block wave and the rest will too. Cuts a dead run's GB ~80%.</li>
+        <li><b>Wall-clock budget guard</b> — stop launching new targets past ~120&nbsp;s, so a dead run can't exceed ~$0.40 (vs $0.90) even if the classifier misses.</li>
+        <li><b>Memory 4&nbsp;GB → 2&nbsp;GB</b> — halves the compute slice; smoke-test for OOM first.</li>
+      </ul>
+      <div class="grid g3" style="margin-top:12px">
+        <div class="stat"><div class="v" style="color:var(--good)">−80%</div><div class="l">worst-case dead-run cost ($0.90 → ~$0.15-0.25)</div></div>
+        <div class="stat"><div class="v mono" style="font-size:20px">LOW</div><div class="l">effort · actor-only</div></div>
+        <div class="stat"><div class="v mono" style="font-size:20px">LOW</div><div class="l">risk · reverts to known-good behavior</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="track C">
+    <div class="hd"><h3>Track C · Buy the creative path</h3><span class="pill p-warn">highest reliability-per-eng-hour · needs ToS clearance</span></div>
+    <div class="bd">
+      <p style="margin-top:0">Call <b>curious_coder</b> via the Apify API from our backend, behind a thin adapter, for the per-lead <b>page-id creative</b> path (where our 27% reliability hurts most and creatives actually live).</p>
+      <ul class="tight">
+        <li><b>100% reported success at ~$0.02–0.11 per run</b> (pay-per-result) vs our ~$1.22 per run that returns data. <b>A block costs ~$0.0005</b> — the burn moves off our books.</li>
+        <li>Wrap it with our existing honesty taxonomy: map vendor timeouts/errors → <code>blocked</code>, and run a <b>known-advertising control probe</b> (e.g. a Miami-botox page-id) so a 0-result run can't be sold as a verified empty. <b>Keep our best asset (§2, Honesty 9/10) as the wrapper.</b></li>
+      </ul>
+      <div class="grid g3" style="margin-top:12px">
+        <div class="stat"><div class="v" style="color:var(--good)">~100%</div><div class="l">reliability (from 27%)</div></div>
+        <div class="stat"><div class="v mono" style="font-size:20px">MED</div><div class="l">effort · adapter + control probe</div></div>
+        <div class="stat"><div class="v mono" style="font-size:20px">MED</div><div class="l">risk · vendor ToS resale + lock-in</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="track B">
+    <div class="hd"><h3>Track B · Rebuild the transport in-house</h3><span class="pill p-warn">the alternative to C · keeps it in-house</span></div>
+    <div class="bd">
+      <p style="margin-top:0">Swap the per-target PlaywrightCrawler fetch for the <b>"mint-then-HTTP"</b> pattern using Crawlee's <b>Impit</b> TLS-impersonation client — same Crawlee/Apify project, no Python sidecar.</p>
+      <ul class="tight">
+        <li>One browser boot to mint <code>datr</code>+<code>lsd</code>+<code>doc_id</code> (we already do this), then loop the GraphQL POST over Impit — <b>images off, no per-target navigation.</b></li>
+        <li>Attacks the <b>one untouched layer</b> (TLS fingerprint = fewer blocks) <i>and</i> deletes the residential-image GB (much lower cost) at once. Our <code>directGraphqlScrape</code> already builds the exact POST — it just needs to run over HTTP instead of inside the browser.</li>
+      </ul>
+      <div class="grid g3" style="margin-top:12px">
+        <div class="stat"><div class="v" style="color:var(--good)">~$0.01</div><div class="l">per run · fast-fail ~$0.001</div></div>
+        <div class="stat"><div class="v mono" style="font-size:18px">MED-HIGH</div><div class="l">effort · new transport + live A/B</div></div>
+        <div class="stat"><div class="v mono" style="font-size:20px">MED</div><div class="l">risk · validated only by live runs</div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============================================================= -->
+<h2><span class="n">6</span> Recommendation</h2>
+<div class="panel">
+  <ol class="rc" style="margin-top:0">
+    <li><b>Do Track A this week.</b> It's config-only, reverts a known regression, and cuts the worst-case burn ~80% with zero reach risk. There is no reason a dead run should cost $0.90 while this sits unshipped.</li>
+    <li><b>Trial Track C in parallel</b> on the per-lead page-id creative path — the highest reliability-per-engineering-hour, and it <i>deletes</i> the burn class rather than shrinking it. Gate on the <b>vendor-ToS resale go/no-go</b> already flagged in the entitlement model.</li>
+    <li><b>Choose B vs C for the cell/facet path</b> once C's trial lands: if renting proves it returns the advertiser facet reliably, migrate the cell path too; otherwise rebuild it in-house on Impit (Track B). Either way, <b>keep our honesty taxonomy as the wrapper</b> — it is the one part scoring 9/10.</li>
+    <li><b>Accept the structural truth:</b> keyword/cell = advertiser list; creatives = per-page-id only. Bill and surface accordingly — no transport fixes this.</li>
+  </ol>
+</div>
+
+<div class="flag dec">
+  <span class="lbl">Decisions this needs from Viktor</span>
+  <b>(1)</b> Green-light Track A for a <code>/ship</code> + <code>apify push</code> (cents to validate).
+  <b>(2)</b> Clear the <b>vendor-ToS resale</b> question before renting curious_coder into a paid product (open item from the entitlement model).
+  <b>(3)</b> Pick the in-house vs buy direction for the <i>cell/facet</i> path (B vs C) — or defer until C's trial data is in.
+  No code has been changed; this report is analysis + recommendation only.
+</div>
+
+<div class="foot">
+  <p><b>Method.</b> Live <code>AdMarketRun</code> forensics (Neon, read-only) + full read of <code>main.js</code> / <code>services/apify/*</code> / <code>modules/cell-intel/meta-ads.ts</code> + a 4-agent research workflow (adversarial code-score · 8-actor market scan · 2026 technique research · Apify economics). See related memory: <code>meta-actor-robustness</code>, <code>run-forensics-fixes-shipped</code> (INC-58), <code>entitlement-model</code> (resale go/no-go).</p>
+  <p class="src">Key sources — apify.com/curious_coder/facebook-ads-library-scraper · apify.com/memo23/facebook-ads-library-scraper-cheerio · scrapfly.io/blog/posts/how-to-scrape-facebook · crawlee.dev/js/docs/guides/impit-http-client · blog.apify.com/impit-browser-impersonation-made-simple · github.com/lexiforest/curl_cffi · adlibrary.com/posts/meta-ad-library-api-limitations · docs.apify.com/platform/actors/running/usage-and-resources</p>
+</div>
+
+</div>
+</body>
+</html>

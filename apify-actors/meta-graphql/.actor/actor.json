@@ -1,0 +1,9 @@
+{
+  "actorSpecification": 1,
+  "name": "mapsly-meta-graphql",
+  "title": "Mapsly Meta Ad Library — GraphQL-direct",
+  "description": "HTTP-direct Meta Ad Library scraper: prime one page to mint datr+lsd+doc_id, then POST /api/graphql over the browser TLS context per target — no per-target nav, no images, fast-fail on block. Same dataset + RUN_SUMMARY contract as mapsly-meta-ad-library (drop-in).",
+  "version": "1.0",
+  "input": "./INPUT_SCHEMA.json",
+  "dockerfile": "../Dockerfile"
+}

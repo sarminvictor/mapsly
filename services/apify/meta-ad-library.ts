@@ -17,8 +17,16 @@ import { stableHashArgs } from "@/lib/cache";
 import { getKv, isKvAvailable } from "@/lib/cache/kv";
 import { runActor } from "./client";
 
-/** Published actor id (override via env for a fork / new build). */
-const ACTOR_ID = process.env.META_AD_LIBRARY_ACTOR_ID ?? "CcN2BafzaiuLOpCGg";
+/**
+ * Published actor id. DEFAULT is now the HTTP-direct rebuild `mapsly-meta-graphql`
+ * (id QUHP4uf8sgdavSCVT, source `apify-actors/meta-graphql/`) — validated live
+ * 2026-07-10: keyword/cell path 11/11 success at $0.009–0.075/run vs the old
+ * `mapsly-meta-ad-library` (CcN2BafzaiuLOpCGg) 27% success + $0.90 timeout burns.
+ * Same dataset + RUN_SUMMARY contract (drop-in confirmed against these schemas).
+ * ROLLBACK without a deploy: set META_AD_LIBRARY_ACTOR_ID=CcN2BafzaiuLOpCGg.
+ * See docs/meta-graphql-actor-build-2026-07-10.html.
+ */
+const ACTOR_ID = process.env.META_AD_LIBRARY_ACTOR_ID ?? "QUHP4uf8sgdavSCVT";
 
 const OPERATION = "apify.meta-ad-library.search";
 
