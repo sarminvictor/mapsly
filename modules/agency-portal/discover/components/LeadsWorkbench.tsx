@@ -182,6 +182,7 @@ const FIELD_STATE_LABEL: Record<FieldFilterState, string> = {
   enriched: "have",
   empty: "none",
   failed: "failed",
+  unavailable: "not available",
   not_run: "not run",
 };
 
@@ -2106,6 +2107,7 @@ export function LeadsWorkbench({
         enriched: 0,
         empty: 0,
         failed: 0,
+        unavailable: 0,
         not_run: 0,
         running: 0,
       });
@@ -2345,6 +2347,21 @@ export function LeadsWorkbench({
         </span>
       );
     }
+    // 2026-07-10 · PERMANENTLY unavailable — the dead-site / parked-domain / cap-
+    // hit terminal state. NON-clickable (a retry can't help + it's already
+    // skipped at fan-out and excluded from the quote), so it stops presenting a
+    // pointless "failed · retry". Rendered as a calm terminal like "none", not a
+    // red error.
+    if (state === "unavailable") {
+      return (
+        <span
+          className="cell-none unavailable"
+          data-tip={`${label} couldn't be reached after repeated tries — won't retry (dead site / no source)`}
+        >
+          not available
+        </span>
+      );
+    }
     const failed = state === "failed";
     // AUDIT U13 · styling lives in `.needsenr` (+ `.failed`) so a row-hover CSS
     // rule can enlarge the hit target from a faint sliver into a real pill —
@@ -2557,9 +2574,10 @@ export function LeadsWorkbench({
   }, [rows, scannedAt]);
 
   const stateFilterRows = useMemo(() => {
-    // Actionability order (failed → none → have), default-population last.
+    // Actionability order (failed → not available → none → have), default last.
     const STATE_ORDER: FieldFilterState[] = [
       "failed",
+      "unavailable",
       "empty",
       "enriched",
       "not_run",
@@ -3163,11 +3181,13 @@ export function LeadsWorkbench({
                       ? "have it"
                       : s === "failed"
                         ? "failed — re-enrich"
-                        : s === "running"
-                          ? "running"
-                          : s === "empty"
-                            ? "ran · none found"
-                            : "not yet";
+                        : s === "unavailable"
+                          ? "not available — won't retry"
+                          : s === "running"
+                            ? "running"
+                            : s === "empty"
+                              ? "ran · none found"
+                              : "not yet";
                   return (
                     <span
                       key={g.key}

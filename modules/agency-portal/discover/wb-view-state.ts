@@ -81,6 +81,7 @@ const VALID_STATES = new Set<FieldFilterState>([
   "enriched",
   "empty",
   "failed",
+  "unavailable",
   "not_run",
 ]);
 

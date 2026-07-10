@@ -86,7 +86,13 @@ export type EnrichmentTypeKey =
  *                  the badge pulses, and it survives a page refresh because it
  *                  reads the honest job status, not a client-side bus flag.
  */
-export type TypeState = "enriched" | "empty" | "failed" | "not_run" | "running";
+export type TypeState =
+  | "enriched"
+  | "empty"
+  | "failed"
+  | "unavailable"
+  | "not_run"
+  | "running";
 
 /**
  * The 9 types in render order, each with a full label + a 2-letter chip glyph
@@ -154,6 +160,13 @@ export interface TypeRunInputs {
   doneJobFamilies?: ReadonlySet<string>;
   /** `EnrichmentFamily` values with a FAILED job (retries exhausted). */
   failedJobFamilies?: ReadonlySet<string>;
+  /** 2026-07-10 · `EnrichmentFamily` values PERMANENTLY unavailable for this
+   *  business (cross-run attempt cap hit OR structurally non-retryable reason —
+   *  `permanentlyUnavailablePairs`). These render a terminal "Not available"
+   *  cell instead of "failed · retry"; they're already skipped at fan-out +
+   *  excluded from the quote. A later success clears it (the family reads
+   *  enriched). */
+  unavailableJobFamilies?: ReadonlySet<string>;
   /** `EnrichmentFamily` values with a QUEUED / RUNNING job (in flight). */
   runningJobFamilies?: ReadonlySet<string>;
   /** Completed (OK/PARTIAL) cell run for this business's cell. GOOGLE is
@@ -185,9 +198,18 @@ function typeState(inp: {
   running: boolean;
   ran: boolean;
   failed: boolean;
+  /** 2026-07-10 · the (business, family) has exhausted the cross-run attempt
+   *  cap OR hit a structurally non-retryable reason (dead site / parked domain /
+   *  no source) — so re-running it now can't help. It's already skipped at
+   *  fan-out + excluded from the quote; this state stops the workbench cell from
+   *  offering a pointless "failed · retry" and renders a terminal "Not available"
+   *  instead. Only meaningful when the family FAILED (a later success clears it). */
+  unavailable?: boolean;
 }): TypeState {
   if (inp.running) return "running";
   if (inp.ran) return inp.hasData ? "enriched" : "empty";
+  // A permanently-dead failure outranks a plain retryable one — "won't retry".
+  if (inp.unavailable) return "unavailable";
   if (inp.failed) return "failed";
   return "not_run";
 }
@@ -204,6 +226,7 @@ export function deriveTypeStates(
   const p = inp.presence;
   const done = inp.doneJobFamilies;
   const failed = inp.failedJobFamilies;
+  const unavail = inp.unavailableJobFamilies;
   const running = inp.runningJobFamilies;
   const has = (set: ReadonlySet<string> | undefined, fam: string): boolean =>
     !!set && set.has(fam);
@@ -215,6 +238,7 @@ export function deriveTypeStates(
       running: has(running, fam),
       ran: has(done, fam),
       failed: has(failed, fam),
+      unavailable: has(unavail, fam),
     });
 
   return {
@@ -231,6 +255,8 @@ export function deriveTypeStates(
       running: has(running, "TECH") || has(running, "CONTACTS"),
       ran: has(done, "TECH") || has(done, "CONTACTS"),
       failed: has(failed, "TECH") || has(failed, "CONTACTS"),
+      // TECH rides the CONTACTS DOM fetch — a permanently-dead site kills both.
+      unavailable: has(unavail, "TECH") || has(unavail, "CONTACTS"),
     }),
     REVIEWS: jobType("REVIEWS", p.reviews === true),
     LIGHTHOUSE: jobType("LIGHTHOUSE", p.lighthouse === true),
@@ -245,6 +271,7 @@ export function deriveTypeStates(
       running: has(running, "META_ADS") || inp.cellRunning?.metaAds === true,
       ran: has(done, "META_ADS") || inp.cellRan?.metaAds === true,
       failed: has(failed, "META_ADS") || inp.cellFailed?.metaAds === true,
+      unavailable: has(unavail, "META_ADS"),
     }),
     // GOOGLE_ADS is per-business: its EnrichmentJob row is the ONLY run signal
     // (no cell fold — see TypeRunInputs.cellRan doc).
@@ -253,12 +280,14 @@ export function deriveTypeStates(
       running: has(running, "GOOGLE_ADS"),
       ran: has(done, "GOOGLE_ADS"),
       failed: has(failed, "GOOGLE_ADS"),
+      unavailable: has(unavail, "GOOGLE_ADS"),
     }),
     SERP: typeState({
       hasData: p.serp === true,
       running: has(running, "SERP") || inp.cellRunning?.serp === true,
       ran: has(done, "SERP") || inp.cellRan?.serp === true,
       failed: has(failed, "SERP") || inp.cellFailed?.serp === true,
+      unavailable: has(unavail, "SERP"),
     }),
   };
 }
@@ -513,6 +542,12 @@ export function rollUpTypeStates(
   // ticket). A group with SOMETHING to show is enriched; "empty" is reserved
   // for ran-and-found-nothing-at-all.
   if (states.some((s) => s === "enriched")) return "enriched";
+  // 2026-07-10 · a group whose only-ran types are PERMANENTLY unavailable
+  // (dead site / parked / cap-hit) surfaces "unavailable" so the cell renders a
+  // terminal "Not available" — never a pointless "failed · retry" (retryable
+  // failures already won above; this is below enriched so a group with SOME
+  // data still shows it).
+  if (states.some((s) => s === "unavailable")) return "unavailable";
   return "empty";
 }
 

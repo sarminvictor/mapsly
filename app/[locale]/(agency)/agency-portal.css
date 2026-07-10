@@ -6033,6 +6033,13 @@
   background: var(--red, #d64545);
   box-shadow: none;
 }
+/* 2026-07-10 · permanently unavailable — a MUTED terminal chip (not the red
+   "failed", not the faint "not yet"): we can't get it and won't retry. */
+.agency-portal .covchip.unavailable {
+  color: var(--muted, #6b7280);
+  background: var(--faint-bg, #eef0f4);
+  box-shadow: none;
+}
 /* AUDIT A2 · a type being enriched RIGHT NOW pulses indigo. Reduced-motion is
    honored by the global prefers-reduced-motion reset. */
 .agency-portal .covchip.running {
@@ -6113,6 +6120,18 @@
 .agency-portal td .cell-none.verified::before {
   content: "✓ ";
   color: var(--green);
+}
+/* 2026-07-10 · PERMANENTLY unavailable (dead site / parked / cap-hit). A calm
+   terminal, NOT a red failure and NOT the green "none" answer — muted, upright,
+   with a "no entry" glyph so it reads "we can't get this, and won't retry". */
+.agency-portal td .cell-none.unavailable {
+  font-style: normal;
+  color: var(--muted, #6b7280);
+  cursor: default;
+}
+.agency-portal td .cell-none.unavailable::before {
+  content: "⊘ ";
+  color: var(--muted, #9ca3af);
 }
 .agency-portal td .cell-failed {
   color: var(--red, #d64545);
@@ -7564,6 +7583,9 @@
 .agency-portal .ldnr-dot.failed {
   border-color: var(--red);
 }
+.agency-portal .ldnr-dot.unavailable {
+  border-color: var(--muted, #9ca3af);
+}
 .agency-portal .ldnr-dot.running {
   border-color: var(--indigo);
 }
@@ -7624,6 +7646,10 @@
 }
 .agency-portal .lddot.failed {
   background: var(--red);
+}
+.agency-portal .lddot.unavailable {
+  /* muted terminal — matches the workbench "not available" cell. */
+  background: var(--muted, #9ca3af);
 }
 .agency-portal .lddot.running {
   background: var(--indigo);

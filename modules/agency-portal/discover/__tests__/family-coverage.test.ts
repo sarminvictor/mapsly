@@ -79,6 +79,31 @@ describe("deriveTypeStates", () => {
     ).toBe("failed");
   });
 
+  // 2026-07-10 · PERMANENTLY unavailable (dead site / cap-hit) outranks a plain
+  // retryable failure → the cell renders "Not available", not "failed · retry".
+  test("permanently-unavailable family → 'unavailable' (over 'failed')", () => {
+    const s = deriveTypeStates({
+      presence: {},
+      failedJobFamilies: new Set(["CONTACTS"]),
+      unavailableJobFamilies: new Set(["CONTACTS"]),
+    });
+    expect(s.CONTACTS).toBe("unavailable");
+    // TECH rides the CONTACTS DOM fetch — a dead site kills both.
+    expect(s.TECH).toBe("unavailable");
+  });
+
+  test("a later SUCCESS clears unavailable (data wins over a stale dead flag)", () => {
+    // Aspen-style: an old failed run marked the pair dead, but a later run got
+    // (partial) contacts → the type reads enriched, never "unavailable".
+    const s = deriveTypeStates({
+      presence: { contacts: true },
+      doneJobFamilies: new Set(["CONTACTS"]),
+      failedJobFamilies: new Set(["CONTACTS"]),
+      unavailableJobFamilies: new Set(["CONTACTS"]),
+    });
+    expect(s.CONTACTS).toBe("enriched");
+  });
+
   test("presence WITHOUT a run never fakes enriched (the reviewCount-style bug)", () => {
     expect(deriveTypeStates({ presence: { services: true } }).SERVICES).toBe(
       "not_run",
@@ -249,6 +274,61 @@ describe("DATA_GROUPS + roll-up", () => {
     ).toBe("empty");
     // Empty key list → nothing to report → not_run.
     expect(rollUpTypeStates(allNotRun(), [])).toBe("not_run");
+  });
+
+  // 2026-07-10 · "unavailable" surfaces below enriched (show data) but as a
+  // terminal (never a pointless "failed·retry" or a misleading "none"/not_run).
+  test("rollUpTypeStates: a dead type surfaces 'unavailable', data still wins", () => {
+    const bothDead = {
+      ...allNotRun(),
+      CONTACTS: "unavailable" as const,
+      TECH: "unavailable" as const,
+    };
+    expect(rollUpTypeStates(bothDead as never, ["CONTACTS", "TECH"])).toBe(
+      "unavailable",
+    );
+    // Dead + not_run sibling → still "unavailable" (not the misleading not_run).
+    const oneDead = { ...allNotRun(), CONTACTS: "unavailable" as const };
+    expect(rollUpTypeStates(oneDead as never, ["CONTACTS", "TECH"])).toBe(
+      "unavailable",
+    );
+    // Enriched sibling wins — show the data we DO have.
+    const mixed = {
+      ...allNotRun(),
+      CONTACTS: "enriched" as const,
+      TECH: "unavailable" as const,
+    };
+    expect(rollUpTypeStates(mixed as never, ["CONTACTS", "TECH"])).toBe(
+      "enriched",
+    );
+    // A retryable failure still wins (it's actionable) over a dead sibling.
+    const failedWins = {
+      ...allNotRun(),
+      CONTACTS: "failed" as const,
+      TECH: "unavailable" as const,
+    };
+    expect(rollUpTypeStates(failedWins as never, ["CONTACTS", "TECH"])).toBe(
+      "failed",
+    );
+  });
+
+  // 2026-07-10 · the DECOUPLED ai_brief group (SERVICES + AI_RESEARCH, not folded
+  // like contacts+tech). A dead-site lead commonly reads SERVICES=unavailable +
+  // AI_RESEARCH=not_run. The group roll-up (workbench cell + toolbar to-get) must
+  // read "unavailable" so the dead lead drops out of the "Enrich N" count — but
+  // groupHasMissingType (the sheet's per-family purchase truth) still sees the
+  // buyable ai_research. Pin BOTH so the toolbar-vs-sheet split is intentional.
+  test("ai_brief · services dead + ai_research not_run: group unavailable, ai still buyable", () => {
+    const aiBrief = DATA_GROUPS.find((g) => g.key === "ai_brief")!;
+    const mix = {
+      ...allNotRun(),
+      SERVICES: "unavailable" as const,
+      AI_RESEARCH: "not_run" as const,
+    };
+    // Cell / toolbar roll-up → "unavailable" (not "not_run", not "failed·retry").
+    expect(rollUpGroupState(mix as never, aiBrief)).toBe("unavailable");
+    // …but AI research itself is still a missing (buyable) type on the sheet.
+    expect(groupHasMissingType(mix as never, aiBrief)).toBe(true);
   });
 
   test("rollUpGroupState precedence: running > failed > enriched/empty", () => {

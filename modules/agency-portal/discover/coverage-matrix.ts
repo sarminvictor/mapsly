@@ -27,6 +27,7 @@ import {
 import { loadFreshTimestamps } from "@/modules/discovery/enrich-fresh-db";
 import { loadEntitlements } from "@/modules/discovery/entitlements";
 import { entitlementBillingEnabled } from "@/modules/cost/flags";
+import { permanentlyUnavailablePairs } from "@/modules/enrichment/dispatch";
 
 /** One business's honest enrichment RUN state. */
 export interface CoverageRow {
@@ -44,6 +45,25 @@ export interface CoverageRow {
  *  its per-business EnrichmentJob row (truth unification, 2026-07-06). */
 const AD_RUN_OK = new Set(["OK", "PARTIAL"]);
 const AD_RUN_FAILED = new Set(["FAILED"]);
+
+/** The job-backed enrichment families — the ONLY ones that produce FAILED
+ *  `EnrichmentJob` rows (TECH folds into the CONTACTS job; Meta/SERP are
+ *  cell-scoped AdMarketRuns). These are exactly `permanentlyUnavailablePairs`'s
+ *  `families` union, kept local so coverage-matrix doesn't depend on a
+ *  non-exported dispatch type; a type-guard filter keeps the "unavailable"
+ *  computation honest (2026-07-10). */
+const JOB_BACKED_FAMILIES_LIST = [
+  "CONTACTS",
+  "SERVICES",
+  "REVIEWS",
+  "AI_RESEARCH",
+  "LIGHTHOUSE",
+  "GOOGLE_ADS",
+] as const;
+type JobBackedFamily = (typeof JOB_BACKED_FAMILIES_LIST)[number];
+const JOB_BACKED_FAMILIES: ReadonlySet<string> = new Set(
+  JOB_BACKED_FAMILIES_LIST,
+);
 
 /** `EnrichmentJobStatus` values that mean a type's enrichment is IN FLIGHT —
  *  QUEUED (claimed, waiting) or RUNNING (executing). The badge pulses while a
@@ -147,6 +167,37 @@ export async function loadTypeStatesForBusinesses(
   const failedJobs = foldJobs(failedRows);
   const runningJobs = foldJobs(runningRows);
 
+  // 2026-07-10 · of the FAILED (business, family) pairs, which are PERMANENTLY
+  // unavailable — dead site / parked domain / no source, OR the cross-run
+  // attempt cap hit? These are ALREADY skipped at fan-out + excluded from the
+  // enrich quote (permanentlyUnavailablePairs is the same predicate the billing
+  // preflight uses); surfacing them here stops the workbench cell from showing a
+  // pointless "failed · retry" and renders a terminal "Not available" instead.
+  // Scoped to the distinct FAILED families (no extra work when nothing failed);
+  // ONE indexed read inside permanentlyUnavailablePairs. Type-GUARD to the
+  // job-backed families (no unchecked `as` · conventions.md): only these ever
+  // land as FAILED EnrichmentJob rows — TECH folds into CONTACTS, Meta/SERP
+  // write AdMarketRun not job rows — so a stray family can never mis-mark a
+  // cell type "unavailable" and diverge from the quote's jobFamilyForType keying.
+  const failedFamilies = Array.from(
+    new Set(failedRows.map((r) => r.family)),
+  ).filter((f): f is JobBackedFamily => JOB_BACKED_FAMILIES.has(f));
+  const deadPairs =
+    failedFamilies.length > 0
+      ? await permanentlyUnavailablePairs(businessIds, failedFamilies)
+      : new Set<string>();
+  // Fold "${businessId}:${family}" → per-business unavailable-family sets.
+  const unavailableJobs = new Map<string, Set<string>>();
+  for (const key of deadPairs) {
+    const sep = key.lastIndexOf(":");
+    if (sep <= 0) continue;
+    const bizId = key.slice(0, sep);
+    const fam = key.slice(sep + 1);
+    const set = unavailableJobs.get(bizId) ?? new Set<string>();
+    set.add(fam);
+    unavailableJobs.set(bizId, set);
+  }
+
   // Per-cell Meta/SERP run state, folded from the grouped AdMarketRun rows.
   // GOOGLE rows are skipped (see AD_RUN_OK comment) — google_ads truth is the
   // per-business job rail.
@@ -228,6 +279,7 @@ export async function loadTypeStatesForBusinesses(
       presence: presence.get(b.id) ?? {},
       doneJobFamilies: doneJobs.get(b.id),
       failedJobFamilies: failedJobs.get(b.id),
+      unavailableJobFamilies: unavailableJobs.get(b.id),
       runningJobFamilies: runningJobs.get(b.id),
       cellRan: {
         metaAds: cell?.metaRan,

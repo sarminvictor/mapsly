@@ -1612,6 +1612,8 @@ function typeStateLabel(state: LeadDomainBlock["state"]): string {
       return "scanned · none found";
     case "failed":
       return "failed";
+    case "unavailable":
+      return "not available";
     case "running":
       return "enriching…";
     default:
@@ -1701,6 +1703,20 @@ function StateTagCta({
           </button>
         ) : null}
       </>
+    );
+  }
+  // 2026-07-10 · permanently unavailable (dead site / parked / cap-hit) — a
+  // TERMINAL, non-clickable tag, never a buyable "Enrich →" (a retry can't help
+  // + it's already skipped at fan-out and excluded from the quote). Matches the
+  // workbench cell's "not available" + the row-dot tooltip.
+  if (block.state === "unavailable") {
+    return (
+      <span
+        className="ldtag"
+        data-tip="Couldn't be reached after repeated tries — won't retry (dead site / no source)."
+      >
+        Not available
+      </span>
     );
   }
   // not_run — WP5-3 · the CTA's promise made real: opens the in-workbench
