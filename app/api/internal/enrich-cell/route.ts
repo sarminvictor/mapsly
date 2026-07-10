@@ -21,7 +21,10 @@ import { z } from "zod";
 import { verifyCronAuth } from "@/lib/auth/cron-secret";
 import { verifyBoxlyWorkerAuth } from "@/lib/boxly-worker/client";
 import { withCronRun } from "@/lib/cost/cost-counter";
-import { runEnrichCellForRun } from "@/modules/enrichment/dispatch";
+import {
+  closeRunIfDone,
+  runEnrichCellForRun,
+} from "@/modules/enrichment/dispatch";
 
 // A cell collection is one Apify actor run (~minutes) or a DfS SERP batch —
 // give it the full 300s (well under the worker's own per-job budget too).
@@ -62,6 +65,23 @@ async function handle(req: Request): Promise<Response> {
     const accruedUsd = await withCronRun("worker:enrich-cell", () =>
       runEnrichCellForRun(payload.runId, payload.cellKey, payload.family),
     );
+
+    // 2026-07-10 · close-on-last-cell. A cell-only run (meta_ads/serp, no
+    // per-business jobs) used to sit RUNNING until the next */2 dispatch tick
+    // noticed — the exact "meta_ads sat 5+ min after finishing" end-lag. Mirror
+    // the per-business enrich-job callback (route.ts:106-117): close the run NOW
+    // if this was its last outstanding work. closeRunIfDone is CAS-guarded (it
+    // claims finishedAt) so a racing tick settles credits exactly once, and it's
+    // a cheap no-op while other cells/jobs remain open. Best-effort — the */2 cron
+    // is the guaranteed backstop.
+    try {
+      await closeRunIfDone(payload.runId);
+    } catch (closeErr) {
+      console.warn(
+        `[/api/internal/enrich-cell] close attempt failed for run ${payload.runId}: ${closeErr instanceof Error ? closeErr.message : String(closeErr)} · the */2 cron will close it`,
+      );
+    }
+
     return Response.json({ ok: true, accruedUsd }, { status: 200 });
   } catch (err) {
     console.error(

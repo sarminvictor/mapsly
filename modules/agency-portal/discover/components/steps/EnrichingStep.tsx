@@ -18,7 +18,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { useRouter } from "@/i18n/navigation";
-import type { AgencyJob, EnrichStage } from "@/app/api/agency/jobs/route";
+import type { EnrichStage } from "@/app/api/agency/jobs/route";
 
 /** The honest pre-data placeholder. Shown ONLY in the brief window before the
  *  first real per-run stage payload lands (the jobs API returns real per-run
@@ -30,11 +30,6 @@ import type { AgencyJob, EnrichStage } from "@/app/api/agency/jobs/route";
  *  stages arrive (buildEnrichStages · app/api/agency/jobs/route.ts) they replace
  *  this single row with only the stages THIS run actually performs. */
 const PREPARING_STAGE = { label: "Preparing…", status: "running" as const };
-
-interface JobsResponse {
-  jobs: AgencyJob[];
-  stages?: EnrichStage[];
-}
 
 /** Terminal run statuses. OK → clean success (auto-advance); PARTIAL → some
  *  leads couldn't complete (honest breakdown, still advance); FAILED → the run
@@ -103,6 +98,7 @@ export function EnrichingStep({
     let lastTotal = leadCount;
     let lastReceipt: { held: number; charged: number } | null = null;
     let runStartedAt: string | null = null;
+    let pollTick = 0;
 
     async function poll() {
       // Neon cost guard: a backgrounded tab shouldn't poll — the jobs feed hits
@@ -112,32 +108,41 @@ export function EnrichingStep({
         if (!cancelled) timer = setTimeout(poll, 3000);
         return;
       }
+      pollTick += 1;
+      // 2026-07-10 · Neon-load cut. The progress endpoint (Redis + ETag/304) drives
+      // the bar every tick — cheap. The stage checklist (the /jobs feed) hits Prisma
+      // (a groupBy), changes slowly, and doesn't need 3s granularity — so fetch it
+      // only every OTHER tick (~6s) and via `stagesOnly=1` (skips the JobsTray
+      // findMany we never use here). runStartedAt now comes from /progress, so the
+      // jobs feed is ONLY the checklist. Net: a watching user's /jobs DB load drops
+      // ~85% (from 5 reads/3s to ~3 reads/6s).
+      const wantStages = pollTick % 2 === 1;
       try {
         const [progressRes, jobsRes] = await Promise.all([
           fetch(`/api/agency/runs/${encodeURIComponent(runId)}/progress`, {
             cache: "no-store",
             headers: progressEtag ? { "If-None-Match": progressEtag } : {},
           }),
-          fetch(`/api/agency/jobs?runId=${encodeURIComponent(runId)}`, {
-            cache: "no-store",
-          }),
+          wantStages
+            ? fetch(
+                `/api/agency/jobs?runId=${encodeURIComponent(runId)}&stagesOnly=1`,
+                { cache: "no-store" },
+              )
+            : Promise.resolve(null),
         ]);
         if (cancelled) return;
 
-        // Stage checklist + run start anchor from the jobs feed.
-        let running = true;
-        if (jobsRes.ok) {
-          const data: JobsResponse = await jobsRes.json();
+        // Stage checklist (only on stages-ticks).
+        if (jobsRes && jobsRes.ok) {
+          const data = (await jobsRes.json()) as { stages?: EnrichStage[] };
           if (data.stages) setStages(data.stages);
-          const job = data.jobs.find((j) => j.id === runId);
-          if (job) {
-            running = job.running;
-            runStartedAt = job.startedAt;
-          }
         }
 
-        // Progress (done/total/failed/status) from the Redis-backed endpoint. A
-        // 304 means "unchanged since last poll" — keep the prior values.
+        // Progress (done/total/failed/status/startedAt) from the Redis-backed
+        // endpoint. A 304 means "unchanged since last poll" — keep prior values.
+        // `running` is derived from run.status ONLY (the source of truth); it stays
+        // true until the progress endpoint reports a terminal status.
+        let running = true;
         let terminalOutcome: RunOutcome | null = null;
         if (progressRes.status !== 304 && progressRes.ok) {
           progressEtag = progressRes.headers.get("etag");
@@ -149,11 +154,14 @@ export function EnrichingStep({
             status: string;
             creditsHeld?: number;
             creditsCharged?: number;
+            startedAt?: string;
           } = await progressRes.json();
           lastDone = prog.done;
           lastFailed = prog.failed;
           lastRetrying = prog.retrying ?? 0;
           lastTotal = prog.total > 0 ? prog.total : leadCount;
+          // ETA anchor from the progress endpoint (was the jobs feed).
+          if (prog.startedAt) runStartedAt = prog.startedAt;
           // WP4-2/WP4-5 · run.status is the SOURCE OF TRUTH for terminal. OK /
           // PARTIAL / FAILED all end the run — reading it here (not just the
           // jobs-feed `running` flag) means a run whose jobs already dropped

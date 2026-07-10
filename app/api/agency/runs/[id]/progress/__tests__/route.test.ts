@@ -40,6 +40,7 @@ beforeEach(() => {
     status: "RUNNING",
     unitsRequested: 50,
     unitsCompleted: 10,
+    startedAt: new Date("2026-07-10T12:00:00.000Z"),
   });
 });
 
@@ -79,8 +80,35 @@ describe("GET run progress (WP3-3)", () => {
       failed: 3,
       retrying: 1,
       status: "RUNNING",
+      // ETA anchor — always present (constant per run, not in the ETag).
+      startedAt: "2026-07-10T12:00:00.000Z",
     });
     expect(res.headers.get("etag")).toBeTruthy();
+  });
+
+  test("DB terminal status is authoritative over a stale Redis RUNNING (masking fix)", async () => {
+    // 2026-07-10 · if the close-time terminal re-seed to Redis was lost, Redis
+    // keeps a stale RUNNING; the DB row is the truth. The payload must report the
+    // DB's terminal status so the client stops spinning.
+    p.enrichmentRun.findFirst.mockResolvedValue({
+      status: "OK",
+      unitsRequested: 50,
+      unitsCompleted: 50,
+      creditsHeld: 10,
+      creditsCharged: 8,
+      startedAt: new Date("2026-07-10T12:00:00.000Z"),
+      enrichmentsJson: ["contacts"],
+    });
+    anyMock(readRunProgress).mockResolvedValue({
+      done: 50,
+      failed: 0,
+      total: 50,
+      retrying: 0,
+      status: "RUNNING", // stale — the close re-seed was lost
+    });
+    const res = await GET(get("r1"), params("r1"));
+    const json = (await res.json()) as { status: string };
+    expect(json.status).toBe("OK"); // DB truth wins, not the stale Redis RUNNING
   });
 
   test("a legacy Redis payload with no `retrying` serializes retrying:0, never null", async () => {
@@ -153,6 +181,7 @@ describe("GET run progress (WP3-3)", () => {
       unitsCompleted: 50,
       creditsHeld: 10,
       creditsCharged: 8,
+      startedAt: new Date("2026-07-10T12:00:00.000Z"),
       // Non-string junk must be filtered, never crash the payload.
       enrichmentsJson: ["meta_ads", 42, "reviews", null, "lighthouse"],
     });
@@ -191,6 +220,7 @@ describe("GET run progress (WP3-3)", () => {
       unitsCompleted: 0,
       creditsHeld: 10,
       creditsCharged: 0,
+      startedAt: new Date("2026-07-10T12:00:00.000Z"),
       enrichmentsJson: { not: "an-array" },
     });
     anyMock(readRunProgress).mockResolvedValue(null); // DB fallback path

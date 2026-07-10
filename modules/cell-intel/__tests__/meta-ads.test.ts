@@ -326,43 +326,52 @@ describe("runMetaAdsForCell · stale cell", () => {
     expect(db.adMarketAdvertiserUpserts).toHaveLength(0);
   });
 
-  test("C1 · a FAILED run STILL seeds fbPageId from its resolutions (not discarded)", async () => {
-    // A timed-out run that produced page RESOLUTIONS but no ads/advertisers used
-    // to hit the FAILED early-return and DISCARD the resolutions — so every
-    // retry re-paid to re-resolve the same page ids. The seeding now runs BEFORE
-    // the salvage gate, so the resolutions are durable even on FAILED.
+  test("facet-first · a facet advertiser NAME-MATCHED to a cell business seeds its fbPageId (step 4c)", async () => {
+    // 2026-07-10 · facet-first replaces the per-business pageUrl HTTP resolve
+    // (which Meta blocks → FAILED prod runs). The facet carries each advertiser's
+    // pageId + name, so a cell business is attributed + its fbPageId seeded by
+    // NAME-matching the facet — no HTTP, no page targets.
     db.setLatestRun(null);
     ctx.resolveCellContext.mockResolvedValueOnce(
       fakeCtx([
-        { id: "biz-1", website: "https://spa.example", fbPageId: null },
+        {
+          id: "biz-1",
+          name: "Solea Brickell Spa",
+          website: "https://solea.example",
+          fbPageId: null,
+        },
       ]),
     );
     apify.metaAdLibrarySearch.mockResolvedValueOnce({
       rows: [],
-      advertisers: [],
-      resolutions: [
-        { resolvedFromUrl: "https://spa.example", pageId: "PAGE_9" },
+      advertisers: [
+        {
+          recordType: "advertiser",
+          pageId: "PAGE_9",
+          pageName: "Solea Brickell Spa",
+          adCount: 3,
+          searchTerm: "medical spa Miami",
+          country: "US",
+        },
       ],
-      outcome: "timeout",
-      runStatus: "TIMED-OUT",
+      resolutions: [],
+      outcome: "ok",
+      runStatus: "SUCCEEDED",
       targetStatuses: [],
-      runId: "timeout-run",
-      usageTotalUsd: 0.77,
+      runId: "facet-run",
+      usageTotalUsd: 0.05,
     });
 
     const res = await runMetaAdsForCell(CELL, NOW);
 
-    // The run is still FAILED (no ads salvageable)…
-    const runs = db.adMarketRunRows.filter((r) => r.platform === "META");
-    expect(runs[0]!.status).toBe("FAILED");
-    // …but the resolution was persisted to Business.fbPageId (the C1 win).
+    // The business's fbPageId was seeded FROM the facet advertiser's pageId…
     expect(res.fbPageIdsSeeded).toBe(1);
     const seed = db.businessUpdateManyCalls.find(
       (c) =>
         (c.data as Record<string, unknown> | undefined)?.fbPageId === "PAGE_9",
     );
     expect(seed).toBeDefined();
-    // The null-guard is present so a hand-corrected id is never clobbered.
+    // …guarded so a hand-corrected id is never clobbered.
     expect((seed!.where as Record<string, unknown>).fbPageId).toBeNull();
   });
 });
@@ -536,16 +545,13 @@ describe("runMetaAdsForCell · attribution", () => {
     expect(res.adCount).toBe(1);
   });
 
-  test("seeds fbPageId from a resolution + reliably attributes the resolved ad", async () => {
-    // A business with NO stored fbPageId but a Facebook contact. The actor
-    // resolves its page URL → pageId (a `resolution` record). That id MUST (a)
-    // be persisted to Business.fbPageId (updateMany, null-guarded) and (b) make
-    // the run's ad on that pageId attribute to the business even though nothing
-    // was stored before the run.
+  test("facet-first · a name-matched facet advertiser seeds fbPageId, then its ad attributes reliably", async () => {
+    // Facet-first (2026-07-10): no HTTP pageUrl resolution. A business with NO
+    // stored fbPageId is name-matched to a facet advertiser → its pageId is (a)
+    // seeded to Business.fbPageId (null-guarded updateMany) and (b) makes the
+    // run's ad on that pageId attribute to the business — the full seed→attribute
+    // chain, from the facet alone.
     db.setLatestRun(null);
-    db.setContacts([
-      { businessId: "biz-maria", value: "https://facebook.com/soleabrickell" },
-    ]);
     ctx.resolveCellContext.mockResolvedValueOnce(
       fakeCtx([
         {
@@ -559,14 +565,24 @@ describe("runMetaAdsForCell · attribution", () => {
       ]),
     );
     apify.metaAdLibrarySearch.mockResolvedValueOnce({
-      rows: [adRow({ id: "ad-maria", pageId: "PAGE_RESOLVED" })],
-      resolutions: [
-        {
-          resolvedFromUrl: "https://facebook.com/soleabrickell",
+      rows: [
+        adRow({
+          id: "ad-maria",
           pageId: "PAGE_RESOLVED",
+          pageName: "Solea Brickell Spa",
+        }),
+      ],
+      resolutions: [],
+      advertisers: [
+        {
+          recordType: "advertiser",
+          pageId: "PAGE_RESOLVED",
+          pageName: "Solea Brickell Spa",
+          adCount: 2,
+          searchTerm: "medical spa Miami",
+          country: "US",
         },
       ],
-      advertisers: [],
       outcome: "ok",
       runStatus: "SUCCEEDED",
       targetStatuses: [],
@@ -576,7 +592,7 @@ describe("runMetaAdsForCell · attribution", () => {
 
     const res = await runMetaAdsForCell(CELL, NOW);
 
-    // fbPageId seeded on the business (null-guarded updateMany).
+    // fbPageId seeded on the business (null-guarded updateMany) FROM the facet.
     expect(res.fbPageIdsSeeded).toBe(1);
     expect(db.businessUpdateManyCalls).toHaveLength(1);
     const upd = db.businessUpdateManyCalls[0] as {
@@ -586,7 +602,7 @@ describe("runMetaAdsForCell · attribution", () => {
     expect(upd.where).toMatchObject({ id: "biz-maria", fbPageId: null });
     expect(upd.data.fbPageId).toBe("PAGE_RESOLVED");
 
-    // The ad on the newly-resolved pageId attributes reliably to the business.
+    // The ad on the seeded pageId attributes reliably to the business.
     expect(db.adLibraryEntryUpserts).toHaveLength(1);
     const entry = db.adLibraryEntryUpserts[0] as {
       create: { businessId: string; pageId: string };
@@ -694,9 +710,9 @@ describe("runMetaAdsForCell · attribution", () => {
 });
 
 // ── P5 (2026-07-10) · chunked targets ───────────────────────────────────────
-describe("runMetaAdsForCell · P5 chunked targets", () => {
+describe("runMetaAdsForCell · single-run outcomes (facet-first)", () => {
   /** A verified-ok adapter result with one facet advertiser (so the soft-block
-   *  heuristic doesn't fire) — override per-chunk as needed. */
+   *  heuristic doesn't fire) — override as needed. */
   function okOut(over: Record<string, unknown> = {}) {
     return {
       rows: [],
@@ -720,88 +736,6 @@ describe("runMetaAdsForCell · P5 chunked targets", () => {
       ...over,
     };
   }
-
-  function bizCohort(n: number) {
-    return Array.from({ length: n }, (_, i) => ({
-      id: `b${i}`,
-      name: `Biz ${i}`,
-      website: `https://b${i}.example.com`,
-      domain: null,
-      fbPageId: null,
-    }));
-  }
-
-  test("45 page targets split into 3 actor runs; searchTerms ride only the first", async () => {
-    ctx.resolveCellContext.mockResolvedValueOnce(fakeCtx(bizCohort(45)));
-    apify.metaAdLibrarySearch.mockImplementation(async () =>
-      okOut({ runId: `r${apify.metaAdLibrarySearch.mock.calls.length}` }),
-    );
-
-    const res = await runMetaAdsForCell(CELL, NOW);
-
-    expect(apify.metaAdLibrarySearch).toHaveBeenCalledTimes(3);
-    const calls = apify.metaAdLibrarySearch.mock.calls.map(
-      (c) => c[0] as Record<string, unknown>,
-    );
-    expect((calls[0].searchTerms as string[])?.length).toBeGreaterThan(0);
-    expect(calls[0].pageUrls as string[]).toHaveLength(20);
-    expect(calls[1].searchTerms).toBeUndefined();
-    expect(calls[1].pageUrls as string[]).toHaveLength(20);
-    expect(calls[2].pageUrls as string[]).toHaveLength(5);
-    expect(res.outcome).toBe("collected");
-
-    // ONE telemetry row for the cell, carrying the chunk detail + primary runId.
-    expect(db.adMarketRunRows).toHaveLength(1);
-    const row = db.adMarketRunRows[0];
-    expect(row.apifyRunId).toBe("r1");
-    const detail = row.detailJson as Record<string, unknown>;
-    expect(detail.chunksPlanned).toBe(3);
-    expect(detail.chunksLaunched).toBe(3);
-    expect(detail.pendingTargets).toBe(0);
-    expect(detail.apifyRunIds as string[]).toHaveLength(3);
-  });
-
-  test("wall budget stops launching chunks → PARTIAL with pendingTargets for the reconcile cron", async () => {
-    ctx.resolveCellContext.mockResolvedValueOnce(fakeCtx(bizCohort(45)));
-    // Advance the mocked wall clock ~200s per chunk so the budget (180s) trips
-    // after the first chunk.
-    let t = 1_000_000;
-    const nowSpy = vi.spyOn(Date, "now").mockImplementation(() => t);
-    try {
-      apify.metaAdLibrarySearch.mockImplementation(async () => {
-        t += 200_000;
-        return okOut();
-      });
-
-      await runMetaAdsForCell(CELL, NOW);
-
-      expect(apify.metaAdLibrarySearch).toHaveBeenCalledTimes(1);
-      expect(db.adMarketRunRows).toHaveLength(1);
-      const row = db.adMarketRunRows[0];
-      expect(row.status).toBe("PARTIAL"); // never OK while targets remain
-      const detail = row.detailJson as Record<string, unknown>;
-      expect(detail.pendingTargets).toBe(25); // chunks 2 (20) + 3 (5)
-      expect(detail.chunksLaunched).toBe(1);
-    } finally {
-      nowSpy.mockRestore();
-    }
-  });
-
-  test("a cache-hit chunk contributes NO cost and NO runId (original run already paid)", async () => {
-    ctx.resolveCellContext.mockResolvedValueOnce(fakeCtx(bizCohort(25)));
-    apify.metaAdLibrarySearch
-      .mockResolvedValueOnce(
-        okOut({ fromCache: true, runId: "cached-run", usageTotalUsd: 0.5 }),
-      )
-      .mockResolvedValueOnce(okOut({ runId: "live-run", usageTotalUsd: 0.2 }));
-
-    const res = await runMetaAdsForCell(CELL, NOW);
-
-    expect(res.costUsd).toBeCloseTo(0.2, 6); // cached 0.5 NOT re-counted
-    expect(res.runId).toBe("live-run");
-    const detail = db.adMarketRunRows[0].detailJson as Record<string, unknown>;
-    expect(detail.apifyRunIds as string[]).toEqual(["live-run"]);
-  });
 
   test("ignoreFreshness bypasses the 30-day gate (the reconcile continuation path)", async () => {
     db.setLatestRun({
@@ -873,21 +807,5 @@ describe("runMetaAdsForCell · P5 chunked targets", () => {
 
     expect(db.adMarketRunRows[0].status).toBe("FAILED"); // nothing to salvage
     expect(db.adMarketRunRows[0].advertiserCount).toBe(0);
-  });
-
-  test("a THROWING chunk's OWN targets are counted in pendingTargets (verifier hole)", async () => {
-    ctx.resolveCellContext.mockResolvedValueOnce(fakeCtx(bizCohort(45)));
-    // Chunk 0 verifies, chunk 1 THROWS (a start failure) → chunks 1 (20) + 2 (5)
-    // = 25 pending, INCLUDING the throwing chunk's own 20.
-    apify.metaAdLibrarySearch
-      .mockResolvedValueOnce(okOut({ runId: "r0" }))
-      .mockRejectedValueOnce(new Error("apify start 503"));
-
-    await runMetaAdsForCell(CELL, NOW);
-
-    expect(apify.metaAdLibrarySearch).toHaveBeenCalledTimes(2);
-    const row = db.adMarketRunRows[0];
-    expect(row.status).toBe("PARTIAL"); // salvaged chunk-0 data
-    expect((row.detailJson as Record<string, unknown>).pendingTargets).toBe(25);
   });
 });

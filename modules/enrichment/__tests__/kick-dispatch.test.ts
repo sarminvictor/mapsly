@@ -19,7 +19,7 @@ afterEach(() => {
 
 describe("kickDispatch (WP3-1 · returns a promise)", () => {
   test("returns a Promise that resolves after the fetch settles", async () => {
-    process.env.NEXT_PUBLIC_APP_URL = "https://www.mapsly.ai";
+    process.env.MAPSLY_PUBLIC_URL = "https://www.mapsly.ai";
     process.env.CRON_SECRET = "secret";
     let resolved = false;
     const fetchMock = vi
@@ -40,8 +40,25 @@ describe("kickDispatch (WP3-1 · returns a promise)", () => {
     expect((init as RequestInit).method).toBe("POST");
   });
 
+  test("addresses the WWW host even when the public URL is the apex (apex→www 307 drops the auth header)", async () => {
+    // 2026-07-10 · getMapslyPublicUrl forces www so the CRON_SECRET Bearer isn't
+    // dropped by Vercel's apex→www redirect (the 'kick-dispatch.rejected 401' bug).
+    process.env.MAPSLY_PUBLIC_URL = "https://mapsly.ai";
+    process.env.CRON_SECRET = "secret";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response("{}", { status: 200 }));
+
+    await kickDispatch();
+
+    const [url] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toBe(
+      "https://www.mapsly.ai/api/cron/internal/dispatch",
+    );
+  });
+
   test("swallows a fetch rejection (resolves, never throws)", async () => {
-    process.env.NEXT_PUBLIC_APP_URL = "https://www.mapsly.ai";
+    process.env.MAPSLY_PUBLIC_URL = "https://www.mapsly.ai";
     process.env.CRON_SECRET = "secret";
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("network"));
 
@@ -49,8 +66,7 @@ describe("kickDispatch (WP3-1 · returns a promise)", () => {
     await expect(kickDispatch()).resolves.toBeUndefined();
   });
 
-  test("no-ops (resolved promise) when base URL / secret are unset", async () => {
-    delete process.env.NEXT_PUBLIC_APP_URL;
+  test("no-ops (resolved promise) when CRON_SECRET is unset", async () => {
     delete process.env.CRON_SECRET;
     const fetchMock = vi.spyOn(globalThis, "fetch");
 

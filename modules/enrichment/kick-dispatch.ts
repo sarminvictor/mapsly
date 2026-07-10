@@ -17,6 +17,8 @@
 // leaves PENDING inside a proper cron-context invocation, never in the user's
 // request. Call it from inside `after()` so it runs AFTER the response is sent.
 
+import { getMapslyPublicUrl } from "@/lib/url/mapsly-public-url";
+
 /**
  * Fire the dispatch drain. RETURNS the fetch promise (WP3-1) so callers inside
  * `after(() => kickDispatch())` keep the serverless invocation alive until the
@@ -27,29 +29,37 @@
  * CRON_SECRET is not configured (e.g. local dev without them set).
  */
 export function kickDispatch(): Promise<void> {
-  const base = process.env.NEXT_PUBLIC_APP_URL;
   const secret = process.env.CRON_SECRET;
-  if (!base || !secret) {
+  if (!secret) {
     // 2026-07-10 · this was a SILENT return — and in production it fired on
     // EVERY run, so the designed accelerator never ran and users waited the
     // full 0–120s for the */2 cron (the run-forensics start-lag root cause).
-    // WARN loudly + name which var is missing so a misconfigured prod env is
-    // visible in Vercel logs instead of presenting as "enrichment is just
-    // slow". The every-2-min cron is still the guaranteed fallback.
+    // WARN loudly so a misconfigured prod env is visible in Vercel logs instead
+    // of presenting as "enrichment is just slow". The every-2-min cron is the
+    // guaranteed fallback.
     console.warn(
       JSON.stringify({
         level: "warn",
         event: "kick-dispatch.skipped",
         reason: "missing-env",
-        hasBaseUrl: Boolean(base),
-        hasCronSecret: Boolean(secret),
-        note: "start accelerator disabled — runs wait for the */2 cron",
+        hasCronSecret: false,
+        note: "start accelerator disabled (no CRON_SECRET) — runs wait for the */2 cron",
       }),
     );
     return Promise.resolve();
   }
 
-  const url = `${base.replace(/\/$/, "")}/api/cron/internal/dispatch`;
+  // 2026-07-10 · resolve the base via getMapslyPublicUrl() — the SAME runtime
+  // resolver (MAPSLY_PUBLIC_URL ?? VERCEL_URL, forced to the www host) every other
+  // callback uses — instead of the build-inlined `NEXT_PUBLIC_APP_URL`. Two traps
+  // that variable carried and this removes: (1) `NEXT_PUBLIC_*` is inlined at BUILD
+  // time, so a value set after the running build read as undefined → the kick
+  // no-op'd even when "the env is set"; (2) if it was the APEX host, Vercel's
+  // apex→www 307 DROPS the Authorization header (the CRON_SECRET Bearer) → the
+  // dispatch endpoint 401'd the kick (`kick-dispatch.rejected`). getMapslyPublicUrl
+  // is read at runtime and always returns the canonical www host, killing both.
+  const base = getMapslyPublicUrl();
+  const url = `${base}/api/cron/internal/dispatch`;
   // Returned (not `void`): under `after()` the framework awaits it, keeping the
   // invocation alive until the kick sends. The 15s timeout bounds the socket;
   // the drain itself continues in its OWN invocation regardless.

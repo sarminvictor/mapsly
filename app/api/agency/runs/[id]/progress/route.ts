@@ -44,6 +44,11 @@ export interface RunProgress {
    *  the bought data's columns, surviving a reload-mid-run (runs last
    *  minutes-to-hours per realtime-runs-adr). */
   enrichments?: string[];
+  /** 2026-07-10 · the run's startedAt (ISO). The ETA anchor — EnrichingStep now
+   *  reads it HERE instead of the heavy /api/agency/jobs feed, so the jobs poll
+   *  can drop its JobsTray array (a Neon-load cut). Constant per run, so it's not
+   *  in the ETag. */
+  startedAt?: string;
 }
 
 function etagOf(p: RunProgress): string {
@@ -86,12 +91,24 @@ export async function GET(
       // WB-COL-2 · the purchased types — same row, ~zero marginal cost; only
       // serialized into the terminal payload below.
       enrichmentsJson: true,
+      // ETA anchor for EnrichingStep (same row, ~zero marginal cost).
+      startedAt: true,
     },
   });
   if (!run) {
     // Cross-agency / missing → 404 (never leak another agency's run).
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
+
+  // 2026-07-10 · DB status is AUTHORITATIVE once terminal. The dispatch tick
+  // re-seeds Redis with the (non-terminal) run.status every tick, and the single
+  // close-time terminal re-seed is best-effort — if that one write is lost, Redis
+  // keeps a stale RUNNING forever and would MASK the DB's terminal status here
+  // (`redis.status ?? run.status` would return the stale RUNNING), stranding the
+  // client on a spinner: the exact "I don't know when it finished" pain. So when
+  // the DB row is terminal, trust it over Redis (the DB is truth, already fetched).
+  const dbTerminal =
+    run.status === "OK" || run.status === "PARTIAL" || run.status === "FAILED";
 
   // Redis-first read (no further DB). On a miss (Redis unavailable OR not seeded
   // yet) fall back to the run's own DB counters so the bar still moves.
@@ -102,7 +119,8 @@ export async function GET(
         total: redis.total > 0 ? redis.total : run.unitsRequested,
         failed: redis.failed,
         retrying: redis.retrying,
-        status: redis.status ?? run.status,
+        // DB terminal status wins over a possibly-stale Redis RUNNING (see above).
+        status: dbTerminal ? run.status : (redis.status ?? run.status),
       }
     : {
         done: run.unitsCompleted,
@@ -150,6 +168,8 @@ export async function GET(
     total,
     retrying,
     status: raw.status,
+    // ETA anchor — always present so EnrichingStep never needs the jobs feed for it.
+    startedAt: run.startedAt.toISOString(),
     ...(terminal
       ? {
           creditsHeld: run.creditsHeld,

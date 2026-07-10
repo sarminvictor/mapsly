@@ -63,19 +63,11 @@ const MAX_SERVICES = 5;
 const MAX_ADVERTISERS = 60;
 const MAX_CREATIVES = 6;
 const META_MAX_ITEMS = 150;
-/** Cap the FB page URLs a cell feeds the actor IN TOTAL (across chunks). Still
- *  ONE cell charge · not per-business billing. 60 covers a typical cell. */
-const MAX_PAGE_URLS = 60;
-// P5 (2026-07-10) · CHUNKED TARGETS. 60 page-targets in ONE actor run was
-// structurally over the 280s Apify timeout (~3-5s per resolve+pull + session
-// priming), so big cells timed out deterministically and burned ~$0.87 of
-// residential proxy per attempt for salvage-only yield (run-forensics §C). Now
-// each actor run gets ≤ META_TARGETS_PER_RUN pageUrls — small enough to FINISH
-// (verified outcome → cacheable, complete per-target statuses). The first chunk
-// also carries the searchTerms market facet + precise pageIds pulls. A wall
-// budget stops launching further chunks near the route's 300s ceiling; the
-// remainder is recorded as detailJson.pendingTargets and finished by the
-// meta-reconcile cron (poll-continuation per realtime-runs-adr — no webhook).
+// 2026-07-10 · FACET-FIRST. The cell no longer sends per-business pageUrls (the
+// HTTP resolve Meta blocks), so a cell is now ONE facet query and these chunking
+// knobs are effectively single-run. They stay so the reconcile/continuation
+// scaffolding (pendingTargets, wall budget) keeps compiling if pageUrls ever
+// return; with pageUrls=[] the chunk loop runs exactly once.
 const META_TARGETS_PER_RUN = 20;
 const META_CELL_WALL_BUDGET_MS = 180_000;
 
@@ -182,65 +174,6 @@ function buildSearchTerms(ctx: CellContext): string[] {
   return [term].filter((t) => t.length >= 2).slice(0, MAX_SERVICES);
 }
 
-/** One resolvable Meta page target for a cell business + the source it came
- *  from, so a run-emitted `resolution` (resolvedFromUrl → pageId) can be mapped
- *  back to the exact business that owns it and seed its `fbPageId`. */
-interface PageTarget {
-  businessId: string;
-  /** The pageUrl handed to the actor (Facebook handle URL or the website). */
-  pageUrl: string;
-}
-
-/**
- * Build the cell's Meta page targets for the ONE actor run: for every business
- * that does NOT already have a stored `fbPageId`, prefer its extracted Facebook
- * handle/URL (from the contacts scan · ContactChannel.FACEBOOK), else its
- * `website`, so the actor resolves each to a numeric page id. This is what
- * makes attribution reliable — a resolved id seeds `Business.fbPageId` and the
- * `fbPageId === ad.pageId` join becomes authoritative. Businesses that already
- * have a stored id are skipped (their id is fed as `pageIds`, not re-resolved).
- * Deduped by pageUrl (first business wins) and capped at MAX_PAGE_URLS.
- */
-async function buildPageTargets(ctx: CellContext): Promise<PageTarget[]> {
-  const unresolved = ctx.businesses.filter((b) => !b.fbPageId);
-  if (unresolved.length === 0) return [];
-
-  // Extracted Facebook contact URL per business (channel=FACEBOOK), if any.
-  let fbByBiz = new Map<string, string>();
-  try {
-    const contacts = await prisma.contact.findMany({
-      where: {
-        businessId: { in: unresolved.map((b) => b.id) },
-        channel: "FACEBOOK",
-      },
-      select: { businessId: true, value: true },
-      orderBy: [{ isPrimary: "desc" }, { confidence: "desc" }],
-    });
-    for (const c of contacts) {
-      // First (highest-confidence/primary) FACEBOOK value per business wins.
-      if (c.value && !fbByBiz.has(c.businessId))
-        fbByBiz.set(c.businessId, c.value);
-    }
-  } catch {
-    // Contacts read failed — fall through to website-only targeting. A missing
-    // Facebook handle just means a slightly noisier resolve, never a hard fail.
-    fbByBiz = new Map<string, string>();
-  }
-
-  const targets: PageTarget[] = [];
-  const seenUrls = new Set<string>();
-  for (const b of unresolved) {
-    const pageUrl = fbByBiz.get(b.id) ?? b.website ?? null;
-    if (!pageUrl) continue;
-    const norm = pageUrl.trim();
-    if (norm.length < 4 || seenUrls.has(norm.toLowerCase())) continue;
-    seenUrls.add(norm.toLowerCase());
-    targets.push({ businessId: b.id, pageUrl: norm });
-    if (targets.length >= MAX_PAGE_URLS) break;
-  }
-  return targets;
-}
-
 /**
  * Attribute a Meta ad to exactly one indexed business by strongest signal:
  *   1. exact fbPageId match (the page id we cached for that business),
@@ -279,9 +212,9 @@ function attributeAd(
  *
  * P5 · `opts.ignoreFreshness` is the meta-reconcile cron's CONTINUATION path: a
  * budget-stopped collection wrote a PARTIAL row (which anchors the freshness
- * gate), so the cron must bypass the gate to run the remaining chunks. Already-
- * resolved businesses are excluded by construction (buildPageTargets skips
- * fbPageId-havers) and verified chunk queries hit the 6h cache at $0.
+ * gate), so the cron must bypass the gate to re-run. (Facet-first · 2026-07-10:
+ * a cell is now ONE facet query, so continuation is rarely needed; a re-run just
+ * re-fetches the facet, and verified queries hit the 6h cache at $0.)
  */
 export async function runMetaAdsForCell(
   cellKey: string,
@@ -331,19 +264,23 @@ export async function runMetaAdsForCell(
 
   const searchTerms = buildSearchTerms(ctx);
 
-  // 2b · build the cell's per-business Meta page targets (Facebook handle else
-  // website) so the SAME actor run resolves each business's page id — this is
-  // what makes attribution reliable (fbPageId === ad.pageId). Businesses that
-  // already have a resolved id are fed as pageIds for a precise pull. Still ONE
-  // run for the whole cell (the actor batches all pageUrls/pageIds/searchTerms).
-  const pageTargets = await buildPageTargets(ctx);
-  const pageUrls = pageTargets.map((t) => t.pageUrl);
+  // 2b · FACET-FIRST (2026-07-10 · prod-fail fix). We NO LONGER resolve each
+  // business's website/Facebook-handle to a page id via a per-business page
+  // target. Meta blocks the raw HTTP resolve, so that path failed for ~every
+  // PRODUCTION cell (20 "Could not resolve" per run → the run FAILED with 0
+  // targets) — the exact reason cells failed in prod while keyword tests passed.
+  // The advertiser FACET (searchTerms) already carries every advertiser's pageId
+  // + name, so per-business attribution + fbPageId seeding now come from
+  // NAME-MATCHING the facet (step 4c) — free, no HTTP, no fragile page targets.
+  // pageUrls are therefore NOT sent to the actor; already-resolved businesses
+  // still feed their pageIds for a precise, reliable pull. (Per-business ad
+  // CREATIVES — the page-id path — remain the hard path; see the forensics report.)
+  const pageUrls: string[] = [];
   const pageIds = ctx.businesses
     .map((b) => b.fbPageId)
     .filter((id): id is string => !!id);
-  // pageUrl → businessId, so a run-emitted `resolution` seeds the right business.
+  // No pageUrls → no run-emitted resolutions; kept empty so step 3b no-ops.
   const bizByPageUrl = new Map<string, string>();
-  for (const t of pageTargets) bizByPageUrl.set(t.pageUrl, t.businessId);
 
   if (
     searchTerms.length === 0 &&
@@ -647,6 +584,42 @@ export async function runMetaAdsForCell(
     // creative-derived count so the advertiser's activity isn't undercounted.
     if (typeof a.adCount === "number" && a.adCount > g.adCount)
       g.adCount = a.adCount;
+  }
+
+  // 4c · FACET-NAME fbPageId SEEDING (2026-07-10 · facet-first). Replaces the
+  // per-business pageUrl resolution dropped in step 2b: the facet already carries
+  // each advertiser's pageId + name, so match a facet advertiser to a cell
+  // business by name and seed that business's fbPageId FROM the facet — no HTTP,
+  // no fragile page targets. This keeps per-business Meta signals working (step 6b
+  // upserts the placeholder AdLibraryEntry off byPageId, and step 5's advertiser
+  // rows get matchedBusinessId). One business ↔ one pageId (claimedBiz), the best
+  // name-match wins, and we only seed when the business's fbPageId is currently
+  // null (never clobber a hand-corrected id). Best-effort per row.
+  const claimedBiz = new Set<string>(byPageId.values());
+  const unresolvedBiz = ctx.businesses.filter((b) => !b.fbPageId);
+  for (const a of advertisers) {
+    const pid = a.pageId || "";
+    if (!pid || byPageId.has(pid) || !a.pageName) continue;
+    let best: { id: string; score: number } | null = null;
+    for (const b of unresolvedBiz) {
+      if (claimedBiz.has(b.id)) continue;
+      const score = matchStrength(a.pageName, b.name);
+      if (score > 0 && (!best || score > best.score)) best = { id: b.id, score };
+    }
+    if (!best) continue;
+    byPageId.set(pid, best.id);
+    claimedBiz.add(best.id);
+    try {
+      await prisma.business.updateMany({
+        where: { id: best.id, fbPageId: null },
+        data: { fbPageId: pid },
+      });
+      result.fbPageIdsSeeded += 1;
+    } catch (e) {
+      result.errors.push(
+        `facet-seed-fbpageid:${(e as Error).message}`.slice(0, 200),
+      );
+    }
   }
 
   // 5 · upsert AdMarketAdvertiser (per-advertiser cell aggregate).

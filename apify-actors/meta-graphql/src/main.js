@@ -515,6 +515,12 @@ function rotateSession(session, reason) {
 // TLS context (page.request — NO render, NO images). Cheap: one small HTML fetch
 // vs a full page.goto. Returns null if walled / no id surfaces.
 async function resolvePageIdHttp(page, handleOrUrl) {
+  // Free id: a profile.php?id=NNN URL ALREADY carries the numeric page id — no
+  // resolve needed. fbPageUrl() rejects profile.php, so extract it here first
+  // (Meta blocks the raw HTTP resolve of most handle pages, so any id we can read
+  // straight off the URL is a guaranteed win). 2026-07-10.
+  const direct = String(handleOrUrl).match(/profile\.php\?(?:[^#]*&)?id=(\d{6,})/i);
+  if (direct) return direct[1];
   const url = fbPageUrl(handleOrUrl);
   if (!url) return null;
   try {

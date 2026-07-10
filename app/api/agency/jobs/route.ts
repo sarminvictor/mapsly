@@ -77,9 +77,25 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
   const agencyId = member.agencyId;
   const recentCutoff = new Date(Date.now() - RECENT_DONE_WINDOW_MS);
-  const runId = new URL(request.url).searchParams.get("runId");
+  const url = new URL(request.url);
+  const runId = url.searchParams.get("runId");
+  // 2026-07-10 · Neon-load cut. EnrichingStep polls this every few seconds for
+  // ONE run's stage checklist and never uses the JobsTray `jobs` array — yet the
+  // full path runs 2 extra findMany (discoveries + enrichments, ≤10 rows each)
+  // every poll. `?stagesOnly=1` skips those and returns ONLY `{ stages }`, cutting
+  // a watching user's per-poll DB reads from ~5 to ~3. The tray (which needs
+  // `jobs`) simply omits the flag.
+  const stagesOnly = url.searchParams.get("stagesOnly") === "1";
 
   try {
+    if (runId && stagesOnly) {
+      const stages = await buildEnrichStages(runId, agencyId);
+      return NextResponse.json(
+        { stages },
+        { headers: { "Cache-Control": "private, no-store" } },
+      );
+    }
+
     const [discoveries, enrichments] = await Promise.all([
       prisma.discovery.findMany({
         where: {
