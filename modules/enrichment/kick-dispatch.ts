@@ -29,7 +29,25 @@
 export function kickDispatch(): Promise<void> {
   const base = process.env.NEXT_PUBLIC_APP_URL;
   const secret = process.env.CRON_SECRET;
-  if (!base || !secret) return Promise.resolve();
+  if (!base || !secret) {
+    // 2026-07-10 · this was a SILENT return — and in production it fired on
+    // EVERY run, so the designed accelerator never ran and users waited the
+    // full 0–120s for the */2 cron (the run-forensics start-lag root cause).
+    // WARN loudly + name which var is missing so a misconfigured prod env is
+    // visible in Vercel logs instead of presenting as "enrichment is just
+    // slow". The every-2-min cron is still the guaranteed fallback.
+    console.warn(
+      JSON.stringify({
+        level: "warn",
+        event: "kick-dispatch.skipped",
+        reason: "missing-env",
+        hasBaseUrl: Boolean(base),
+        hasCronSecret: Boolean(secret),
+        note: "start accelerator disabled — runs wait for the */2 cron",
+      }),
+    );
+    return Promise.resolve();
+  }
 
   const url = `${base.replace(/\/$/, "")}/api/cron/internal/dispatch`;
   // Returned (not `void`): under `after()` the framework awaits it, keeping the
@@ -40,9 +58,33 @@ export function kickDispatch(): Promise<void> {
     headers: { authorization: `Bearer ${secret}` },
     signal: AbortSignal.timeout(15_000),
   }).then(
-    () => undefined,
-    () => {
-      // Best-effort — the every-2-min cron is the guaranteed fallback.
+    (res) => {
+      // A non-2xx (e.g. 401 from Vercel Deployment Protection, or the dispatch
+      // endpoint rejecting our CRON_SECRET) means the kick was DELIVERED but
+      // REFUSED — the run then silently waits for the cron. Surface it.
+      if (!res.ok) {
+        console.warn(
+          JSON.stringify({
+            level: "warn",
+            event: "kick-dispatch.rejected",
+            httpStatus: res.status,
+            note: "dispatch kick refused — runs wait for the */2 cron",
+          }),
+        );
+      }
+      return undefined;
+    },
+    (err) => {
+      // Network blip / timeout / frozen invocation — the every-2-min cron is
+      // the guaranteed fallback, but log it so a chronic failure is visible.
+      console.warn(
+        JSON.stringify({
+          level: "warn",
+          event: "kick-dispatch.error",
+          error: err instanceof Error ? err.message : String(err),
+          note: "dispatch kick failed to send — runs wait for the */2 cron",
+        }),
+      );
     },
   );
 }

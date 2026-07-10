@@ -1977,6 +1977,9 @@ export async function closeRunIfDone(
     failed: bizFailed,
     total: bizTotal,
     status: bizFailed > 0 ? "PARTIAL" : "OK",
+    // Terminal: nothing is backing off anymore — clear any stale retry hint so
+    // the done-state never shows "N retrying".
+    retrying: 0,
   });
 
   // Refresh the cell standards (+ service prevalence when services ran) so the
@@ -2649,6 +2652,30 @@ export async function updateRunProgress(runId: string): Promise<void> {
     data: { unitsCompleted: completed },
   });
 
+  // 2026-07-10 · how many outstanding businesses are merely WAITING OUT their
+  // retry backoff (all remaining work is QUEUED with a future nextAttemptAt),
+  // vs actively RUNNING. This is the "44 of 45 · 1 retrying" hint that fixes the
+  // frozen-looking backoff tail (run-forensics end-lag): a business counts as
+  // retrying only when it has a future-scheduled QUEUED job AND no RUNNING job.
+  // One extra indexed read per tick, bounded by the run's outstanding set.
+  let retrying = 0;
+  if (outstandingBiz > 0) {
+    const now = new Date();
+    const backoffRows = await prisma.enrichmentJob.groupBy({
+      by: ["businessId"],
+      where: { runId, status: "QUEUED", nextAttemptAt: { gt: now } },
+      _count: { _all: true },
+    });
+    const runningBiz = new Set<string>();
+    for (const g of jobs) {
+      if (g.status === "RUNNING") runningBiz.add(g.businessId);
+    }
+    // A business actively RUNNING one family while another backs off reads as
+    // "in progress", not "retrying" — only pure-backoff businesses are counted.
+    retrying = backoffRows.filter((r) => !runningBiz.has(r.businessId)).length;
+    retrying = Math.min(retrying, outstandingBiz);
+  }
+
   // WP3-3/WP4-3 · SEED/CORRECT the Redis progress counters from the same
   // authoritative fold above, in the SAME business unit as unitsRequested so the
   // progress endpoint's done/total/failed and % all read in leads, not job-rows
@@ -2659,5 +2686,11 @@ export async function updateRunProgress(runId: string): Promise<void> {
   // total is the requested business count; fall back to the observed business
   // set for a legacy run whose unitsRequested predates this unit change.
   const total = run.unitsRequested > 0 ? run.unitsRequested : perBiz.size;
-  await seedRunProgress(runId, { done, failed, total, status: run.status });
+  await seedRunProgress(runId, {
+    done,
+    failed,
+    total,
+    status: run.status,
+    retrying,
+  });
 }

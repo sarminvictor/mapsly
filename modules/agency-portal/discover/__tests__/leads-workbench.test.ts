@@ -26,7 +26,10 @@ import {
   availableNumericFields,
   availableSignalKeys,
   filterBreakdown,
+  filterSignalKey,
+  fullyComputableSignalKeys,
   heavyFieldsForFilters,
+  makeFilterForSignal,
   painGroupClass,
   passesFilters,
   reachabilityLabel,
@@ -36,6 +39,7 @@ import {
   toneForPercentile,
   topCsvSignals,
   type LeadFilter,
+  type ValueLeadFilter,
   type WorkbenchLeadRow,
 } from "../leads-workbench";
 
@@ -457,6 +461,37 @@ describe("seedSignalFilters (goal-step default filters)", () => {
     ]);
   });
 
+  // 2026-07-10 · the picker gate relaxed to any-row, but the AUTO-APPLY seed
+  // must stay strict: a signal computable on only SOME rows never seeds (it
+  // would silently hide every not-yet-enriched lead on mount — P0-B).
+  test("a PARTIALLY-computed goal signal never seeds (strict gate, not the relaxed picker gate)", () => {
+    const rows = [
+      row({ perSignal: { sig_a: true } }),
+      row({ perSignal: {} }), // one un-enriched lead
+    ];
+    // Sanity: the relaxed PICKER gate would offer it…
+    expect(availableSignalKeys(rows, goalSignals).has("sig_a")).toBe(true);
+    // …but the seed must not auto-apply it.
+    expect(seedSignalFilters(rows, goalSignals)).toEqual([]);
+    expect(fullyComputableSignalKeys(rows, goalSignals).has("sig_a")).toBe(
+      false,
+    );
+  });
+
+  test("a platform-kind goal signal seeds as a VALUE filter at its default mode", () => {
+    const goal = [{ key: "no_booking", title: "No online booking tool" }];
+    const rows = [row({ perSignal: { no_booking: true } })];
+    expect(seedSignalFilters(rows, goal)).toEqual([
+      {
+        kind: "value",
+        sigKey: "no_booking",
+        field: "bookingTool",
+        label: "Booking tool",
+        mode: "none",
+      },
+    ]);
+  });
+
   test("empty when nothing has enriched yet (never hides un-enriched leads)", () => {
     const rows = [row({ perSignal: { sig_a: null, sig_b: null } })];
     expect(seedSignalFilters(rows, goalSignals)).toEqual([]);
@@ -464,6 +499,175 @@ describe("seedSignalFilters (goal-step default filters)", () => {
 
   test("empty when the goal carries no signals", () => {
     expect(seedSignalFilters([row()], [])).toEqual([]);
+  });
+});
+
+// ── 2026-07-10 · value filters (Built on / Booking tool · Any/specific/none) ─
+describe("value filters (Any / specific / none)", () => {
+  const techRan = (r: WorkbenchLeadRow) => r.perSignal.__tech === true;
+  const scanned = { __tech: true };
+  const builtOnAny: ValueLeadFilter = {
+    kind: "value",
+    sigKey: "diy_platform",
+    field: "builtOn",
+    label: "Built on",
+    mode: "any",
+  };
+  const bookingNone: ValueLeadFilter = {
+    kind: "value",
+    sigKey: "no_booking",
+    field: "bookingTool",
+    label: "Booking tool",
+    mode: "none",
+  };
+
+  test("mode 'any' — a detected value matches, null doesn't", () => {
+    expect(evalFilter(row({ builtOn: "Wix" }), builtOnAny)).toBe(true);
+    expect(evalFilter(row({ builtOn: null }), builtOnAny)).toBe(false);
+  });
+
+  test("mode 'is' — case-insensitive equality on the detected value", () => {
+    const isWix: ValueLeadFilter = {
+      ...builtOnAny,
+      mode: "is" as const,
+      value: "wix",
+    };
+    expect(evalFilter(row({ builtOn: "Wix" }), isWix)).toBe(true);
+    expect(evalFilter(row({ builtOn: "WordPress" }), isWix)).toBe(false);
+    expect(evalFilter(row({ builtOn: null }), isWix)).toBe(false);
+    // A malformed "is" without a value matches nothing (never everything).
+    expect(
+      evalFilter(row({ builtOn: "Wix" }), {
+        ...builtOnAny,
+        mode: "is" as const,
+      }),
+    ).toBe(false);
+  });
+
+  test("mode 'none' — only a SCANNED lead with nothing detected matches", () => {
+    // Scanned + nothing detected → verified none → match.
+    expect(
+      evalFilter(
+        row({ bookingTool: null, perSignal: scanned }),
+        bookingNone,
+        techRan,
+      ),
+    ).toBe(true);
+    // Un-scanned null = unknown, never "none" (the honesty rule).
+    expect(evalFilter(row({ bookingTool: null }), bookingNone, techRan)).toBe(
+      false,
+    );
+    // No techRan supplied at all (legacy caller) → opt-in honesty → no match.
+    expect(
+      evalFilter(row({ bookingTool: null, perSignal: scanned }), bookingNone),
+    ).toBe(false);
+    // A detected tool is never "none", scanned or not.
+    expect(
+      evalFilter(
+        row({ bookingTool: "Calendly", perSignal: scanned }),
+        bookingNone,
+        techRan,
+      ),
+    ).toBe(false);
+  });
+
+  test("an un-hydrated heavy field (undefined) never matches any mode", () => {
+    const r = row({ bookingTool: undefined, perSignal: scanned });
+    expect(
+      evalFilter(r, { ...bookingNone, mode: "any" as const }, techRan),
+    ).toBe(false);
+    expect(evalFilter(r, bookingNone, techRan)).toBe(false);
+    expect(
+      evalFilter(
+        r,
+        { ...bookingNone, mode: "is" as const, value: "Calendly" },
+        techRan,
+      ),
+    ).toBe(false);
+  });
+
+  test("passesFilters threads techRan through to value filters", () => {
+    const r = row({ bookingTool: null, perSignal: scanned });
+    expect(passesFilters(r, [bookingNone], techRan)).toBe(true);
+    expect(passesFilters(r, [bookingNone])).toBe(false);
+  });
+
+  test("filterBreakdown buckets: hydrating + un-scanned nulls are no-data; scanned nulls are data", () => {
+    const rows = [
+      row({ bookingTool: "Calendly", perSignal: scanned }), // detected → not "none"
+      row({ bookingTool: null, perSignal: scanned }), // verified none → match
+      row({ bookingTool: null }), // un-scanned → no data
+      row({ bookingTool: undefined }), // not hydrated → no data
+    ];
+    expect(filterBreakdown(rows, bookingNone, techRan)).toEqual({
+      match: 1,
+      noData: 2,
+    });
+    // Same rows through "any": the detected row matches; the verified-none row
+    // is DATA that fails the mode (not the no-data bucket).
+    expect(
+      filterBreakdown(rows, { ...bookingNone, mode: "any" as const }, techRan),
+    ).toEqual({ match: 1, noData: 2 });
+  });
+
+  test("filterLabel speaks the mode", () => {
+    expect(filterLabel(builtOnAny)).toBe("Built on: any");
+    expect(
+      filterLabel({ ...builtOnAny, mode: "is" as const, value: "Wix" }),
+    ).toBe("Built on: Wix");
+    // The none wording comes from the registry (builtOn = custom-built).
+    expect(filterLabel({ ...builtOnAny, mode: "none" as const })).toBe(
+      "Built on: custom / none detected",
+    );
+    expect(filterLabel(bookingNone)).toBe("Booking tool: none");
+  });
+
+  test("makeFilterForSignal routes platform-kind signals to value filters", () => {
+    expect(
+      makeFilterForSignal("diy_platform", "Built on DIY platform"),
+    ).toEqual({
+      kind: "value",
+      sigKey: "diy_platform",
+      field: "builtOn",
+      label: "Built on",
+      mode: "any",
+    });
+    expect(makeFilterForSignal("no_booking", "No online booking tool")).toEqual(
+      {
+        kind: "value",
+        sigKey: "no_booking",
+        field: "bookingTool",
+        label: "Booking tool",
+        mode: "none",
+      },
+    );
+    // Everything else stays a match/miss verdict filter.
+    expect(makeFilterForSignal("thin_seo", "Thin SEO")).toEqual({
+      kind: "signal",
+      sigKey: "thin_seo",
+      sigLabel: "Thin SEO",
+      want: "match",
+    });
+  });
+
+  test("filterSignalKey claims signal + value filters, not numeric ones", () => {
+    expect(filterSignalKey(builtOnAny)).toBe("diy_platform");
+    expect(
+      filterSignalKey({
+        kind: "signal",
+        sigKey: "s",
+        sigLabel: "S",
+        want: "match",
+      }),
+    ).toBe("s");
+    expect(filterSignalKey({ field: "perf", op: "<", value: 50 })).toBe(null);
+  });
+
+  test("a Booking-tool value filter auto-requests its heavy field; Built-on (core) doesn't", () => {
+    expect(heavyFieldsForFilters([bookingNone])).toEqual(
+      new Set(["bookingTool"]),
+    );
+    expect(heavyFieldsForFilters([builtOnAny])).toEqual(new Set());
   });
 });
 

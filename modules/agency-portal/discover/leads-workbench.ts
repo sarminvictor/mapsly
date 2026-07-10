@@ -1088,7 +1088,108 @@ export interface SignalLeadFilter {
   want: "match" | "miss";
 }
 
-export type LeadFilter = NumericLeadFilter | SignalLeadFilter;
+/**
+ * 2026-07-10 · A DETECTED-VALUE filter — the Any / specific / none rework for
+ * the two "platform-kind" signals (owner request): "Built on DIY platform" and
+ * "No online booking tool" were plain match/miss verdict filters, so Tom could
+ * not ask "built on Wix specifically", "has ANY booking tool", or "verified
+ * none". This kind filters on the underlying detected VALUE the row already
+ * carries (`builtOn` / `bookingTool`) instead of the goal-tuned verdict:
+ *
+ *  - `any`  → a value was detected (any platform / any tool)
+ *  - `is`   → the detected value equals `value` (case-insensitive; the picker
+ *             offers the distinct values detected across the loaded window)
+ *  - `none` → the tech scan RAN and detected nothing (custom-built site / no
+ *             booking tool). Honesty: a null value WITHOUT a scan is unknown,
+ *             never "none" — see the `techRan` param on {@link evalFilter}.
+ *
+ * `sigKey` keeps the filter tied to its signal for dedupe (picker hides
+ * applied signals, group-axes exclude them, the enrich re-seed respects an
+ * explicit removal) — one signal, one filter, whatever its kind.
+ */
+export interface ValueLeadFilter {
+  kind: "value";
+  /** The SIG_META key this filter descends from (dedupe vs picker/axes). */
+  sigKey: string;
+  /** The row field holding the detected value. */
+  field: ValueFilterField;
+  /** Short chip label ("Built on" / "Booking tool"). */
+  label: string;
+  mode: "any" | "none" | "is";
+  /** The specific detected value (only meaningful for mode "is"). */
+  value?: string;
+}
+
+export type ValueFilterField = "builtOn" | "bookingTool";
+
+/** Spec for a signal that filters by detected VALUE instead of verdict. */
+export interface SignalValueSpec {
+  field: ValueFilterField;
+  /** Chip + picker label — the SigMeta setting label, not the card title. */
+  label: string;
+  /** Human wording for the `none` mode option in the chip's select. */
+  noneLabel: string;
+  /** Mode a freshly added / seeded filter opens with. */
+  defaultMode: "any" | "none";
+}
+
+/**
+ * The signals that get the Any / specific / none treatment (owner request
+ * 2026-07-10: "Signals, with this kind — we should do this for them"). Keyed
+ * by SIG_META key. Adding a platform-kind signal later = one entry here (its
+ * row field must exist on WorkbenchLeadRow and, if HEAVY, have a column whose
+ * rowFields names it so hydration auto-requests).
+ */
+export const SIGNAL_VALUE_FIELDS: Record<string, SignalValueSpec> = {
+  // "Built on DIY platform" → "Built on": any platform / a specific one /
+  // custom (tech ran, no CMS fingerprint — usually a hand-built site).
+  diy_platform: {
+    field: "builtOn",
+    label: "Built on",
+    noneLabel: "custom / none detected",
+    defaultMode: "any",
+  },
+  // "No online booking tool" → "Booking tool": any / specific / none. The
+  // default mode mirrors the old signal's pitch ("no booking tool" leads).
+  no_booking: {
+    field: "bookingTool",
+    label: "Booking tool",
+    noneLabel: "none",
+    defaultMode: "none",
+  },
+};
+
+export type LeadFilter = NumericLeadFilter | SignalLeadFilter | ValueLeadFilter;
+
+/**
+ * The filter a signal produces when applied: platform-kind signals (in
+ * {@link SIGNAL_VALUE_FIELDS}) become value filters at their default mode;
+ * everything else stays a match/miss verdict filter. THE one factory every
+ * add path uses (picker, goal seed, enrich re-seed) so a signal never
+ * materializes as two different filter shapes. Pure.
+ */
+export function makeFilterForSignal(
+  sigKey: string,
+  sigLabel: string,
+): SignalLeadFilter | ValueLeadFilter {
+  const spec = SIGNAL_VALUE_FIELDS[sigKey];
+  if (spec) {
+    return {
+      kind: "value",
+      sigKey,
+      field: spec.field,
+      label: spec.label,
+      mode: spec.defaultMode,
+    };
+  }
+  return { kind: "signal", sigKey, sigLabel, want: "match" };
+}
+
+/** The signal key a filter descends from, if any — signal AND value filters
+ *  both claim their signal (dedupe / axes / removal memory). Pure. */
+export function filterSignalKey(f: LeadFilter): string | null {
+  return f.kind === "signal" || f.kind === "value" ? f.sigKey : null;
+}
 
 export type NumericFilterField =
   | "match"
@@ -1165,15 +1266,53 @@ function fieldValue(
   return COLUMN_BY_KEY.get(field)?.numValue?.(row) ?? null;
 }
 
+/** Whether the TECH scan ran on a row — the honesty input for a value
+ *  filter's `none` mode ("verified nothing detected" needs a scan; a bare
+ *  null is unknown). The workbench derives this from its coverage matrix
+ *  (`typeStatesFor(r).TECH` enriched/empty); callers without coverage omit
+ *  it and `none` simply never matches (opt-in honesty, same as null
+ *  verdicts). */
+export type TechRanFn = (row: WorkbenchLeadRow) => boolean;
+
+/** The raw detected value behind a value filter. `undefined` = the heavy
+ *  field isn't hydrated yet (unknown ≠ absent); null/"" = nothing detected. */
+function valueFieldRaw(
+  row: WorkbenchLeadRow,
+  field: ValueFilterField,
+): string | null | undefined {
+  return field === "builtOn" ? row.builtOn : row.bookingTool;
+}
+
 /** Evaluate one filter against a row. A null backing value never matches —
  *  unless the filter opts into the no-data bucket (AUDIT B3 · includeNoData).
  *  Pure. */
-export function evalFilter(row: WorkbenchLeadRow, f: LeadFilter): boolean {
+export function evalFilter(
+  row: WorkbenchLeadRow,
+  f: LeadFilter,
+  techRan?: TechRanFn,
+): boolean {
   if (f.kind === "signal") {
     const verdict = row.perSignal[f.sigKey];
     // null/undefined = not-yet-computed → never matches (opt-in honesty).
     if (verdict == null) return false;
     return f.want === "match" ? verdict === true : verdict === false;
+  }
+  if (f.kind === "value") {
+    const raw = valueFieldRaw(row, f.field);
+    // undefined = heavy field not hydrated yet → unknown → never matches
+    // (the chip shows a loading state while hydration is in flight).
+    if (raw === undefined) return false;
+    if (f.mode === "any") return raw != null && raw !== "";
+    if (f.mode === "is") {
+      return (
+        raw != null &&
+        f.value != null &&
+        raw.trim().toLowerCase() === f.value.trim().toLowerCase()
+      );
+    }
+    // mode "none" · only a lead whose tech scan RAN and detected nothing is a
+    // verified "none" — un-scanned leads are unknown, never a match.
+    return (raw == null || raw === "") && techRan?.(row) === true;
   }
   const v = fieldValue(row, f.field);
   if (v == null || !Number.isFinite(v)) return f.includeNoData === true;
@@ -1197,14 +1336,25 @@ export function evalFilter(row: WorkbenchLeadRow, f: LeadFilter): boolean {
 export function passesFilters(
   row: WorkbenchLeadRow,
   filters: readonly LeadFilter[],
+  techRan?: TechRanFn,
 ): boolean {
-  return filters.every((f) => evalFilter(row, f));
+  return filters.every((f) => evalFilter(row, f, techRan));
 }
 
 /** A human label for a filter chip, e.g. "Lighthouse < 50". Pure. */
 export function filterLabel(f: LeadFilter): string {
   if (f.kind === "signal") {
     return `${f.sigLabel}: ${f.want === "match" ? "matched" : "not matched"}`;
+  }
+  if (f.kind === "value") {
+    const spec = SIGNAL_VALUE_FIELDS[f.sigKey];
+    const v =
+      f.mode === "is"
+        ? (f.value ?? "—")
+        : f.mode === "any"
+          ? "any"
+          : (spec?.noneLabel ?? "none");
+    return `${f.label}: ${v}`;
   }
   const meta = FILTER_FIELDS.find((m) => m.field === f.field);
   const name = meta?.label ?? f.field;
@@ -1226,6 +1376,7 @@ export function filterLabel(f: LeadFilter): string {
 export function filterBreakdown(
   rows: readonly WorkbenchLeadRow[],
   f: LeadFilter,
+  techRan?: TechRanFn,
 ): { match: number; noData: number } {
   let match = 0;
   let noData = 0;
@@ -1235,6 +1386,20 @@ export function filterBreakdown(
       if (verdict == null) noData += 1;
       else if (f.want === "match" ? verdict === true : verdict === false)
         match += 1;
+      continue;
+    }
+    if (f.kind === "value") {
+      const raw = valueFieldRaw(r, f.field);
+      // No data = not hydrated yet, OR null without a scan (unknown — only a
+      // scanned null is a verified "none" the breakdown may count as data).
+      if (
+        raw === undefined ||
+        ((raw == null || raw === "") && techRan?.(r) !== true)
+      ) {
+        noData += 1;
+      } else if (evalFilter(r, f, techRan)) {
+        match += 1;
+      }
       continue;
     }
     const v = fieldValue(r, f.field);
@@ -1365,33 +1530,55 @@ export function heavyFieldsForFilters(
   filters: readonly LeadFilter[],
 ): Set<HeavyRowField> {
   return heavyFieldsForColumns(
+    // Value filters name their row field directly (builtOn is CORE — a no-op
+    // here; bookingTool is HEAVY and its column key matches the field key, so
+    // applying a Booking-tool filter auto-requests the data exactly like a
+    // numeric filter on `seo` does).
     filters.flatMap((f) => (f.kind === "signal" ? [] : [f.field])),
   );
 }
 
 /**
+ * The signal keys computable on EVERY row of the view — the STRICT gate the
+ * AUTO-APPLY paths keep (mount seed + enrich re-seed) even though the picker's
+ * {@link availableSignalKeys} relaxed to any-row (2026-07-10): auto-applying a
+ * partially-computed signal would silently hide every not-yet-enriched lead
+ * (the P0-B guard) — acceptable when the USER chooses a filter, never as a
+ * default the workbench applies for them. Pure.
+ */
+export function fullyComputableSignalKeys(
+  rows: readonly WorkbenchLeadRow[],
+  signals: readonly { key: string }[],
+): Set<string> {
+  const out = new Set<string>();
+  if (rows.length === 0) return out;
+  for (const s of signals) {
+    if (rows.every((r) => r.perSignal[s.key] != null)) out.add(s.key);
+  }
+  return out;
+}
+
+/**
  * The DEFAULT signal filters to auto-apply when the workbench opens: the goal-
  * step signals whose data is present on EVERY row of the given view
- * (`availableSignalKeys` · strict gating). Partially-enriched goal signals are
- * deliberately excluded — auto-applying one would hide every not-yet-computed
- * lead (the P0-B guard). Each defaults to "match". AUDIT B4 · the caller may
- * pass a NARROWED view (e.g. the mount-time URL state-filters applied) so the
- * seed judges what's actually on screen. Pure — the component seeds React
- * state from this on mount (and re-runs it on enrich-finished — B17).
+ * ({@link fullyComputableSignalKeys} · strict gating — deliberately NOT the
+ * relaxed picker gate). Partially-enriched goal signals are excluded —
+ * auto-applying one would hide every not-yet-computed lead (the P0-B guard).
+ * Verdict signals default to "match"; platform-kind signals (Built on /
+ * Booking tool) seed as VALUE filters at their default mode via
+ * {@link makeFilterForSignal}. AUDIT B4 · the caller may pass a NARROWED view
+ * (e.g. the mount-time URL state-filters applied) so the seed judges what's
+ * actually on screen. Pure — the component seeds React state from this on
+ * mount (and re-runs it on enrich-finished — B17).
  */
 export function seedSignalFilters(
   rows: readonly WorkbenchLeadRow[],
   goalSignals: readonly { key: string; title: string }[],
-): SignalLeadFilter[] {
-  const avail = availableSignalKeys(rows, goalSignals);
+): (SignalLeadFilter | ValueLeadFilter)[] {
+  const avail = fullyComputableSignalKeys(rows, goalSignals);
   return goalSignals
     .filter((s) => avail.has(s.key))
-    .map((s) => ({
-      kind: "signal",
-      sigKey: s.key,
-      sigLabel: s.title,
-      want: "match",
-    }));
+    .map((s) => makeFilterForSignal(s.key, s.title));
 }
 
 // ── Search ───────────────────────────────────────────────────────────────────

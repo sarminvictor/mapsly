@@ -490,6 +490,35 @@ export async function runMetaAdsForCell(
     return result;
   }
 
+  // 3b · SEED fbPageId from the run's resolutions BEFORE the salvage gate
+  // (2026-07-10 · C1 · run-forensics). A timed-out/blocked run that produced page
+  // RESOLUTIONS (resolvedFromUrl → numeric pageId) but no ad/advertiser rows used
+  // to hit the FAILED early-return below and DISCARD those resolutions — so every
+  // retry re-paid the residential-proxy $ to re-resolve the same ~10-15 page ids
+  // (six hvac runs in one day burned this). Seeding here makes the resolutions
+  // durable regardless of the ad OUTCOME, so a retry feeds precise pageIds and is
+  // cheaper; it also primes `byPageId` for this run's own attribution on the
+  // salvage/verified path below. Only set when currently null (never clobber a
+  // hand-corrected id); best-effort per row (one failure must not abort the run).
+  const byPageId = new Map<string, string>();
+  for (const b of ctx.businesses) {
+    if (b.fbPageId) byPageId.set(b.fbPageId, b.id);
+  }
+  for (const r of resolutions) {
+    const businessId = bizByPageUrl.get(r.resolvedFromUrl);
+    if (!businessId || !r.pageId) continue;
+    if (!byPageId.has(r.pageId)) byPageId.set(r.pageId, businessId);
+    try {
+      await prisma.business.updateMany({
+        where: { id: businessId, fbPageId: null },
+        data: { fbPageId: r.pageId },
+      });
+      result.fbPageIdsSeeded += 1;
+    } catch (e) {
+      result.errors.push(`seed-fbpageid:${(e as Error).message}`.slice(0, 200));
+    }
+  }
+
   // SALVAGE (2026-07-10 · Viktor's decision) · a blocked/timeout/error run that
   // STILL delivered data (creative rows OR the advertiser facet) is treated as a
   // SUCCESS, not discarded. The Meta actor routinely hits its 280s timeout AFTER
@@ -499,7 +528,8 @@ export async function runMetaAdsForCell(
   // We persist the data and mark the run PARTIAL (real, but the run didn't fully
   // verify → the errors[] push below forces PARTIAL at step 7). Only an
   // unverified run with NO salvageable data is a true transient failure: FAILED,
-  // retryable, no persistence, freshness gate untouched.
+  // retryable, no persistence, freshness gate untouched. (Resolutions are ALREADY
+  // seeded above, so even this FAILED path leaves the pageIds durable.)
   const hasSalvageableData = rows.length > 0 || advertisers.length > 0;
   const unverified =
     outcome === "blocked" || outcome === "timeout" || outcome === "error";
@@ -541,38 +571,8 @@ export async function runMetaAdsForCell(
 
   // R2 · a run that reached Meta's data query (ok/empty_verified/partial) is a
   // VERIFIED sample — closes a half-open probe / rolls the block-rate down.
+  // (fbPageId resolutions + byPageId were already seeded above the salvage gate.)
   await recordMetaCellOutcome(true, { nowMs: () => now.getTime() });
-
-  // pageId → businessId for fast attribution (cached fbPageId).
-  const byPageId = new Map<string, string>();
-  for (const b of ctx.businesses) {
-    if (b.fbPageId) byPageId.set(b.fbPageId, b.id);
-  }
-
-  // 3b · SEED fbPageId from the run's resolutions (resolvedFromUrl → pageId).
-  // For each resolution whose source URL we handed the actor for a specific
-  // business, store the numeric page id on that Business so (a) THIS run's
-  // attribution below joins reliably (byPageId), and (b) future cell scans skip
-  // re-resolving and match instantly. Only set when currently null (don't
-  // clobber a hand-corrected id); best-effort per row (a single failure must
-  // not abort the cell run).
-  for (const r of resolutions) {
-    const businessId = bizByPageUrl.get(r.resolvedFromUrl);
-    if (!businessId || !r.pageId) continue;
-    // Feed this run's own attribution map immediately.
-    if (!byPageId.has(r.pageId)) byPageId.set(r.pageId, businessId);
-    try {
-      // updateMany with a null-guard on fbPageId is a no-op when already set —
-      // avoids a findUnique round-trip and never overwrites a resolved id.
-      await prisma.business.updateMany({
-        where: { id: businessId, fbPageId: null },
-        data: { fbPageId: r.pageId },
-      });
-      result.fbPageIdsSeeded += 1;
-    } catch (e) {
-      result.errors.push(`seed-fbpageid:${(e as Error).message}`.slice(0, 200));
-    }
-  }
 
   // 4 · aggregate rows → advertiser level (dedupe ad ids across terms).
   const byPage = new Map<string, Agg>();

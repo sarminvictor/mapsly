@@ -30,7 +30,10 @@ import {
 import { getMapslyPublicUrl } from "@/lib/url/mapsly-public-url";
 import { withCronRun } from "@/lib/cost/cost-counter";
 import prisma from "@/lib/prisma";
-import { claimAndProcessJob } from "@/modules/enrichment/dispatch";
+import {
+  claimAndProcessJob,
+  closeRunIfDone,
+} from "@/modules/enrichment/dispatch";
 import { enrichWorkerAvailable } from "@/modules/enrichment/enrich-worker-dispatch";
 
 // A single family worker (walled Lighthouse bounded to ~240s; contacts/reviews
@@ -89,6 +92,28 @@ async function handle(req: Request): Promise<Response> {
       enrichWorkerAvailable()
     ) {
       await enqueueDependents(job.businessId);
+    }
+
+    // B1 (2026-07-10) · close-on-last-callback. When a job drains via THIS
+    // worker callback and it was the run's last outstanding work, close the run
+    // NOW instead of waiting up to 2 min for the next */2 dispatch tick (the
+    // run-forensics end-lag: a run whose last job lands on the worker lane used
+    // to sit RUNNING until the cron noticed). closeRunIfDone is CAS-guarded (it
+    // claims finishedAt), so a racing tick settles credits exactly once; it's a
+    // cheap no-op when jobs remain open (e.g. the DOM dependents just enqueued
+    // above) or a cell is still collecting. Best-effort — the tick is the
+    // guaranteed backstop.
+    if (
+      job.runId &&
+      (outcome === "done" || outcome === "failed" || outcome === "skipped")
+    ) {
+      try {
+        await closeRunIfDone(job.runId);
+      } catch (err) {
+        console.warn(
+          `[/api/internal/enrich-job] close attempt failed for run ${job.runId}: ${err instanceof Error ? err.message : String(err)} · the */2 cron will close it`,
+        );
+      }
     }
 
     return Response.json({ ok: true, jobId, outcome }, { status: 200 });

@@ -485,7 +485,24 @@ export function rollUpGroupState(
   types: Record<EnrichmentTypeKey, TypeState>,
   group: DataGroup,
 ): TypeState {
-  const states = group.types.map((t) => types[t]);
+  return rollUpTypeStates(types, group.types);
+}
+
+/**
+ * The same precedence roll-up as {@link rollUpGroupState}, over an EXPLICIT type
+ * subset instead of a whole group. Used when a surface narrows a group to
+ * specific types (e.g. the AI-summary column reads the ai_brief group but scopes
+ * its cell state to just AI_RESEARCH, so a lead with services scanned but
+ * ai_research never run reads "not_run" → buyable, not the group's "empty"/
+ * "enriched" which would either block the purchase or lie "✓ none"). An empty
+ * `keys` list has no state to report → "not_run". Pure.
+ */
+export function rollUpTypeStates(
+  types: Record<EnrichmentTypeKey, TypeState>,
+  keys: readonly EnrichmentTypeKey[],
+): TypeState {
+  const states = keys.map((t) => types[t]);
+  if (states.length === 0) return "not_run";
   if (states.some((s) => s === "running")) return "running";
   if (states.some((s) => s === "failed")) return "failed";
   if (states.every((s) => s === "not_run")) return "not_run";

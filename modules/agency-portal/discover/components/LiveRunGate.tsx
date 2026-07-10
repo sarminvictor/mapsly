@@ -34,6 +34,10 @@ interface RunProgress {
   done: number;
   total: number;
   failed: number;
+  /** 2026-07-10 · businesses waiting out a retry backoff — surfaced in the
+   *  banner so a run in the backoff tail reads "… · 1 retrying" instead of a
+   *  frozen "44 of 45". Optional for older payloads. */
+  retrying?: number;
   status: string;
   /** WB-COL-2 · the run's purchased enrichment-type tokens — present only in
    *  the terminal payload (server truth from run.enrichmentsJson). Forwarded
@@ -193,13 +197,17 @@ export function LiveRunGate({
   }, [runId, live, router]);
 
   const p = progress;
+  // 2026-07-10 · name the retry backoff tail so "44 of 45" doesn't read frozen
+  // while 1 lead waits out its 2^attempts-min retry ladder.
+  const retryNote =
+    p && (p.retrying ?? 0) > 0 ? ` · ${p.retrying} retrying` : "";
   const label = p
-    ? `Enriching · ${p.done.toLocaleString()} of ${p.total.toLocaleString()} · updating live`
+    ? `Enriching · ${p.done.toLocaleString()} of ${p.total.toLocaleString()}${retryNote} · updating live`
     : "Enriching · updating live";
   // AUDIT U2 · the bottom-right chip label — a compact "done of total" the user
   // keeps in view after scrolling past the top banner.
   const chipLabel = p
-    ? `Enriching · ${p.done.toLocaleString()} of ${p.total.toLocaleString()}`
+    ? `Enriching · ${p.done.toLocaleString()} of ${p.total.toLocaleString()}${retryNote}`
     : "Enriching…";
 
   return (

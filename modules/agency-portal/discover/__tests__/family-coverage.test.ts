@@ -18,6 +18,7 @@ import {
   groupCellCredits,
   groupHasMissingType,
   groupLeadCredits,
+  rollUpTypeStates,
   typeKeyForEnrichToken,
   rollUpGroupState,
   type EnrichmentTypeKey,
@@ -210,6 +211,44 @@ describe("DATA_GROUPS + roll-up", () => {
     expect(rollUpGroupState(allEmpty as never, contactsTech)).toBe("empty");
     // All not_run → not_run.
     expect(rollUpGroupState(allNotRun(), contactsTech)).toBe("not_run");
+  });
+
+  // D1 (2026-07-10) · rollUpTypeStates rolls up an EXPLICIT type subset with
+  // the SAME precedence — the AI-summary column reads the ai_brief group but
+  // scopes its cell state to just AI_RESEARCH so a services-only lead reads
+  // "not_run" (buyable), never the group's misleading "empty"/"enriched".
+  test("rollUpTypeStates: per-type subset, not the whole group", () => {
+    // Services scanned (empty/enriched), AI research never run.
+    const servicesOnly = {
+      ...allNotRun(),
+      SERVICES: "empty" as const,
+    };
+    // The GROUP roll-up reads "empty" (would render a non-clickable "✓ none").
+    const aiBrief = DATA_GROUPS.find((g) => g.key === "ai_brief")!;
+    expect(rollUpGroupState(servicesOnly as never, aiBrief)).toBe("empty");
+    // The per-TYPE roll-up over just AI_RESEARCH reads "not_run" → buyable.
+    expect(rollUpTypeStates(servicesOnly as never, ["AI_RESEARCH"])).toBe(
+      "not_run",
+    );
+    // Same precedence as the group roll-up.
+    expect(
+      rollUpTypeStates({ ...allNotRun(), AI_RESEARCH: "running" } as never, [
+        "AI_RESEARCH",
+        "SERVICES",
+      ]),
+    ).toBe("running");
+    expect(
+      rollUpTypeStates({ ...allNotRun(), AI_RESEARCH: "enriched" } as never, [
+        "AI_RESEARCH",
+      ]),
+    ).toBe("enriched");
+    expect(
+      rollUpTypeStates({ ...allNotRun(), AI_RESEARCH: "empty" } as never, [
+        "AI_RESEARCH",
+      ]),
+    ).toBe("empty");
+    // Empty key list → nothing to report → not_run.
+    expect(rollUpTypeStates(allNotRun(), [])).toBe("not_run");
   });
 
   test("rollUpGroupState precedence: running > failed > enriched/empty", () => {

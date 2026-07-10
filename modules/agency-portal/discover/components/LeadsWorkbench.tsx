@@ -75,10 +75,14 @@ import {
   matchesSearch,
   passesFilters,
   filterLabel,
+  filterSignalKey,
+  fullyComputableSignalKeys,
+  makeFilterForSignal,
   reachabilityLabel,
   rowToCsvRecord,
   seedSignalFilters,
   serializeWbColsCookie,
+  SIGNAL_VALUE_FIELDS,
   sortRows,
   WB_COLS_COOKIE,
   type CellBand,
@@ -104,6 +108,7 @@ import {
   deriveGroupStates,
   enrichTypesForGroups,
   groupLeadCredits,
+  rollUpTypeStates,
   typeKeyForEnrichToken,
   anyLeadGroupRan,
   type EnrichmentTypeKey,
@@ -359,6 +364,18 @@ export function LeadsWorkbench({
   const rowEnriched = useCallback(
     (r: WorkbenchLeadRow): boolean => anyLeadGroupRan(groupStatesFor(r)),
     [groupStatesFor],
+  );
+  /** Whether the TECH scan ran on a row — the honesty input for a value
+   *  filter's "none" mode (Built on: custom / Booking tool: none). Only a
+   *  scanned lead with nothing detected is a verified none; an un-scanned
+   *  null is unknown and never matches (threaded into passesFilters /
+   *  filterBreakdown below). */
+  const techRanFor = useCallback(
+    (r: WorkbenchLeadRow): boolean => {
+      const s = typeStatesFor(r).TECH;
+      return s === "enriched" || s === "empty";
+    },
+    [typeStatesFor],
   );
   // ── Status (optimistic) ──────────────────────────────────────────────────
   const [committed, setCommitted] = useState<Record<string, LeadStatus>>(() =>
@@ -794,9 +811,12 @@ export function LeadsWorkbench({
         {
           sortKey,
           sortDir,
+          // Un-touched = the set is still the pure goal-default seed; signal
+          // AND value filters both come from the seed (makeFilterForSignal),
+          // so both stay out of the URL until the user takes control.
           filters: userTouchedRef.current
             ? filters
-            : filters.filter((f) => f.kind !== "signal"),
+            : filters.filter((f) => filterSignalKey(f) === null),
           fieldStates: stateFilters,
           enrichedOnly: enrichedOnly || undefined,
         },
@@ -816,6 +836,11 @@ export function LeadsWorkbench({
   // ── Selection ──────────────────────────────────────────────────────────
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [lastIdx, setLastIdx] = useState<number | null>(null);
+  // E1 (2026-07-10) · the selected rows' BUSINESS ids, in a ref so the
+  // []-deps enqueue handler (subscribeEnrichScope) can tell whether a run
+  // covers the current selection without re-subscribing. Kept fresh by the
+  // effect below (leadId → businessId via the current rows).
+  const selectedBizIdsRef = useRef<Set<string>>(new Set());
 
   // ── Lead drawer (URL-driven · ?lead=<businessId>) ─────────────────────────
   const sp = useSearchParams();
@@ -1260,13 +1285,30 @@ export function LeadsWorkbench({
   } | null>(null);
   useEffect(
     () =>
-      subscribeEnrichScope((d) =>
+      subscribeEnrichScope((d) => {
         setEnriching({
           ids: new Set(d.businessIds),
           types: new Set(d.types),
           all: d.all === true,
-        }),
-      ),
+        });
+        // E1 (2026-07-10) · a run was just enqueued — clear the row selection
+        // once it has served its purpose so it can't silently persist into the
+        // NEXT enrich (the "Selected (8)" mystery: the 8 rows checked for an
+        // earlier AI-brief run stayed selected, so the toolbar kept reading
+        // "Enrich 8" and the sheet re-opened on Selected (8) even after that run
+        // finished). Clear when the run covers the whole research (all) OR when
+        // every selected business is in the enqueued set (this selection WAS the
+        // run). A run on a different subset leaves the selection alone.
+        const selBiz = selectedBizIdsRef.current;
+        const enqueued = new Set(d.businessIds);
+        const covers =
+          d.all === true ||
+          (selBiz.size > 0 && [...selBiz].every((id) => enqueued.has(id)));
+        if (covers) {
+          setSelected(new Set());
+          setLastIdx(null);
+        }
+      }),
     [],
   );
   // WB-COL-2 · refs keep the []-deps enrich-finished handler honest: it reads
@@ -1279,6 +1321,17 @@ export function LeadsWorkbench({
   useEffect(() => {
     enrichingRef.current = enriching;
   }, [enriching]);
+  // E1 · keep the selected-businessIds ref fresh (leadId → businessId over the
+  // current window) so the enqueue handler above can test run coverage.
+  useEffect(() => {
+    const byLead = new Map(rows.map((r) => [r.leadId, r.businessId]));
+    const biz = new Set<string>();
+    for (const leadId of selected) {
+      const b = byLead.get(leadId);
+      if (b) biz.add(b);
+    }
+    selectedBizIdsRef.current = biz;
+  }, [selected, rows]);
   const activeColsRef = useRef(activeCols);
   useEffect(() => {
     activeColsRef.current = activeCols;
@@ -1354,6 +1407,24 @@ export function LeadsWorkbench({
             1500,
           );
         }
+        // D2 (2026-07-10) · re-hydrate heavy fields on finish, independent of
+        // the router.refresh(). The overlay normally clears when the refreshed
+        // `rows` prop lands — but LiveRunGate DEFERS the refresh while a lead
+        // drawer is open, so a heavy column (e.g. AI summary) kept showing the
+        // stale pre-run null until the drawer closed. Dropping the overlay here
+        // makes the hydration effect refetch fresh DB values for the active
+        // heavy columns right away (bounded: one row-fields request; the later
+        // rows-change invalidation is idempotent). windowGen bump discards any
+        // in-flight fetch keyed to the old generation.
+        windowGenRef.current += 1;
+        pendingHeavyRef.current.clear();
+        setFetched((prev) =>
+          prev.fields.size === 0 && Object.keys(prev.values).length === 0
+            ? prev
+            : { fields: new Set(), values: {} },
+        );
+        setFailedHeavy((prev) => (prev.size === 0 ? prev : new Set()));
+
         setEnriching(null); // existing behavior — AFTER reading the fallback
       }),
     [],
@@ -1498,7 +1569,7 @@ export function LeadsWorkbench({
       (r) =>
         notHidden(r) &&
         matchesSearch(r, search) &&
-        passesFilters(r, filters) &&
+        passesFilters(r, filters, techRanFor) &&
         (!enrichedOnly || rowEnriched(r)) &&
         passesStateFilters(r),
     );
@@ -1508,6 +1579,7 @@ export function LeadsWorkbench({
     notHidden,
     search,
     filters,
+    techRanFor,
     enrichedOnly,
     rowEnriched,
     passesStateFilters,
@@ -1549,6 +1621,9 @@ export function LeadsWorkbench({
   // to "Reviews: have" → the paid signals unlock for that slice instead of
   // staying hostage to the 950 unbought leads.
   const numericFilters = useMemo(
+    // Verdict-signal filters stay OUT of the gate (circular: an applied signal
+    // filter would gate its own availability); numeric AND value filters both
+    // narrow it — a value filter reads row fields, not perSignal verdicts.
     () => filters.filter((f) => f.kind !== "signal"),
     [filters],
   );
@@ -1557,7 +1632,7 @@ export function LeadsWorkbench({
       effectiveRows.filter(
         (r) =>
           matchesSearch(r, search) &&
-          passesFilters(r, numericFilters) &&
+          passesFilters(r, numericFilters, techRanFor) &&
           (!enrichedOnly || rowEnriched(r)) &&
           passesStateFilters(r),
       ),
@@ -1565,6 +1640,7 @@ export function LeadsWorkbench({
       effectiveRows,
       search,
       numericFilters,
+      techRanFor,
       enrichedOnly,
       rowEnriched,
       passesStateFilters,
@@ -1595,9 +1671,9 @@ export function LeadsWorkbench({
             matchesSearch(r, search) &&
             (!enrichedOnly || rowEnriched(r)) &&
             passesStateFilters(r) &&
-            passesFilters(r, others),
+            passesFilters(r, others, techRanFor),
         );
-        return filterBreakdown(view, f);
+        return filterBreakdown(view, f, techRanFor);
       }),
     [
       filters,
@@ -1607,25 +1683,36 @@ export function LeadsWorkbench({
       rowEnriched,
       passesStateFilters,
       notHidden,
+      techRanFor,
     ],
   );
 
-  // B2 · is a numeric filter's heavy backing field still hydrating? The chip
-  // shows a subtle loading state instead of a misleading "0 match" while the
-  // one-shot fetch is in flight.
+  // B2 · is a numeric/value filter's heavy backing field still hydrating? The
+  // chip shows a subtle loading state instead of a misleading "0 match" while
+  // the one-shot fetch is in flight. Field keys double as column keys for
+  // both filter kinds (seo/serpRank/… and builtOn/bookingTool).
   const filterFieldLoading = useCallback(
-    (field: NumericFilterField): boolean =>
+    (field: string): boolean =>
       [...heavyFieldsForColumns([field])].some(
         (hf) => !loadedHeavy.has(hf) && !failedHeavy.has(hf),
       ),
     [loadedHeavy, failedHeavy],
   );
 
+  // The STRICT availability set the AUTO-APPLY paths use (B17 re-seed):
+  // goal signals fully computable on EVERY gating row. The picker's
+  // availSigKeys relaxed to any-row (2026-07-10) so USERS can opt into
+  // partially-computed signals — but the workbench must never auto-apply one
+  // (it would silently hide every not-yet-enriched lead · P0-B).
+  const strictAvailSigKeys = useMemo(
+    () => fullyComputableSignalKeys(gatingRows, goalSignals),
+    [gatingRows, goalSignals],
+  );
   // B17 · keep the []-deps enrich-finished handler's availability snapshot
   // honest (it reads the LIVE set via ref, not a mount-time closure)…
   useEffect(() => {
-    availSigKeysRef.current = availSigKeys;
-  }, [availSigKeys]);
+    availSigKeysRef.current = strictAvailSigKeys;
+  }, [strictAvailSigKeys]);
   // …then, once the refreshed rows land and availability grows, auto-apply
   // the goal signals that JUST became fully computable on the narrowed view
   // (see the removedSignalsRef/preRunAvailRef doc above for the semantics).
@@ -1638,12 +1725,15 @@ export function LeadsWorkbench({
       preRunAvailRef.current = null;
       return;
     }
+    const applied = new Set(
+      filters.map(filterSignalKey).filter((k): k is string => k !== null),
+    );
     const newly = goalSignals.filter(
       (s) =>
-        availSigKeys.has(s.key) &&
+        strictAvailSigKeys.has(s.key) &&
         !snap.avail.has(s.key) &&
         !removedSignalsRef.current.has(s.key) &&
-        !filters.some((f) => f.kind === "signal" && f.sigKey === s.key),
+        !applied.has(s.key),
     );
     if (newly.length === 0) return; // keep waiting for the refreshed rows
     preRunAvailRef.current = null;
@@ -1652,19 +1742,14 @@ export function LeadsWorkbench({
       setFilters((prev) => [
         ...prev,
         ...newly
-          .filter(
-            (s) => !prev.some((f) => f.kind === "signal" && f.sigKey === s.key),
-          )
-          .map((s) => ({
-            kind: "signal" as const,
-            sigKey: s.key,
-            sigLabel: s.title,
-            want: "match" as const,
-          })),
+          .filter((s) => !prev.some((f) => filterSignalKey(f) === s.key))
+          // Platform-kind goal signals re-seed as value filters (the same
+          // factory the mount seed + picker use — one signal, one shape).
+          .map((s) => makeFilterForSignal(s.key, s.title)),
       ]);
     }, 0);
     return () => window.clearTimeout(tid);
-  }, [availSigKeys, goalSignals, filters]);
+  }, [strictAvailSigKeys, goalSignals, filters]);
 
   // #5 · "Group by signals" axes. Grouping by the APPLIED signal filters is
   // degenerate — a filter narrows the set to one verdict, so every surviving row
@@ -1673,8 +1758,13 @@ export function LeadsWorkbench({
   // never —) and NOT themselves pinned by a filter. That segments Tom's filtered
   // leads by his other pitch angles ("weak-SEO leads split by booking / ads").
   const appliedSignalKeys = useMemo(
+    // Signal AND value filters both pin their signal (filterSignalKey) — a
+    // "Built on: Wix" chip excludes diy_platform from the axes exactly like a
+    // verdict chip would.
     () =>
-      new Set(filters.flatMap((f) => (f.kind === "signal" ? [f.sigKey] : []))),
+      new Set(
+        filters.map(filterSignalKey).filter((k): k is string => k !== null),
+      ),
     [filters],
   );
   const signalGroupAxes = useMemo(
@@ -2193,7 +2283,23 @@ export function LeadsWorkbench({
      *  for a multi-field group's sub-field (contacts_tech → email/phone/socials). */
     ranButEmpty?: boolean;
   }) => {
-    const state: TypeState = group ? groupStatesFor(r)[group] : "not_run";
+    // D1 (2026-07-10) · when the column narrows the group to explicit TYPES
+    // (aiSummary → ['ai_research']), read the cell state from THOSE type states,
+    // not the group roll-up. The ai_brief group rolls up off its SERVICES half,
+    // so a lead with services scanned but ai_research never run used to render a
+    // non-clickable "✓ none" ("Scanned · no AI brief found") that BLOCKED buying
+    // the AI summary the column shows null for. Per-type state makes the empty
+    // affordance honest + purchasable. Falls back to the group roll-up when the
+    // column names no explicit types (the common single-group case).
+    const narrowedTypes = (enrichTypes ?? [])
+      .map((tok) => typeKeyForEnrichToken(tok))
+      .filter((k): k is EnrichmentTypeKey => k != null);
+    const state: TypeState =
+      narrowedTypes.length > 0
+        ? rollUpTypeStates(typeStatesFor(r), narrowedTypes)
+        : group
+          ? groupStatesFor(r)[group]
+          : "not_run";
     const label = group ? dataGroupFor(group).label : "data";
 
     // AUDIT U2/D5 + ISSUE-4 · this cell is in the active enrich run → ONE word
@@ -2272,11 +2378,12 @@ export function LeadsWorkbench({
   // ── Filter editor ─────────────────────────────────────────────────────────
   function removeFilter(idx: number) {
     userTouchedRef.current = true;
-    // B17 · an explicitly removed SIGNAL is remembered for this session so the
-    // enrich-finished re-seed never re-applies it against the user's intent.
+    // B17 · an explicitly removed SIGNAL (verdict or value kind) is remembered
+    // for this session so the enrich-finished re-seed never re-applies it
+    // against the user's intent.
     const removed = filters[idx];
-    if (removed?.kind === "signal")
-      removedSignalsRef.current.add(removed.sigKey);
+    const removedKey = removed ? filterSignalKey(removed) : null;
+    if (removedKey) removedSignalsRef.current.add(removedKey);
     setFilters((prev) => prev.filter((_, i) => i !== idx));
     setPage(1);
   }
@@ -2300,21 +2407,32 @@ export function LeadsWorkbench({
     }
     setPage(1);
   }
-  /** Add a goal-signal verdict filter ("matched" by default) unless one for the
-   *  same signal is already applied — the personalisation unlock. */
+  /** Add a signal's filter — a match/miss verdict chip, or (for the platform-
+   *  kind signals: Built on / Booking tool) an Any/specific/none VALUE chip —
+   *  unless one for the same signal is already applied. One factory
+   *  (makeFilterForSignal) decides the shape everywhere. */
   function addSignalFilter(sigKey: string, sigLabel: string) {
     userTouchedRef.current = true;
-    const nf: LeadFilter = {
-      kind: "signal",
-      sigKey,
-      sigLabel,
-      want: "match",
-    };
+    const nf: LeadFilter = makeFilterForSignal(sigKey, sigLabel);
     setFilters((prev) =>
-      prev.some((f) => f.kind === "signal" && f.sigKey === sigKey)
-        ? prev
-        : [...prev, nf],
+      prev.some((f) => filterSignalKey(f) === sigKey) ? prev : [...prev, nf],
     );
+    // A Booking-tool value filter reads a HEAVY row field — surface its column
+    // (respecting an explicit dismissal) so the filtered-on data is visible,
+    // mirroring addFilter's B2 behavior for numeric heavy fields. Hydration
+    // itself is driven by heavyFieldsForFilters in the hydration effect.
+    if (nf.kind === "value") {
+      const field = nf.field;
+      if (
+        COLUMNS.some((c) => c.key === field) &&
+        !activeCols.includes(field) &&
+        !dismissedCols.includes(field)
+      ) {
+        setActiveCols((prev) =>
+          prev.includes(field) ? prev : [...prev, field],
+        );
+      }
+    }
     setPage(1);
   }
   /** Flip a signal filter between "matched" and "not matched". */
@@ -2337,20 +2455,67 @@ export function LeadsWorkbench({
   // first) and the rest of the library (alphabetised).
   const addSignalOptions = useMemo(() => {
     const active = new Set(
-      filters.flatMap((f) => (f.kind === "signal" ? [f.sigKey] : [])),
+      filters.map(filterSignalKey).filter((k): k is string => k !== null),
     );
-    const avail = signalLibrary.filter(
-      (s) => availSigKeys.has(s.key) && !active.has(s.key),
-    );
+    const avail = signalLibrary
+      .filter((s) => {
+        if (active.has(s.key)) return false;
+        // Platform-kind signals (Built on / Booking tool) filter on the row's
+        // detected VALUE, not the verdict — they're offerable whenever the
+        // tech scan ran on some visible lead (a detected value OR a verified
+        // none both give the filter something to match).
+        const spec = SIGNAL_VALUE_FIELDS[s.key];
+        if (spec) {
+          return gatingRows.some(
+            (r) =>
+              (spec.field === "builtOn" ? r.builtOn : r.bookingTool) != null ||
+              techRanFor(r),
+          );
+        }
+        return availSigKeys.has(s.key);
+      })
+      // Value-kind entries list under their short filter label ("Booking
+      // tool", not the goal card's "No online booking tool" — the filter is
+      // Any/specific/none now, not the absence pitch).
+      .map((s) => ({
+        ...s,
+        display: SIGNAL_VALUE_FIELDS[s.key]?.label ?? s.title,
+      }));
     return {
       goal: avail.filter((s) => goalKeySet.has(s.key)),
       rest: avail
         .filter((s) => !goalKeySet.has(s.key))
-        .sort((a, b) => a.title.localeCompare(b.title)),
+        .sort((a, b) => a.display.localeCompare(b.display)),
     };
-  }, [signalLibrary, availSigKeys, filters, goalKeySet]);
+  }, [
+    signalLibrary,
+    availSigKeys,
+    filters,
+    goalKeySet,
+    gatingRows,
+    techRanFor,
+  ]);
   const signalOptionCount =
     addSignalOptions.goal.length + addSignalOptions.rest.length;
+  // The distinct detected values per value-filter field across the loaded
+  // window — the "specific" options a value chip's select offers ("what we
+  // detected", not a hardcoded vendor list). Reads effectiveRows (the
+  // hydration overlay): bookingTool is HEAVY, so its values only exist there
+  // after the lazy fetch lands. Sorted for a stable menu; a URL-restored
+  // filter whose value isn't in this window is appended by the chip so its
+  // select never renders an unknown value.
+  const detectedFieldValues = useMemo(() => {
+    const builtOn = new Set<string>();
+    const bookingTool = new Set<string>();
+    for (const r of effectiveRows) {
+      if (r.builtOn) builtOn.add(r.builtOn);
+      if (r.bookingTool) bookingTool.add(r.bookingTool);
+    }
+    return {
+      builtOn: [...builtOn].sort((a, b) => a.localeCompare(b)),
+      bookingTool: [...bookingTool].sort((a, b) => a.localeCompare(b)),
+    };
+  }, [effectiveRows]);
   const addNumericOptions = useMemo(() => {
     const active = new Set(
       filters.flatMap((f) => (f.kind !== "signal" ? [f.field] : [])),
@@ -2443,8 +2608,42 @@ export function LeadsWorkbench({
     userTouchedRef.current = true;
     setFilters((prev) =>
       prev.map((f, i) =>
-        i === idx && f.kind !== "signal" ? { ...f, ...patch } : f,
+        i === idx && f.kind !== "signal" && f.kind !== "value"
+          ? { ...f, ...patch }
+          : f,
       ),
+    );
+    setPage(1);
+  }
+  /** Set a value chip's mode from its select — "any" / "none" / "is:<value>"
+   *  (the specific detected value rides the option value, URI-encoded so
+   *  names with ":" survive the split). */
+  function setValueFilterMode(idx: number, token: string) {
+    userTouchedRef.current = true;
+    setFilters((prev) =>
+      prev.map((f, i) => {
+        if (i !== idx || f.kind !== "value") return f;
+        if (token === "any" || token === "none") {
+          return {
+            kind: "value",
+            sigKey: f.sigKey,
+            field: f.field,
+            label: f.label,
+            mode: token,
+          };
+        }
+        if (token.startsWith("is:")) {
+          let value: string;
+          try {
+            value = decodeURIComponent(token.slice(3));
+          } catch {
+            return f;
+          }
+          if (value.trim() === "") return f;
+          return { ...f, mode: "is" as const, value };
+        }
+        return f;
+      }),
     );
     setPage(1);
   }
@@ -3372,7 +3571,13 @@ export function LeadsWorkbench({
             }
             onClick={openToolbarEnrichSheet}
           >
-            {`Enrich ${enrichTargetCount.toLocaleString()}`}
+            {/* E2 (2026-07-10) · NAME the scope in the visible label (was just
+                "Enrich 8", so a stale row selection looked like the default).
+                "Enrich selected 8" vs "Enrich 118" makes a leftover selection
+                obvious at the point of click. */}
+            {selected.size > 0
+              ? `Enrich selected ${enrichTargetCount.toLocaleString()}`
+              : `Enrich ${enrichTargetCount.toLocaleString()}`}
             {enrichTargetCredits > 0
               ? ` · ~${fmtCredits(enrichTargetCredits)} cr`
               : ""}
@@ -3515,6 +3720,80 @@ export function LeadsWorkbench({
                           "no data" names the leads whose verdict isn't
                           computed yet (the filter never matches those). */}
                       {bd ? (
+                        <span className="fann">
+                          {bd.match} match
+                          {bd.noData > 0 ? ` · ${bd.noData} no data` : ""}
+                        </span>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="x"
+                        aria-label={`Remove ${filterLabel(f)}`}
+                        onClick={() => removeFilter(i)}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  );
+                }
+                // Value chip (Built on / Booking tool · owner request
+                // 2026-07-10): the SAME pill language as every other chip — a
+                // bold name + ONE borderless .opword select whose options are
+                // any / none / each detected value. The specific values come
+                // from the loaded window ("what we detected"); the filter's
+                // own value is appended if the window doesn't carry it (a
+                // URL-restored chip never renders a broken select).
+                if (f.kind === "value") {
+                  const spec = SIGNAL_VALUE_FIELDS[f.sigKey];
+                  const detected = detectedFieldValues[f.field];
+                  const options =
+                    f.mode === "is" &&
+                    f.value != null &&
+                    !detected.some(
+                      (v) => v.toLowerCase() === f.value!.toLowerCase(),
+                    )
+                      ? [...detected, f.value].sort((a, b) =>
+                          a.localeCompare(b),
+                        )
+                      : detected;
+                  const current =
+                    f.mode === "is"
+                      ? `is:${encodeURIComponent(f.value ?? "")}`
+                      : f.mode;
+                  const loading = filterFieldLoading(f.field);
+                  return (
+                    <span
+                      key={i}
+                      className={`fchip sig${loading ? " loading" : ""}`}
+                      data-tip="Detected-value filter"
+                    >
+                      <span className="fname">{f.label}</span>
+                      <select
+                        className="opword"
+                        aria-label={`${f.label} filter mode`}
+                        value={current}
+                        onChange={(e) => setValueFilterMode(i, e.target.value)}
+                      >
+                        <option value="any">any</option>
+                        <option value="none">
+                          {spec?.noneLabel ?? "none"}
+                        </option>
+                        {options.length > 0 ? (
+                          <optgroup label="Detected">
+                            {options.map((v) => (
+                              <option
+                                key={v}
+                                value={`is:${encodeURIComponent(v)}`}
+                              >
+                                {v}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ) : null}
+                      </select>
+                      {loading ? (
+                        <span className="fann">loading…</span>
+                      ) : bd ? (
                         <span className="fann">
                           {bd.match} match
                           {bd.noData > 0 ? ` · ${bd.noData} no data` : ""}
@@ -3734,7 +4013,7 @@ export function LeadsWorkbench({
                         className="filter-list-item"
                         onClick={() => pickAddSignal(s.key, s.title)}
                       >
-                        {s.title}
+                        {s.display}
                       </button>
                     ))}
                   </div>
@@ -3753,7 +4032,7 @@ export function LeadsWorkbench({
                         className="filter-list-item"
                         onClick={() => pickAddSignal(s.key, s.title)}
                       >
-                        {s.title}
+                        {s.display}
                       </button>
                     ))}
                   </div>
@@ -3927,10 +4206,11 @@ export function LeadsWorkbench({
             {filters.map((f, i) => {
               const bd = filterBreakdowns[i];
               return (
-                // Signal chips (your goal defaults) read distinct from numeric ones.
+                // Signal + value chips (signal-derived) read distinct from
+                // numeric ones.
                 <span
                   key={i}
-                  className={`fchip ${f.kind === "signal" ? "sig" : "data"}`}
+                  className={`fchip ${filterSignalKey(f) !== null ? "sig" : "data"}`}
                 >
                   {filterLabel(f)}
                   {/* B3 · the honesty annotation rides the compact chips too. */}
@@ -3938,7 +4218,7 @@ export function LeadsWorkbench({
                     <span className="fann">
                       {bd.match} match
                       {bd.noData > 0
-                        ? ` · ${bd.noData} no data${f.kind !== "signal" && f.includeNoData ? " (incl.)" : ""}`
+                        ? ` · ${bd.noData} no data${f.kind !== "signal" && f.kind !== "value" && f.includeNoData ? " (incl.)" : ""}`
                         : ""}
                     </span>
                   ) : null}

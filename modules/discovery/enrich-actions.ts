@@ -36,6 +36,7 @@ import {
 import { requireSpendMember } from "@/modules/agency-portal/roles";
 import { rawListWhere } from "./raw-list";
 import { kickDispatch } from "@/modules/enrichment/kick-dispatch";
+import { seedRunProgress } from "@/modules/enrichment/run-progress-counter";
 import {
   createCostEstimate,
   authorizeEstimate,
@@ -576,6 +577,20 @@ export async function runEnrichAction(
         families: families.length,
         credits: result.netCredits,
       },
+    });
+
+    // 2026-07-10 · seed the Redis progress counters at ENQUEUE so the very
+    // first poll (before any dispatch tick has run updateRunProgress) reads a
+    // coherent "0 of N · PENDING" instead of the DB-fallback 0/0 — the
+    // EnrichingStep can render "queued · starting" honestly during the start
+    // lag instead of a blank/zero bar. Best-effort (degrades open when Redis is
+    // down); the first tick's updateRunProgress corrects it regardless.
+    await seedRunProgress(run.id, {
+      done: 0,
+      failed: 0,
+      total: unitsRequested,
+      retrying: 0,
+      status: "PENDING",
     });
 
     // Kick the dispatch drain post-response so enrichment starts near-instantly

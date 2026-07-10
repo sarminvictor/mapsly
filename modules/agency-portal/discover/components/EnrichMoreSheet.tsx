@@ -555,7 +555,17 @@ export function EnrichMoreSheet({
                         <span className="egr-head">
                           <span className="egr-label">{group.label}</span>
                           {have > 0 ? (
-                            <span className="egr-have-pill">
+                            <span
+                              className="egr-have-pill"
+                              // D3 (2026-07-10) · "have" now means "every type in
+                              // this group is covered" (purchase truth), and the
+                              // "to get" quote prices the FULL group even for a
+                              // lead missing just one type — the server preflight
+                              // then dedups the already-have types at $0. Name
+                              // that so the client estimate never reads as an
+                              // over-charge.
+                              data-tip="Leads that already have this data — you're billed the net at run (data you already have is free)"
+                            >
                               {have.toLocaleString()} have
                             </span>
                           ) : null}

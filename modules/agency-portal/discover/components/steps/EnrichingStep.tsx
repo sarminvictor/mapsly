@@ -62,6 +62,10 @@ export function EnrichingStep({
   const [stages, setStages] = useState<EnrichStage[] | null>(null);
   const [done, setDone] = useState(0);
   const [failed, setFailed] = useState(0);
+  // 2026-07-10 · businesses waiting out a retry backoff — the "N retrying" hint
+  // that stops the tail reading as a frozen "44 of 45". NOT monotonic-clamped
+  // (it rises then falls to 0 as retries resolve). Transient; 0 at terminal.
+  const [retrying, setRetrying] = useState(0);
   const [total, setTotal] = useState(leadCount);
   // WP4-6 · the close receipt (credits held vs charged) — present only at
   // terminal, shown on the done-state. refunded = held − charged.
@@ -95,6 +99,7 @@ export function EnrichingStep({
     let progressEtag: string | null = null;
     let lastDone = 0;
     let lastFailed = 0;
+    let lastRetrying = 0;
     let lastTotal = leadCount;
     let lastReceipt: { held: number; charged: number } | null = null;
     let runStartedAt: string | null = null;
@@ -133,12 +138,14 @@ export function EnrichingStep({
             done: number;
             total: number;
             failed: number;
+            retrying?: number;
             status: string;
             creditsHeld?: number;
             creditsCharged?: number;
           } = await progressRes.json();
           lastDone = prog.done;
           lastFailed = prog.failed;
+          lastRetrying = prog.retrying ?? 0;
           lastTotal = prog.total > 0 ? prog.total : leadCount;
           // WP4-2/WP4-5 · run.status is the SOURCE OF TRUTH for terminal. OK /
           // PARTIAL / FAILED all end the run — reading it here (not just the
@@ -169,11 +176,15 @@ export function EnrichingStep({
         // max seen this run. (A new run remounts this component → fresh state.)
         setDone((prev) => Math.max(prev, lastDone));
         setFailed((prev) => Math.max(prev, lastFailed));
+        // retrying is transient (rises during a backoff tail, falls to 0 as it
+        // resolves) — NOT clamped monotone like done/failed.
+        setRetrying(lastRetrying);
         setTotal(lastTotal);
 
         if (!running) {
           setPct(100);
           setFinished(true);
+          setRetrying(0); // terminal — nothing is backing off anymore
           setEta({ lo: 0, hi: 0 });
           // WP4-2 · a run that ended but whose progress endpoint didn't hand us
           // a terminal status this poll (e.g. resolved terminal only via the
@@ -385,6 +396,16 @@ export function EnrichingStep({
           >
             <b>
               {done.toLocaleString()} of {total.toLocaleString()} · {pct}%
+              {/* 2026-07-10 · name the backoff tail so a run waiting out a
+                  retry doesn't read as a frozen "44 of 45". */}
+              {!finished && retrying > 0 ? (
+                <span
+                  className="note"
+                  style={{ fontWeight: 400, marginLeft: 6 }}
+                >
+                  · {retrying.toLocaleString()} retrying
+                </span>
+              ) : null}
             </b>
             <span className="note">{rightNote}</span>
           </div>

@@ -325,6 +325,46 @@ describe("runMetaAdsForCell · stale cell", () => {
     // No advertisers persisted on a blocked run.
     expect(db.adMarketAdvertiserUpserts).toHaveLength(0);
   });
+
+  test("C1 · a FAILED run STILL seeds fbPageId from its resolutions (not discarded)", async () => {
+    // A timed-out run that produced page RESOLUTIONS but no ads/advertisers used
+    // to hit the FAILED early-return and DISCARD the resolutions — so every
+    // retry re-paid to re-resolve the same page ids. The seeding now runs BEFORE
+    // the salvage gate, so the resolutions are durable even on FAILED.
+    db.setLatestRun(null);
+    ctx.resolveCellContext.mockResolvedValueOnce(
+      fakeCtx([
+        { id: "biz-1", website: "https://spa.example", fbPageId: null },
+      ]),
+    );
+    apify.metaAdLibrarySearch.mockResolvedValueOnce({
+      rows: [],
+      advertisers: [],
+      resolutions: [
+        { resolvedFromUrl: "https://spa.example", pageId: "PAGE_9" },
+      ],
+      outcome: "timeout",
+      runStatus: "TIMED-OUT",
+      targetStatuses: [],
+      runId: "timeout-run",
+      usageTotalUsd: 0.77,
+    });
+
+    const res = await runMetaAdsForCell(CELL, NOW);
+
+    // The run is still FAILED (no ads salvageable)…
+    const runs = db.adMarketRunRows.filter((r) => r.platform === "META");
+    expect(runs[0]!.status).toBe("FAILED");
+    // …but the resolution was persisted to Business.fbPageId (the C1 win).
+    expect(res.fbPageIdsSeeded).toBe(1);
+    const seed = db.businessUpdateManyCalls.find(
+      (c) =>
+        (c.data as Record<string, unknown> | undefined)?.fbPageId === "PAGE_9",
+    );
+    expect(seed).toBeDefined();
+    // The null-guard is present so a hand-corrected id is never clobbered.
+    expect((seed!.where as Record<string, unknown>).fbPageId).toBeNull();
+  });
 });
 
 describe("runMetaAdsForCell · A4 soft-block suspicion (0 advertisers)", () => {

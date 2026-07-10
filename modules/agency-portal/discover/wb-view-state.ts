@@ -8,12 +8,13 @@
 // SIGNAL filters + field-state filters + the status tab / not-touched toggle
 // ALL serialize into the URL (`?sort=<col>&dir=asc|desc`,
 // `f=<field>:<op>:<value>[:<value2>]` repeated, `sg=<sigKey>:<want>` repeated,
-// `fs=<group>:<state>` repeated, `st=<status>`, `nt=1`) so a pasted link
-// reproduces the view. On mount the URL WINS WHOLESALE — when the URL carries
-// ANY view param, {@link parseViewFromSearchParams} returns a COMPLETE view
-// (absent params = the defaults) and the workbench applies it — with ONE
-// carve-out: the FILTERS dimension only comes from the URL when f=/sg= were
-// actually present (`hasFilterParams`); an st=-only URL resolves filters
+// `vf=<sigKey>:<mode>[:<value>]` repeated (value filters · Built on / Booking
+// tool), `fs=<group>:<state>` repeated, `st=<status>`, `nt=1`) so a pasted
+// link reproduces the view. On mount the URL WINS WHOLESALE — when the URL
+// carries ANY view param, {@link parseViewFromSearchParams} returns a COMPLETE
+// view (absent params = the defaults) and the workbench applies it — with ONE
+// carve-out: the FILTERS dimension only comes from the URL when f=/sg=/vf=
+// were actually present (`hasFilterParams`); an st=-only URL resolves filters
 // locally (saved blob → goal seed), because "no f= param" means "the sender
 // said nothing about filters", not "the sender chose zero filters". Only a
 // param-less URL falls back to localStorage wholesale. (The blob keeps owning
@@ -28,12 +29,14 @@ import {
   COLUMNS,
   FILTER_FIELDS,
   PAGE_SIZES,
+  SIGNAL_VALUE_FIELDS,
   STATUS_ORDER,
   type LeadFilter,
   type LeadStatus,
   type NumericLeadFilter,
   type NumericFilterField,
   type SignalLeadFilter,
+  type ValueLeadFilter,
 } from "./leads-workbench";
 import {
   DATA_GROUP_KEYS,
@@ -109,6 +112,38 @@ function sanitizeFilters(raw: unknown): LeadFilter[] | null {
           sigKey: f.sigKey,
           sigLabel: f.sigLabel,
           want: f.want,
+        });
+      }
+      continue;
+    }
+    // Value filters (Built on / Booking tool · Any / specific / none) —
+    // validated against the SIGNAL_VALUE_FIELDS registry, which also SELF-HEALS
+    // field + label (the registry owns them; a stale blob can't point a sigKey
+    // at the wrong row field). Mode "is" without a usable value drops.
+    if (f.kind === "value") {
+      const spec =
+        typeof f.sigKey === "string" ? SIGNAL_VALUE_FIELDS[f.sigKey] : null;
+      if (!spec) continue;
+      if (f.mode === "any" || f.mode === "none") {
+        out.push({
+          kind: "value",
+          sigKey: f.sigKey as string,
+          field: spec.field,
+          label: spec.label,
+          mode: f.mode,
+        });
+      } else if (
+        f.mode === "is" &&
+        typeof f.value === "string" &&
+        f.value.trim() !== ""
+      ) {
+        out.push({
+          kind: "value",
+          sigKey: f.sigKey as string,
+          field: spec.field,
+          label: spec.label,
+          mode: "is",
+          value: f.value,
         });
       }
       continue;
@@ -335,6 +370,55 @@ export function parseSignalParam(raw: string): SignalLeadFilter | null {
   return { kind: "signal", sigKey, sigLabel: sigKey, want };
 }
 
+/** One value filter → its `vf` param value: `sigKey:mode[:value]`. The
+ *  specific value is URI-encoded so tool names with `:`/spaces round-trip
+ *  (e.g. "Square Appointments"). Pure. */
+export function serializeValueParam(f: ValueLeadFilter): string {
+  return f.mode === "is"
+    ? `${f.sigKey}:is:${encodeURIComponent(f.value ?? "")}`
+    : `${f.sigKey}:${f.mode}`;
+}
+
+/**
+ * Parse one `vf` param value back into a value filter. Validated against the
+ * SIGNAL_VALUE_FIELDS registry (which owns field + label — a foreign sigKey
+ * drops, so a crafted URL can't point a filter at an arbitrary row field).
+ * null when malformed.
+ */
+export function parseValueParam(raw: string): ValueLeadFilter | null {
+  const [sigKey, mode, ...rest] = raw.split(":");
+  if (!sigKey) return null;
+  const spec = SIGNAL_VALUE_FIELDS[sigKey];
+  if (!spec) return null;
+  if (mode === "any" || mode === "none") {
+    return {
+      kind: "value",
+      sigKey,
+      field: spec.field,
+      label: spec.label,
+      mode,
+    };
+  }
+  if (mode === "is") {
+    let value: string;
+    try {
+      value = decodeURIComponent(rest.join(":"));
+    } catch {
+      return null; // malformed percent-encoding
+    }
+    if (value.trim() === "") return null;
+    return {
+      kind: "value",
+      sigKey,
+      field: spec.field,
+      label: spec.label,
+      mode: "is",
+      value,
+    };
+  }
+  return null;
+}
+
 // B5 · the status tab round-trips as a lowercase `st=` value ("st=new").
 const VALID_STATUSES = new Set<string>(STATUS_ORDER);
 
@@ -377,6 +461,7 @@ export function viewToSearchParams(
   params.delete("dir");
   params.delete("f");
   params.delete("sg");
+  params.delete("vf");
   params.delete("fs");
   params.delete("st");
   params.delete("nt");
@@ -387,6 +472,7 @@ export function viewToSearchParams(
   }
   for (const f of view.filters) {
     if (f.kind === "signal") params.append("sg", serializeSignalParam(f));
+    else if (f.kind === "value") params.append("vf", serializeValueParam(f));
     else params.append("f", serializeFilterParam(f));
   }
   for (const fs of view.fieldStates ?? []) {
@@ -415,6 +501,7 @@ export function parseViewFromSearchParams(
   const dir = params.get("dir");
   const fParams = params.getAll("f");
   const sgParams = params.getAll("sg");
+  const vfParams = params.getAll("vf");
   const fsParams = params.getAll("fs");
   const stParam = params.get("st");
   const ntParam = params.get("nt");
@@ -424,6 +511,7 @@ export function parseViewFromSearchParams(
     dir === null &&
     fParams.length === 0 &&
     sgParams.length === 0 &&
+    vfParams.length === 0 &&
     fsParams.length === 0 &&
     stParam === null &&
     ntParam === null &&
@@ -442,6 +530,10 @@ export function parseViewFromSearchParams(
     const parsed = parseSignalParam(raw);
     if (parsed) filters.push(parsed);
   }
+  for (const raw of vfParams) {
+    const parsed = parseValueParam(raw);
+    if (parsed) filters.push(parsed);
+  }
   const fieldStates: FieldStateFilter[] = [];
   for (const raw of fsParams) {
     const parsed = parseFieldStateParam(raw);
@@ -454,8 +546,9 @@ export function parseViewFromSearchParams(
   if (eoParam === "1") out.enrichedOnly = true;
   // Presence of the RAW params, not the parsed count — a URL whose every f=
   // token is invalid still expressed "the sender chose these filters" (they
-  // drop to none), while a URL with no f=/sg= at all expressed nothing about
-  // filters and must not clobber the receiver's saved/seeded set.
-  if (fParams.length > 0 || sgParams.length > 0) out.hasFilterParams = true;
+  // drop to none), while a URL with no f=/sg=/vf= at all expressed nothing
+  // about filters and must not clobber the receiver's saved/seeded set.
+  if (fParams.length > 0 || sgParams.length > 0 || vfParams.length > 0)
+    out.hasFilterParams = true;
   return out;
 }

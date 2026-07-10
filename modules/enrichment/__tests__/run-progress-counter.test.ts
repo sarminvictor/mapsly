@@ -67,10 +67,27 @@ describe("run-progress counters (WP3-3)", () => {
       failed: 3,
       total: 50,
       status: "RUNNING",
+      retrying: 1,
     });
 
     const p = await readRunProgress("r1");
-    expect(p).toEqual({ done: 40, failed: 3, total: 50, status: "RUNNING" });
+    expect(p).toEqual({
+      done: 40,
+      failed: 3,
+      total: 50,
+      status: "RUNNING",
+      retrying: 1,
+    });
+  });
+
+  test("retrying defaults to 0 for a legacy seed that predates the key", async () => {
+    // A seed WITHOUT `retrying` (older caller) must read back 0, not NaN/null —
+    // the banner just omits the hint.
+    __setKvClientForTest(fakeRedisKv());
+    await seedRunProgress("r1", { done: 5, failed: 0, total: 10 });
+    const p = await readRunProgress("r1");
+    expect(p!.retrying).toBe(0);
+    expect(p!.done).toBe(5);
   });
 
   test("read returns null (miss) when nothing was written", async () => {

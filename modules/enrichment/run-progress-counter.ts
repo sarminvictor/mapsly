@@ -33,12 +33,21 @@ function totalKey(runId: string): string {
 function statusKey(runId: string): string {
   return `run:${runId}:status`;
 }
+function retryingKey(runId: string): string {
+  return `run:${runId}:retrying`;
+}
 
 export interface RunProgressCounters {
   done: number;
   failed: number;
   total: number;
   status: string | null;
+  /** 2026-07-10 · businesses whose only outstanding work is a job WAITING OUT
+   *  its retry backoff (QUEUED with a future nextAttemptAt). Lets the banner say
+   *  "44 of 45 · 1 retrying" instead of a frozen-looking "44 of 45" during the
+   *  2^attempts-minute backoff tail (run-forensics end-lag). Display-only;
+   *  a subset of the outstanding businesses, so it never affects done/total. */
+  retrying: number;
 }
 
 /**
@@ -92,7 +101,14 @@ export async function incrRunProgress(
  */
 export async function seedRunProgress(
   runId: string,
-  counters: { done: number; failed: number; total: number; status?: string },
+  counters: {
+    done: number;
+    failed: number;
+    total: number;
+    status?: string;
+    /** Optional — omitted by legacy callers; the read tolerates a missing key. */
+    retrying?: number;
+  },
 ): Promise<void> {
   if (!runId) return;
   const kv = counterKv();
@@ -104,6 +120,9 @@ export async function seedRunProgress(
     await kv.set(doneKey(runId), counters.done, { ex: TTL_SEC });
     await kv.set(failedKey(runId), counters.failed, { ex: TTL_SEC });
     await kv.set(totalKey(runId), counters.total, { ex: TTL_SEC });
+    if (counters.retrying !== undefined) {
+      await kv.set(retryingKey(runId), counters.retrying, { ex: TTL_SEC });
+    }
     if (counters.status !== undefined) {
       await kv.set(statusKey(runId), counters.status, { ex: TTL_SEC });
     }
@@ -124,11 +143,12 @@ export async function readRunProgress(
   const kv = counterKv();
   if (!kv) return null;
   try {
-    const [done, failed, total, status] = await Promise.all([
+    const [done, failed, total, status, retrying] = await Promise.all([
       kv.get<number>(doneKey(runId)),
       kv.get<number>(failedKey(runId)),
       kv.get<number>(totalKey(runId)),
       kv.get<string>(statusKey(runId)),
+      kv.get<number>(retryingKey(runId)),
     ]);
     // No counters written at all → signal a miss so the caller re-seeds/falls back.
     if (done == null && failed == null && total == null) return null;
@@ -137,6 +157,8 @@ export async function readRunProgress(
       failed: Number(failed ?? 0),
       total: Number(total ?? 0),
       status: status ?? null,
+      // Legacy runs seeded before this key existed read 0 (no retry hint).
+      retrying: Number(retrying ?? 0),
     };
   } catch {
     return null;

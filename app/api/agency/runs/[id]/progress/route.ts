@@ -27,6 +27,11 @@ export interface RunProgress {
   done: number;
   total: number;
   failed: number;
+  /** 2026-07-10 · businesses waiting out a retry backoff (QUEUED, future
+   *  nextAttemptAt). Lets the banner render "44 of 45 · 1 retrying" during the
+   *  backoff tail instead of a frozen-looking "44 of 45". Subset of the
+   *  outstanding (total − done − failed) set; 0 once terminal. */
+  retrying: number;
   status: string;
   /** WP4-6 · close receipt (credits). Present once the run is terminal; the
    *  EnrichingStep done-state + workbench header show held/charged/refunded.
@@ -43,8 +48,9 @@ export interface RunProgress {
 
 function etagOf(p: RunProgress): string {
   // Include the receipt so the 304 short-circuit still fires a fresh 200 the
-  // tick the run closes (charged flips from 0 → the settled amount).
-  return `"${p.done}-${p.total}-${p.failed}-${p.status}-${p.creditsCharged ?? ""}"`;
+  // tick the run closes (charged flips from 0 → the settled amount). retrying
+  // is in the key so the banner updates as jobs enter/leave the backoff tail.
+  return `"${p.done}-${p.total}-${p.failed}-${p.retrying}-${p.status}-${p.creditsCharged ?? ""}"`;
 }
 
 export async function GET(
@@ -95,12 +101,16 @@ export async function GET(
         done: redis.done,
         total: redis.total > 0 ? redis.total : run.unitsRequested,
         failed: redis.failed,
+        retrying: redis.retrying,
         status: redis.status ?? run.status,
       }
     : {
         done: run.unitsCompleted,
         total: run.unitsRequested,
         failed: 0,
+        // The DB row carries no retry-tail count; the next tick's Redis seed
+        // supplies it. 0 is the safe fallback (banner just omits the hint).
+        retrying: 0,
         status: run.status,
       };
 
@@ -115,6 +125,14 @@ export async function GET(
   const total = Math.max(0, raw.total);
   const failed = Math.min(Math.max(0, raw.failed), total);
   const done = Math.min(Math.max(0, raw.done), Math.max(0, total - failed));
+  // retrying is a subset of the still-outstanding businesses (total−done−failed),
+  // clamped so a stale/over-count can never exceed what's actually in flight.
+  // `|| 0` also coerces a legacy/absent counter (undefined/NaN) to 0 so the
+  // payload never serializes a null.
+  const retrying = Math.min(
+    Math.max(0, raw.retrying || 0),
+    Math.max(0, total - done - failed),
+  );
   // WP4-6 · attach the close receipt once the run is terminal (charged is only
   // meaningful after settle). A still-running run omits it (undefined) so the
   // EnrichingStep shows the receipt only in the done-state.
@@ -130,6 +148,7 @@ export async function GET(
     done,
     failed,
     total,
+    retrying,
     status: raw.status,
     ...(terminal
       ? {

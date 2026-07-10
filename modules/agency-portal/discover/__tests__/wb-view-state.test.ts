@@ -12,6 +12,7 @@ import type {
   LeadFilter,
   NumericLeadFilter,
   SignalLeadFilter,
+  ValueLeadFilter,
 } from "../leads-workbench";
 import {
   DEFAULT_SORT_DIR,
@@ -21,11 +22,13 @@ import {
   parseFilterParam,
   parseSignalParam,
   parseStatusParam,
+  parseValueParam,
   parseViewFromSearchParams,
   saveWorkbenchView,
   serializeFieldStateParam,
   serializeFilterParam,
   serializeSignalParam,
+  serializeValueParam,
   viewToSearchParams,
 } from "../wb-view-state";
 
@@ -132,6 +135,121 @@ describe("serializeSignalParam / parseSignalParam", () => {
     expect(parseSignalParam("weak_seo")).toBeNull();
     expect(parseSignalParam("weak_seo:maybe")).toBeNull();
     expect(parseSignalParam(":match")).toBeNull();
+  });
+});
+
+// 2026-07-10 · value filters (Built on / Booking tool) ride their own vf=
+// param: `sigKey:mode[:value]`, value URI-encoded so tool names with ":" or
+// spaces survive. Field + label come from the SIGNAL_VALUE_FIELDS registry on
+// parse (a crafted URL can't point a filter at an arbitrary row field).
+describe("serializeValueParam / parseValueParam (vf)", () => {
+  test("round-trips any / none / is modes", () => {
+    const any: ValueLeadFilter = {
+      kind: "value",
+      sigKey: "diy_platform",
+      field: "builtOn",
+      label: "Built on",
+      mode: "any",
+    };
+    expect(serializeValueParam(any)).toBe("diy_platform:any");
+    expect(parseValueParam("diy_platform:any")).toEqual(any);
+
+    const none: ValueLeadFilter = {
+      kind: "value",
+      sigKey: "no_booking",
+      field: "bookingTool",
+      label: "Booking tool",
+      mode: "none",
+    };
+    expect(serializeValueParam(none)).toBe("no_booking:none");
+    expect(parseValueParam("no_booking:none")).toEqual(none);
+
+    const is: ValueLeadFilter = {
+      kind: "value",
+      sigKey: "no_booking",
+      field: "bookingTool",
+      label: "Booking tool",
+      mode: "is",
+      value: "Square Appointments",
+    };
+    expect(parseValueParam(serializeValueParam(is))).toEqual(is);
+  });
+
+  test("values with ':' survive the token split (URI-encoded)", () => {
+    const weird: ValueLeadFilter = {
+      kind: "value",
+      sigKey: "diy_platform",
+      field: "builtOn",
+      label: "Built on",
+      mode: "is",
+      value: "Duda: Pro",
+    };
+    const raw = serializeValueParam(weird);
+    expect(raw).toBe("diy_platform:is:Duda%3A%20Pro");
+    expect(parseValueParam(raw)).toEqual(weird);
+  });
+
+  test("rejects malformed / foreign values", () => {
+    expect(parseValueParam("")).toBeNull();
+    expect(parseValueParam("diy_platform")).toBeNull();
+    expect(parseValueParam("diy_platform:maybe")).toBeNull();
+    expect(parseValueParam("diy_platform:is:")).toBeNull(); // empty value
+    expect(parseValueParam("not_a_value_signal:any")).toBeNull(); // foreign key
+    expect(parseValueParam("diy_platform:is:%E0%")).toBeNull(); // bad encoding
+  });
+
+  test("full-view round-trip: vf rides beside f= and sg= and flags hasFilterParams", () => {
+    const filters: LeadFilter[] = [
+      { field: "perf", op: "<", value: 50 },
+      {
+        kind: "signal",
+        sigKey: "weak_seo",
+        sigLabel: "Weak SEO",
+        want: "match",
+      },
+      {
+        kind: "value",
+        sigKey: "no_booking",
+        field: "bookingTool",
+        label: "Booking tool",
+        mode: "none",
+      },
+    ];
+    const params = viewToSearchParams(
+      { sortKey: DEFAULT_SORT_KEY, sortDir: DEFAULT_SORT_DIR, filters },
+      new URLSearchParams(),
+    );
+    expect(params.getAll("vf")).toEqual(["no_booking:none"]);
+    const view = parseViewFromSearchParams(params);
+    expect(view?.hasFilterParams).toBe(true);
+    // Signal labels come back as placeholders; the value filter is complete.
+    expect(view?.filters).toEqual([
+      { field: "perf", op: "<", value: 50 },
+      {
+        kind: "signal",
+        sigKey: "weak_seo",
+        sigLabel: "weak_seo",
+        want: "match",
+      },
+      {
+        kind: "value",
+        sigKey: "no_booking",
+        field: "bookingTool",
+        label: "Booking tool",
+        mode: "none",
+      },
+    ]);
+    // A vf=-only URL also expresses the filters dimension.
+    const only = parseViewFromSearchParams(
+      new URLSearchParams("vf=diy_platform:any"),
+    );
+    expect(only?.hasFilterParams).toBe(true);
+    // Clearing the view clears vf too.
+    const cleared = viewToSearchParams(
+      { sortKey: DEFAULT_SORT_KEY, sortDir: DEFAULT_SORT_DIR, filters: [] },
+      params,
+    );
+    expect(cleared.getAll("vf")).toEqual([]);
   });
 });
 

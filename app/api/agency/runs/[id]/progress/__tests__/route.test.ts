@@ -62,6 +62,7 @@ describe("GET run progress (WP3-3)", () => {
       failed: 3,
       total: 50,
       status: "RUNNING",
+      retrying: 1,
     });
     const res = await GET(get("r1"), params("r1"));
     expect(res.status).toBe(200);
@@ -69,10 +70,31 @@ describe("GET run progress (WP3-3)", () => {
       done: number;
       total: number;
       failed: number;
+      retrying: number;
       status: string;
     };
-    expect(json).toEqual({ done: 42, total: 50, failed: 3, status: "RUNNING" });
+    expect(json).toEqual({
+      done: 42,
+      total: 50,
+      failed: 3,
+      retrying: 1,
+      status: "RUNNING",
+    });
     expect(res.headers.get("etag")).toBeTruthy();
+  });
+
+  test("a legacy Redis payload with no `retrying` serializes retrying:0, never null", async () => {
+    // Hardening for INC-60: a counter written before the retrying key existed
+    // must coerce to 0 (never NaN → null in the JSON).
+    anyMock(readRunProgress).mockResolvedValue({
+      done: 5,
+      failed: 0,
+      total: 10,
+      status: "RUNNING",
+    } as never);
+    const res = await GET(get("r1"), params("r1"));
+    const json = (await res.json()) as { retrying: number };
+    expect(json.retrying).toBe(0);
   });
 
   test("falls back to the DB counters on a Redis miss", async () => {
