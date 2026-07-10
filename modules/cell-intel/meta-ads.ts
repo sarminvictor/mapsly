@@ -70,6 +70,14 @@ const META_MAX_ITEMS = 150;
 // return; with pageUrls=[] the chunk loop runs exactly once.
 const META_TARGETS_PER_RUN = 20;
 const META_CELL_WALL_BUDGET_MS = 180_000;
+// 2026-07-10 · PER-CELL BLOCK COOLDOWN. A cell that keeps returning graphqlHits=0
+// — a persistent soft-block OR a genuinely sparse keyword market the actor can't
+// tell apart — otherwise retries every dispatch tick, burning ~$0.20/attempt (an
+// hvac-contractor-Kelowna cell hit 7+ FAILED runs in an hour). After this many
+// consecutive all-FAILED runs within the window, the cell is deferred (no burn)
+// until the window elapses, then retries ONCE; a single OK/PARTIAL resets it.
+const META_BLOCK_COOLDOWN_FAILS = 3;
+const META_BLOCK_COOLDOWN_HOURS = 12;
 
 /**
  * Combine per-chunk outcomes into ONE cell outcome. Verified everywhere → ok
@@ -253,6 +261,35 @@ export async function runMetaAdsForCell(
     result.errors.push(`meta-breaker:${gate.reason}`);
     logMetaOutcome({ cellKey, outcome: "deferred", costUsd: 0, runId: null });
     return result;
+  }
+
+  // 1c · PER-CELL BLOCK COOLDOWN. If the last META_BLOCK_COOLDOWN_FAILS runs for
+  // this cell were ALL FAILED and the most recent is within the cooldown window,
+  // DEFER — don't burn ~$0.20 hitting the same wall every dispatch. The cell stays
+  // retryable (no AdMarketRun written → the 30-day gate + dead-letter untouched),
+  // but at most once per window; a single OK/PARTIAL breaks the streak. Bypassed
+  // on the reconcile continuation path (ignoreFreshness). One cheap indexed read.
+  if (!opts?.ignoreFreshness) {
+    const recent = await prisma.adMarketRun.findMany({
+      where: { cellKey, platform: "META" },
+      orderBy: { ranAt: "desc" },
+      take: META_BLOCK_COOLDOWN_FAILS,
+      select: { status: true, ranAt: true },
+    });
+    const allFailed =
+      recent.length >= META_BLOCK_COOLDOWN_FAILS &&
+      recent.every((r) => r.status === "FAILED");
+    const lastAt = recent[0]?.ranAt ?? null;
+    const inCooldown =
+      lastAt !== null &&
+      now.getTime() - lastAt.getTime() <
+        META_BLOCK_COOLDOWN_HOURS * 3_600_000;
+    if (allFailed && inCooldown) {
+      result.outcome = "deferred";
+      result.errors.push(`meta-cooldown:${recent.length}-fails`);
+      logMetaOutcome({ cellKey, outcome: "deferred", costUsd: 0, runId: null });
+      return result;
+    }
   }
 
   // 2 · resolve cell context (category, metro, businesses, location code).

@@ -297,10 +297,20 @@ function captureCredsFromRequest(req) {
     const friendly = params.get("fb_api_req_friendly_name") || "";
     const docId = params.get("doc_id");
     const lsd = params.get("lsd");
+    const variables = params.get("variables") || "";
+    // Match any Ad Library SEARCH graphql POST — the INITIAL results query OR the
+    // scroll pagination query. Broadened (2026-07-10) from the pagination-only
+    // friendly-name match so we ALSO grab the doc_id from the initial query, which
+    // fires even for a SPARSE/EMPTY market that never scrolls → directScrape can
+    // then POST the explicit search and tell a real empty (well-formed empty
+    // response) from a soft-block (error/checkpoint). We still require the
+    // search-variables SHAPE so an unrelated AdLibrary query can't hijack the
+    // template. graphqlHits still gates on real data (reachedDataQuery), so this
+    // capture can't itself self-certify a block as empty.
     if (
       docId &&
       /AdLibrary/i.test(friendly) &&
-      /(Search|Pagination|Grid|Mobile)/i.test(friendly)
+      /"(searchType|activeStatus|queryString)"/.test(variables)
     ) {
       // Store the FULL request body as a template — Meta's /api/graphql POST needs
       // the whole auth param set (fb_dtsg, av, __user, __req, jazoest, …), not just
@@ -996,6 +1006,28 @@ const crawler = new PlaywrightCrawler({
     // 2b · EMIT target[0] from what the prime nav already intercepted — no second
     // navigation. The facet Meta embeds in this page load is already in primeStore.
     page.off("response", primeOnResponse);
+    // EMPTY-vs-BLOCK verify (2026-07-10). If interception came back DRY (no data)
+    // but we captured a doc_id, fire the explicit search POST: a well-formed empty
+    // response means Meta ANSWERED and the market is genuinely empty
+    // (→ empty_verified, cacheable, no retry), while an error/checkpoint/no-answer
+    // stays a block. This stops a sparse keyword market (e.g. "hvac contractor
+    // Kelowna") from looking blocked and retrying every dispatch. directScrape
+    // bumps graphqlHits only on a real server answer, so it can't cache a block.
+    if (
+      primeTarget &&
+      !primeReachedData() &&
+      run.docId &&
+      run.lsd &&
+      run.reqTemplate
+    ) {
+      await directScrape(page, primeTarget, primeStore, {
+        lsd: run.lsd,
+        docId: run.docId,
+      }).catch((e) => log.warning(`[prime-verify] threw: ${e.message}`));
+      log.info(
+        `[prime-verify] "${primeTarget.subject}": after explicit POST graphqlHits=${primeStore.graphqlHits}, advertisers=${primeStore.advertisers.length}`,
+      );
+    }
     let loopStart = 0;
     if (primeTarget) {
       const outcome = classifyOutcome({

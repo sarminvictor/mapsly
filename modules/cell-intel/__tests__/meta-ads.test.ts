@@ -28,6 +28,9 @@ const db = vi.hoisted(() => {
     status: string;
     advertiserCount?: number;
   } | null = null;
+  // The per-cell block-cooldown gate reads the last few runs via findMany; default
+  // empty so the cooldown never fires unless a test sets it.
+  let cooldownRuns: Array<{ status: string; ranAt: Date }> = [];
   return {
     adMarketRunRows,
     adLibraryEntryUpserts,
@@ -52,6 +55,12 @@ const db = vi.hoisted(() => {
     getLatestRun() {
       return latestRun;
     },
+    setCooldownRuns(rows: Array<{ status: string; ranAt: Date }>) {
+      cooldownRuns = rows;
+    },
+    getCooldownRuns() {
+      return cooldownRuns;
+    },
   };
 });
 
@@ -59,6 +68,7 @@ vi.mock("@/lib/prisma", () => ({
   default: {
     adMarketRun: {
       findFirst: vi.fn(async () => db.getLatestRun()),
+      findMany: vi.fn(async () => db.getCooldownRuns()),
       create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
         db.adMarketRunRows.push(data);
         return { id: `run_${db.adMarketRunRows.length}`, ...data };
@@ -167,6 +177,7 @@ beforeEach(() => {
   db.businessUpdateManyCalls.length = 0;
   db.setContacts([]);
   db.setLatestRun(null);
+  db.setCooldownRuns([]);
   apify.metaAdLibrarySearch.mockReset();
   ctx.resolveCellContext.mockReset();
   breaker.shouldRunMetaCell.mockReset();
@@ -190,6 +201,71 @@ describe("runMetaAdsForCell · freshness gate", () => {
     expect(res.outcome).toBe("served-from-db");
     expect(apify.metaAdLibrarySearch).not.toHaveBeenCalled();
     expect(db.adMarketRunRows).toHaveLength(0);
+  });
+});
+
+describe("runMetaAdsForCell · block cooldown", () => {
+  const okAdvertiser = () => ({
+    rows: [],
+    resolutions: [],
+    advertisers: [
+      {
+        recordType: "advertiser",
+        pageId: "A",
+        pageName: "X",
+        adCount: 1,
+        searchTerm: null,
+        country: "US",
+      },
+    ],
+    outcome: "ok" as const,
+    runStatus: "SUCCEEDED",
+    targetStatuses: [],
+    runId: "r",
+    usageTotalUsd: 0.02,
+  });
+
+  test("3 consecutive recent FAILED runs → deferred (no adapter call, no burn)", async () => {
+    db.setLatestRun(null); // past the freshness gate
+    const h = (n: number) => new Date(NOW.getTime() - n * 3_600_000);
+    db.setCooldownRuns([
+      { status: "FAILED", ranAt: h(1) }, // most recent 1h ago (in the 12h window)
+      { status: "FAILED", ranAt: h(2) },
+      { status: "FAILED", ranAt: h(3) },
+    ]);
+    const res = await runMetaAdsForCell(CELL, NOW);
+    expect(res.outcome).toBe("deferred");
+    expect(apify.metaAdLibrarySearch).not.toHaveBeenCalled();
+    expect(db.adMarketRunRows).toHaveLength(0); // no run written, no burn
+  });
+
+  test("cooldown lapses after the window → retries", async () => {
+    db.setLatestRun(null);
+    const h = (n: number) => new Date(NOW.getTime() - n * 3_600_000);
+    db.setCooldownRuns([
+      { status: "FAILED", ranAt: h(13) }, // 13h ago > 12h window
+      { status: "FAILED", ranAt: h(14) },
+      { status: "FAILED", ranAt: h(15) },
+    ]);
+    ctx.resolveCellContext.mockResolvedValueOnce(fakeCtx([]));
+    apify.metaAdLibrarySearch.mockResolvedValueOnce(okAdvertiser());
+    const res = await runMetaAdsForCell(CELL, NOW);
+    expect(res.outcome).toBe("collected");
+    expect(apify.metaAdLibrarySearch).toHaveBeenCalledTimes(1);
+  });
+
+  test("a recent OK breaks the fail streak → runs (no cooldown)", async () => {
+    db.setLatestRun(null);
+    const h = (n: number) => new Date(NOW.getTime() - n * 3_600_000);
+    db.setCooldownRuns([
+      { status: "OK", ranAt: h(1) }, // most recent is OK → not all-failed
+      { status: "FAILED", ranAt: h(2) },
+      { status: "FAILED", ranAt: h(3) },
+    ]);
+    ctx.resolveCellContext.mockResolvedValueOnce(fakeCtx([]));
+    apify.metaAdLibrarySearch.mockResolvedValueOnce(okAdvertiser());
+    const res = await runMetaAdsForCell(CELL, NOW);
+    expect(res.outcome).toBe("collected");
   });
 });
 
