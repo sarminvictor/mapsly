@@ -2565,25 +2565,34 @@
   font-weight: 700;
   font-size: 12px;
   color: var(--ink-2);
+  /* 2026-07-10 · the FULL-WIDTH grey bar (colSpan = every column) scrolls with
+     the table — but the sticky BUTTON below keeps the LABEL frozen at the left
+     on horizontal scroll. `position: sticky; left:0` on a colspan cell is
+     unreliable cross-browser (the cell scrolls with the content, which is the
+     "group header scrolls sideways" bug), so we pin the inner content instead.
+     The bar is the same grey behind the pinned label, so it reads seamless. */
+}
+/* The collapse toggle · a real, focusable button (keyboard-operable +
+   aria-expanded). fit-content + `position: sticky; left:0` freezes the label at
+   the left edge as the table scrolls sideways; its own grey background keeps a
+   clean backing over any body cell that scrolls beneath it. */
+.agency-portal .grphead-btn {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
   position: sticky;
   left: 0;
-  /* Above body cells (auto) but below the sticky thead (z:3) so the group label
-     never renders under regular rows on horizontal scroll. */
-  z-index: 2;
-}
-/* The collapse toggle fills the header cell but is a real, focusable button —
-   keyboard-operable + aria-expanded, no button chrome (inherits the row look). */
-.agency-portal .grphead-btn {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  padding: 0;
+  padding: 0 var(--space-3) 0 0;
   border: none;
-  background: transparent;
+  background: #f2f3f9;
   font: inherit;
   color: inherit;
   cursor: pointer;
   text-align: left;
+  /* Above body cells (auto) but below the sticky thead (z:3) so the frozen
+     label never renders under the header or regular rows. */
+  z-index: 2;
 }
 .agency-portal .grphead .gchev {
   display: inline-block;
