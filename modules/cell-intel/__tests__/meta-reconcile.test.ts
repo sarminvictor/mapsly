@@ -43,6 +43,9 @@ vi.mock("@/lib/prisma", () => ({
       findFirst: vi.fn(async (args: { where?: { cellKey?: string } }) =>
         db.getLatest(args?.where?.cellKey ?? ""),
       ),
+      // INC-58 · the continuation attempt cap counts a cell's rows in-window.
+      // Default 1 (initial attempt only — under the cap); the cap test overrides.
+      count: vi.fn(async () => 1),
       update: vi.fn(
         async ({
           where,
@@ -69,13 +72,20 @@ import { reconcileMetaRuns } from "../meta-reconcile";
 
 const NOW = new Date("2026-07-10T12:00:00.000Z");
 
-function mockFetchUsage(usageByRunId: Record<string, number | null>) {
+function mockFetchUsage(
+  usageByRunId: Record<string, number | null>,
+  runMeta: { status?: string; finishedAt?: string } = {},
+) {
   return vi.fn(async (url: string | URL) => {
     const runId = String(url).split("/").pop() ?? "";
     const usage = usageByRunId[runId];
     return {
       ok: true,
-      json: async () => ({ data: { stats: { usageTotalUsd: usage ?? 0 } } }),
+      // INC-58 · usage lives TOP-LEVEL on the run object (data.usageTotalUsd);
+      // data.stats.usageTotalUsd never existed on this endpoint.
+      json: async () => ({
+        data: { usageTotalUsd: usage ?? 0, ...runMeta },
+      }),
     } as unknown as Response;
   });
 }
@@ -151,10 +161,15 @@ describe("reconcileMetaRuns · A cost backfill", () => {
 });
 
 describe("reconcileMetaRuns · B chunk continuation", () => {
-  test("re-runs the collector with ignoreFreshness for a cell whose latest row is pending", async () => {
+  test("re-runs the collector with ignoreFreshness for a PARTIAL cell with pending targets", async () => {
     db.setPending([{ cellKey: "dental|kelowna|CA" }]);
     db.setLatest(
-      new Map([["dental|kelowna|CA", { detailJson: { pendingTargets: 25 } }]]),
+      new Map([
+        [
+          "dental|kelowna|CA",
+          { status: "PARTIAL", detailJson: { pendingTargets: 25 } },
+        ],
+      ]),
     );
     vi.stubGlobal("fetch", mockFetchUsage({}));
 
@@ -168,10 +183,36 @@ describe("reconcileMetaRuns · B chunk continuation", () => {
     );
   });
 
+  // INC-58 · THE RUNAWAY REGRESSION. A hard-FAILED 0-progress newest row (a
+  // blocked cell) must NEVER be auto-continued — the first shipped version
+  // retried the blocked hvac cell every 10 min at ~$0.9/attempt.
+  test("never continues a cell whose newest row is FAILED (blocked cell — the runaway)", async () => {
+    db.setPending([{ cellKey: "hvac|kelowna|CA" }]);
+    db.setLatest(
+      new Map([
+        [
+          "hvac|kelowna|CA",
+          { status: "FAILED", detailJson: { pendingTargets: 40 } },
+        ],
+      ]),
+    );
+    vi.stubGlobal("fetch", mockFetchUsage({}));
+
+    const s = await reconcileMetaRuns(NOW);
+
+    expect(s.continued).toBe(0);
+    expect(collector.runMetaAdsForCell).not.toHaveBeenCalled();
+  });
+
   test("skips a cell whose NEWEST row no longer reports pending targets", async () => {
     db.setPending([{ cellKey: "dental|kelowna|CA" }]);
     db.setLatest(
-      new Map([["dental|kelowna|CA", { detailJson: { pendingTargets: 0 } }]]),
+      new Map([
+        [
+          "dental|kelowna|CA",
+          { status: "PARTIAL", detailJson: { pendingTargets: 0 } },
+        ],
+      ]),
     );
     vi.stubGlobal("fetch", mockFetchUsage({}));
 
@@ -185,9 +226,9 @@ describe("reconcileMetaRuns · B chunk continuation", () => {
     db.setPending([{ cellKey: "c1" }, { cellKey: "c2" }, { cellKey: "c3" }]);
     db.setLatest(
       new Map([
-        ["c1", { detailJson: { pendingTargets: 5 } }],
-        ["c2", { detailJson: { pendingTargets: 5 } }],
-        ["c3", { detailJson: { pendingTargets: 5 } }],
+        ["c1", { status: "PARTIAL", detailJson: { pendingTargets: 5 } }],
+        ["c2", { status: "PARTIAL", detailJson: { pendingTargets: 5 } }],
+        ["c3", { status: "PARTIAL", detailJson: { pendingTargets: 5 } }],
       ]),
     );
     vi.stubGlobal("fetch", mockFetchUsage({}));
@@ -196,5 +237,86 @@ describe("reconcileMetaRuns · B chunk continuation", () => {
 
     expect(s.continued).toBe(2); // MAX_CONTINUATIONS
     expect(collector.runMetaAdsForCell).toHaveBeenCalledTimes(2);
+  });
+
+  // INC-58 · per-cell attempt cap: past MAX_CELL_ATTEMPTS_IN_WINDOW rows the
+  // cell is PARKED (newest pending marker zeroed), never re-attempted.
+  test("parks a cell past the per-cell attempt cap instead of continuing", async () => {
+    const prisma = (await import("@/lib/prisma")).default;
+    db.setPending([{ cellKey: "loop|cell|CA" }]);
+    db.setLatest(
+      new Map([
+        [
+          "loop|cell|CA",
+          {
+            id: "rowX",
+            status: "PARTIAL",
+            detailJson: { pendingTargets: 5 },
+          },
+        ],
+      ]),
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (prisma.adMarketRun.count as any).mockResolvedValueOnce(4); // at the cap
+    vi.stubGlobal("fetch", mockFetchUsage({}));
+
+    const s = await reconcileMetaRuns(NOW);
+
+    expect(s.continued).toBe(0);
+    expect(collector.runMetaAdsForCell).not.toHaveBeenCalled();
+    // The newest row's marker was zeroed so the scan stops re-visiting it.
+    const park = db.updates.find(
+      (u) =>
+        (u.data.detailJson as Record<string, unknown>)?.reconcileNote ===
+        "attempt-cap-reached",
+    );
+    expect(park).toBeTruthy();
+    expect(
+      (park!.data.detailJson as Record<string, unknown>).pendingTargets,
+    ).toBe(0);
+  });
+});
+
+describe("reconcileMetaRuns · $0-terminal grace (INC-58)", () => {
+  test("does NOT accept $0 from a run terminal for only 2 minutes", async () => {
+    db.setEstimated([
+      { id: "row1", detailJson: { costEstimated: true, apifyRunIds: ["r1"] } },
+    ]);
+    vi.stubGlobal(
+      "fetch",
+      mockFetchUsage(
+        { r1: null },
+        {
+          status: "TIMED-OUT",
+          finishedAt: new Date(NOW.getTime() - 2 * 60_000).toISOString(),
+        },
+      ),
+    );
+
+    const s = await reconcileMetaRuns(NOW);
+
+    expect(s.backfilled).toBe(0);
+    expect(db.updates).toHaveLength(0); // wait — usage may finalize late
+  });
+
+  test("accepts $0 once the run has been terminal past the grace window", async () => {
+    db.setEstimated([
+      { id: "row1", detailJson: { costEstimated: true, apifyRunIds: ["r1"] } },
+    ]);
+    vi.stubGlobal(
+      "fetch",
+      mockFetchUsage(
+        { r1: null },
+        {
+          status: "TIMED-OUT",
+          finishedAt: new Date(NOW.getTime() - 20 * 60_000).toISOString(),
+        },
+      ),
+    );
+
+    const s = await reconcileMetaRuns(NOW);
+
+    expect(s.backfilled).toBe(1);
+    expect(db.updates[0].data.costUsd).toBe(0);
   });
 });

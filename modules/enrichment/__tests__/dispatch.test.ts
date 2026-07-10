@@ -12,6 +12,7 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({
+  Prisma: {},
   default: {
     enrichmentRun: {
       findUnique: vi.fn(),
@@ -1715,6 +1716,9 @@ describe("isNonRetryableFailure", () => {
   test("transient reasons (vendor blip, site down) ARE retryable", () => {
     expect(isNonRetryableFailure("contacts_fetch_failed")).toBe(false);
     expect(isNonRetryableFailure("google_ads_error")).toBe(false);
+    // INC-58 · legacy rows carry this reason for TRANSIENT pre-fix throws —
+    // treating it as structural poisoned 49 pairs into "Not available".
+    expect(isNonRetryableFailure("google_ads_skipped")).toBe(false);
     expect(isNonRetryableFailure("boom")).toBe(false);
     expect(isNonRetryableFailure(undefined)).toBe(false);
   });
@@ -1727,34 +1731,44 @@ describe("permanentlyUnavailablePairs (cross-run cap)", () => {
     expect(p.enrichmentJob.findMany).not.toHaveBeenCalled();
   });
 
-  test("flags a pair that hit the 3-attempt cross-run cap", async () => {
+  test("flags a pair that failed in 3 DISTINCT runs (the cross-run cap)", async () => {
     p.enrichmentJob.findMany.mockResolvedValue([
       {
+        id: "j1",
+        runId: "r1",
         businessId: "b1",
         family: "CONTACTS",
         errorMessage: "boom",
         finishedAt: new Date(1),
       },
       {
+        id: "j2",
+        runId: "r2",
         businessId: "b1",
         family: "CONTACTS",
         errorMessage: "boom",
         finishedAt: new Date(2),
       },
       {
+        id: "j3",
+        runId: "r3",
         businessId: "b1",
         family: "CONTACTS",
         errorMessage: "boom",
         finishedAt: new Date(3),
       },
-      // b2 only failed twice → still retryable.
+      // b2 only failed in two runs → still retryable.
       {
+        id: "j4",
+        runId: "r1",
         businessId: "b2",
         family: "CONTACTS",
         errorMessage: "boom",
         finishedAt: new Date(1),
       },
       {
+        id: "j5",
+        runId: "r2",
         businessId: "b2",
         family: "CONTACTS",
         errorMessage: "boom",
@@ -1764,6 +1778,39 @@ describe("permanentlyUnavailablePairs (cross-run cap)", () => {
     const set = await permanentlyUnavailablePairs(["b1", "b2"], ["CONTACTS"]);
     expect(set.has("b1:CONTACTS")).toBe(true);
     expect(set.has("b2:CONTACTS")).toBe(false);
+  });
+
+  // INC-58 · the cap counts DISTINCT RUNS, not FAILED rows — three attempt rows
+  // from the SAME run must not hang a 30-day "Not available" sentence.
+  test("does NOT flag a pair whose 3 failures came from the SAME run", async () => {
+    p.enrichmentJob.findMany.mockResolvedValue([
+      {
+        id: "j1",
+        runId: "r1",
+        businessId: "b1",
+        family: "CONTACTS",
+        errorMessage: "boom",
+        finishedAt: new Date(1),
+      },
+      {
+        id: "j2",
+        runId: "r1",
+        businessId: "b1",
+        family: "CONTACTS",
+        errorMessage: "boom",
+        finishedAt: new Date(2),
+      },
+      {
+        id: "j3",
+        runId: "r1",
+        businessId: "b1",
+        family: "CONTACTS",
+        errorMessage: "boom",
+        finishedAt: new Date(3),
+      },
+    ]);
+    const set = await permanentlyUnavailablePairs(["b1"], ["CONTACTS"]);
+    expect(set.has("b1:CONTACTS")).toBe(false);
   });
 
   test("flags a pair whose latest failure is structurally non-retryable (1 attempt)", async () => {
@@ -1854,5 +1901,113 @@ describe("closeRunIfDone · P5 parked-reviews stall ceiling", () => {
 
     expect(closed).toBe(false);
     expect(p.enrichmentJob.update).not.toHaveBeenCalled();
+  });
+});
+
+// ── INC-58 · zero-job fan-out must be closeable (the stuck 1-lead run) ──
+describe("zero-job fan-out (INC-58 · all pairs dead)", () => {
+  test("fanOutRun stamps fanOutEmptyJobs when the plan expects jobs but every pair is skipped", async () => {
+    p.enrichmentRun.findUnique.mockResolvedValue({
+      id: "r1",
+      status: "PENDING",
+      enrichmentsJson: ["contacts"],
+      scopeRefsJson: { businessIds: ["b1"], cellKeys: [] },
+    });
+    // b1's CONTACTS pair failed in 3 distinct runs → dead → skipped at fan-out.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    p.enrichmentJob.findMany.mockImplementation(async (args: any) =>
+      args?.where?.status === "FAILED"
+        ? [
+            {
+              id: "x1",
+              runId: "rA",
+              businessId: "b1",
+              family: "CONTACTS",
+              errorMessage: "contacts_fetch_failed",
+              finishedAt: new Date(1),
+            },
+            {
+              id: "x2",
+              runId: "rB",
+              businessId: "b1",
+              family: "CONTACTS",
+              errorMessage: "contacts_fetch_failed",
+              finishedAt: new Date(2),
+            },
+            {
+              id: "x3",
+              runId: "rC",
+              businessId: "b1",
+              family: "CONTACTS",
+              errorMessage: "contacts_fetch_failed",
+              finishedAt: new Date(3),
+            },
+          ]
+        : [],
+    );
+
+    const out = await fanOutRun("r1", new Date());
+
+    expect(out.jobsCreated).toBe(0);
+    expect(p.enrichmentJob.createMany).not.toHaveBeenCalled();
+    // The run is stamped so closeRunIfDone can close it (no infinite loop).
+    const stamp = p.enrichmentRun.update.mock.calls.find(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (c: any) => c[0]?.data?.scopeRefsJson?.fanOutEmptyJobs === true,
+    );
+    expect(stamp).toBeTruthy();
+  });
+
+  test("closeRunIfDone closes a stamped zero-job run as PARTIAL 0-done (was: infinite loop)", async () => {
+    p.enrichmentJob.count.mockResolvedValue(0);
+    p.enrichmentRun.findUnique.mockResolvedValue({
+      id: "r1",
+      agencyId: "a1",
+      status: "RUNNING",
+      actualUsd: 0,
+      startedAt: new Date(),
+      scopeRefsJson: {
+        businessIds: ["b1"],
+        cellKeys: [],
+        fanOutEmptyJobs: true,
+      },
+      enrichmentsJson: ["contacts"],
+      unitsRequested: 1,
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    p.enrichmentJob.findMany.mockImplementation(async () => []);
+
+    const closed = await closeRunIfDone("r1", new Date());
+
+    expect(closed).toBe(true);
+    expect(p.enrichmentRun.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "PARTIAL", unitsCompleted: 0 }),
+      }),
+    );
+    // Settle fires (refunds the hold) — the run never hangs.
+    expect(reconcileRunCredits).toHaveBeenCalledWith(
+      "r1",
+      expect.objectContaining({ actualCredits: 0 }),
+    );
+  });
+
+  test("an UNstamped zero-job run still refuses to close (crash-phantom protection intact)", async () => {
+    p.enrichmentJob.count.mockResolvedValue(0);
+    p.enrichmentRun.findUnique.mockResolvedValue({
+      id: "r1",
+      status: "RUNNING",
+      actualUsd: 0,
+      scopeRefsJson: { businessIds: ["b1"], cellKeys: [] },
+      enrichmentsJson: ["contacts"],
+      unitsRequested: 1,
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    p.enrichmentJob.findMany.mockImplementation(async () => []);
+
+    const closed = await closeRunIfDone("r1", new Date());
+
+    expect(closed).toBe(false);
+    expect(reconcileRunCredits).not.toHaveBeenCalled();
   });
 });

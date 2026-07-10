@@ -300,6 +300,7 @@
     <a href="#g">G · Current vs proposed — all gaps</a><br />
     <a href="#h">H · The fix plan (phased)</a><br />
     <a href="#i">I · Coverage check — nothing dropped</a><br />
+    <a href="#j">J · First contact with prod — the rerun + hotfixes</a><br />
   </div>
 
   <!-- ============ SCORECARD ============ -->
@@ -1384,6 +1385,323 @@
     terminal vs documented retry ladder. I'll write all three into incidents.md
     when implementing Phase 1.
   </div>
+
+  <!-- ============ PART J ============ -->
+  <div class="part" id="j">Part J</div>
+  <h2>
+    First contact with prod — the 04:32 rerun (v0.19.18 live) and why the fixes
+    half-worked
+  </h2>
+  <p class="sub">
+    Viktor reran enrichment ~20 min after v0.19.18 deployed (run
+    <code>cmrefu3km</code> · 45 leads ·
+    contacts/tech/lighthouse/meta_ads/google_ads · PARTIAL 44/45 · held 30cr ·
+    charged 3cr). The new pipeline engaged — chunking, detailJson telemetry, the
+    reconcile cron, honest billing — and immediately exposed
+    <b
+      >three defects the pre-ship verification could not have caught without a
+      live vendor round-trip</b
+    >, plus one poisoning interaction with legacy data.
+  </p>
+
+  <h3>What actually happened (timeline · UTC)</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Time</th>
+        <th>Event</th>
+        <th>Verdict</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="n">04:28</td>
+        <td>v0.19.18 deploys (commit 0bd9853)</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td class="n">04:32:01</td>
+        <td>
+          Rerun starts: 45 leads · 5 families · <b>held 30cr</b> (toolbar had
+          shown "~52 cr")
+        </td>
+        <td class="src">gap 4 below</td>
+      </tr>
+      <tr>
+        <td class="n">04:36:51</td>
+        <td>
+          Meta hvac chunk-1 <b>TIMED-OUT, 0 data</b> (~23 targets — chunking
+          engaged, cell is BLOCKED not slow) → FAILED row, pendingTargets 40 ·
+          real cost $0.90
+        </td>
+        <td class="src">gaps 1·2</td>
+      </tr>
+      <tr>
+        <td class="n">04:40:10</td>
+        <td>
+          meta-reconcile tick #1: <b>backfilled the row to $0</b> (wrong field →
+          undefined → "terminal, accept $0") and
+          <b>launched continuation attempt #2</b> on the blocked cell
+        </td>
+        <td><b class="r">defects 1 + 2 + 3</b></td>
+      </tr>
+      <tr>
+        <td class="n">04:41:00</td>
+        <td>
+          Run closes PARTIAL 44/45 — UI says finished (cell attempt WAS settled:
+          by design), but nothing tells the user Meta failed / keeps running
+        </td>
+        <td class="src">gap 5</td>
+      </tr>
+      <tr>
+        <td class="n">04:44:57</td>
+        <td>
+          Attempt #2 TIMED-OUT, 0 data → FAILED, pendingTargets 40 again · real
+          $0.77
+        </td>
+        <td><b class="r">runaway loop</b></td>
+      </tr>
+      <tr>
+        <td class="n">04:50:10</td>
+        <td>Tick #2 launches attempt #3</td>
+        <td><b class="r">runaway loop</b></td>
+      </tr>
+      <tr>
+        <td class="n">~04:52</td>
+        <td>
+          <b>Intervention:</b> pendingTargets neutralized on all FAILED rows
+          (Viktor-approved 3-row UPDATE); in-flight run ABORTED via API ($0.81
+          already accrued)
+        </td>
+        <td><b class="g">leak stopped</b></td>
+      </tr>
+    </tbody>
+  </table>
+  <p>
+    Total continuation waste: <b>~$1.58</b> (attempts #2+#3), caught in ~25 min.
+    Worst case uncaught: ~$250/cell over the 48h window.
+  </p>
+
+  <h3>The defects — current vs fixed (hotfix v0.19.19, gate-green)</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Defect</th>
+        <th>Mechanism</th>
+        <th class="n">Score before</th>
+        <th>Fix</th>
+        <th class="n">After</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="hi">
+        <td>
+          <b>1 · Wrong Apify usage field — since day one</b>
+          <span class="pill p-r">critical · root-cause correction</span>
+        </td>
+        <td>
+          Usage lives at <code>data.usageTotalUsd</code> (TOP-LEVEL,
+          live-updating mid-run). <code>data.stats.usageTotalUsd</code> NEVER
+          existed on the detail endpoint — every poll read undefined, so billing
+          ALWAYS fell to the fallback. INC-48 ("finalizes a beat later") and the
+          elapsed×memory estimate were treating symptoms of a mis-read field.
+          Proven: same run = $0.77 top-level, absent in stats.
+        </td>
+        <td class="n">1</td>
+        <td>
+          Read <code>data.usageTotalUsd ?? data.stats.usageTotalUsd</code> at
+          all 3 read sites (poll, refetch, backfill). Real usage now lands live
+          — the estimate becomes a rare last resort.
+        </td>
+        <td class="n">9</td>
+      </tr>
+      <tr class="hi">
+        <td>
+          <b>2 · Runaway reconcile-continuation</b>
+          <span class="pill p-r">critical · money</span>
+        </td>
+        <td>
+          Continuation scanned <code>pendingTargets&gt;0</code> without checking
+          row STATUS; the collector writes pendingTargets on hard-FAILED
+          0-progress rows too. A Meta-BLOCKED cell (hvac — chunking can't fix a
+          session block) got re-attempted every 10-min tick at ~$0.85/attempt
+          for up to 48h.
+        </td>
+        <td class="n">1</td>
+        <td>
+          Gate: newest row must be <b>PARTIAL</b> (real progress) + per-cell
+          attempt cap (4 rows/48h → parked, marker zeroed). FAILED cells →
+          user-driven purchase retry only. Regression tests for both.
+        </td>
+        <td class="n">9</td>
+      </tr>
+      <tr>
+        <td>
+          <b>3 · $0 backfill zeroed real spend</b>
+          <span class="pill p-a">major · books</span>
+        </td>
+        <td>
+          With the field unreadable, "terminal → accept $0" fired 3.5 min after
+          terminal and overwrote a real $0.90 row with 0.
+        </td>
+        <td class="n">2</td>
+        <td>
+          $0 accepted only when terminal ≥15 min (vendor's own finishedAt). With
+          defect 1 fixed this is a belt.
+        </td>
+        <td class="n">9</td>
+      </tr>
+      <tr>
+        <td>
+          <b>4 · Legacy-reason poisoning of the dead-pair ledger</b>
+          <span class="pill p-a">major · quote honesty</span>
+        </td>
+        <td>
+          49 pre-fix google_ads FAILED rows carry reason
+          <code>google_ads_skipped</code> (they were TRANSIENT DfS throws,
+          swallowed). The new taxonomy listed that reason as non-retryable →
+          those pairs read "permanently unavailable" → excluded from the quote +
+          skipped at fan-out. THIS is most of the toolbar-52 vs held-30 gap: the
+          server honestly refused to sell doomed-looking pairs the CLIENT still
+          counted.
+        </td>
+        <td class="n">3</td>
+        <td>
+          <code>google_ads_skipped</code> removed from the non-retryable set
+          (new code writes <code>google_ads_error</code> for transients); the
+          3-attempt cross-run cap still covers genuine repeat offenders.
+        </td>
+        <td class="n">8</td>
+      </tr>
+      <tr>
+        <td>
+          <b>5 · Silent background collection</b>
+          <span class="pill p-a">major · UX trust</span>
+        </td>
+        <td>
+          The run closes once the cell ATTEMPT settles (by design), and the
+          continuation/failure is invisible — the user sees "finished", then
+          watches new actor runs appear in the Apify console. No surface says
+          "Meta ads couldn't be collected for Hvac·Kelowna (not charged)".
+        </td>
+        <td class="n">2</td>
+        <td>
+          UI follow-up (Viktor's browser lane): per-family close report line + a
+          "market signals: failed · not charged" chip. Server data already
+          exists (AdMarketRun status + family-coverage states).
+        </td>
+        <td class="n">deferred</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>
+    The deep-dive verdicts (13-agent adversarial pass · every claim CONFIRMED
+    against live DB + Apify API)
+  </h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Question</th>
+        <th>Verified answer</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="hi">
+        <td><b>Why does the hvac Meta cell fail even chunked?</b></td>
+        <td>
+          <b
+            >It's session/IP soft-blocked — because our residential proxy exits
+            from RANDOM COUNTRIES.</b
+          >
+          The 3 failed runs exited from Italy, US, and Ecuador (every target:
+          <code>blocked</code>, graphqlHits=0 — the data query never fired); the
+          one dental success drew a Canadian exit (Shaw, Saskatoon) and reached
+          the data instantly. Root cause: the platform injects the schema's
+          default proxyConfiguration (no countryCode) into every input, making
+          the actor's own countryCode fallback dead code. <b>Fixed app-side</b>:
+          the adapter now pins <code>countryCode = target country</code> — works
+          with the deployed actor, no apify push. The 280s timeouts were a
+          SYMPTOM (blocked targets retry expensively), not a speed ceiling.
+          Chunking was never going to fix this; the store-actor fallback remains
+          the belt.
+        </td>
+      </tr>
+      <tr>
+        <td><b>52 vs 30 vs 3 credits — exact reconciliation</b></td>
+        <td>
+          Toolbar ~52 = pure CLIENT math counting dead pairs + omitting the Meta
+          cell fee. Held 30 = server truth: contacts 5×1 + meta 1 stale cell×25;
+          lighthouse + google_ads netted to 0 (7 + 40 businesses dead-paired —
+          the google 40/45=89% is the <code>google_ads_skipped</code> poisoning,
+          worth 38 of the toolbar's 52). Charged 3 = exactly the 3 contacts that
+          delivered; refund 27 = Meta cell FAILED (outcome gate) 25 + 2 failed
+          contacts. <b>Billing behaved perfectly — the client display lied.</b>
+        </td>
+      </tr>
+      <tr>
+        <td><b>The 42-of-45 plateau</b></td>
+        <td>
+          <b>Not a counter bug — the counter worked exactly as designed.</b> 40
+          seeded at fan-out (all-fresh businesses), 41 → 42 as leads landed,
+          then a 3m24s plateau while 3 businesses cycled the NEW retry backoff
+          (2-then-4-minute waits), 43 → failed=1 → 44 → close. The visible cost
+          is UX: a failing lead now takes ~9 min of honest retrying with no
+          "retrying…" indicator.
+        </td>
+      </tr>
+      <tr>
+        <td><b>The stuck "0 of 1" run</b></td>
+        <td>
+          A legitimate user click (single-lead contacts enrich, $0 estimate)
+          that became an <b>immortal zombie</b>: the lead's contacts failed in 3
+          distinct runs → dead pair → fan-out created ZERO jobs → the
+          crash-phantom guard refused to close → reconcileStuck re-fanned it
+          every 15 min forever (verifier caught it mid-loop, re-stamped
+          04:50→05:06). <b>Fixed</b>: cap counts distinct RUNS; a
+          completed-but-empty fan-out is stamped and closes as PARTIAL·0-done
+          within a tick; the run self-heals after deploy.
+        </td>
+      </tr>
+      <tr>
+        <td><b>What email goes out?</b></td>
+        <td>
+          One per closed run: outcome + enriched + failed (requested−enriched) +
+          credits refunded + workbench link. Business-unit honest since v0.19.18
+          — but <b>no per-family line</b>: a failed Meta cell is invisible in
+          it, and an all-businesses-OK run with a dead Meta cell even closes
+          "OK".
+        </td>
+      </tr>
+      <tr>
+        <td><b>UX honesty verdict</b></td>
+        <td>
+          <b>NOTHING in the product says "Meta ads couldn't be collected".</b>
+          The done-state's failure callout structurally can't list cell families
+          (no ads/serp stage; keys on job rows cells never create); run status
+          ignores cell outcomes; the only signal is per-row "failed · retry"
+          chips that invite a paid duplicate racing the background continuation.
+          Ranked UI fixes (Viktor's lane): (1) per-cell close report folded into
+          run status + done-state/toast/email line; (2) "Market signals: failed
+          / still collecting" chip; (3) server-net in the sheet before Run + "up
+          to" toolbar label; (4) "Not available" grey state.
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Why pre-ship verification missed these</h3>
+  <p>
+    Every unit/adversarial check validated the code against MOCKED vendor
+    payloads — which encoded the same wrong assumption
+    (<code>stats.usageTotalUsd</code>) the code made. Defects 1–3 were only
+    observable on a LIVE vendor round-trip, and defect 4 only against REAL
+    legacy rows. Lesson encoded in INC-58: verify the actual vendor payload with
+    one curl before building billing on a field; a fallback that fires ~100% of
+    the time means the primary path is broken; every scheduled auto-retry needs
+    progress-predicate + attempt-cap + kill-switch from birth; and after any
+    money-path deploy, watch the first real run end-to-end before walking away.
+  </p>
 
   <div class="foot">
     Mapsly · run forensics · 2026-07-10 · Method: 4 parallel investigators over

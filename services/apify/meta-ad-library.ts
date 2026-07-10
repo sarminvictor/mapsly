@@ -265,7 +265,25 @@ async function metaAdLibrarySearchRaw(
   } = await runActor<unknown>({
     actorId: ACTOR_ID,
     operation: OPERATION,
-    input: parsed,
+    input: {
+      ...parsed,
+      // INC-58 · PIN THE RESIDENTIAL EXIT TO THE TARGET COUNTRY. The Apify
+      // platform injects the INPUT_SCHEMA's default proxyConfiguration
+      // ({useApifyProxy, RESIDENTIAL} — no countryCode) into every run input,
+      // so the actor's own `?? { countryCode }` fallback is dead code and runs
+      // exited from RANDOM countries (Italy/US/Ecuador on the failed hvac
+      // attempts vs a lucky Canadian exit on the one dental success). A
+      // CA-targeted Ad Library query from an Ecuador IP is exactly the geo
+      // mismatch Meta soft-blocks (graphqlHits=0 on every target — the "cell
+      // looks blocked" signature). Passing it explicitly here turns the
+      // proxy-country coin-flip into always-matching, with the CURRENTLY
+      // deployed actor (main.js already honors input.proxyConfiguration).
+      proxyConfiguration: {
+        useApifyProxy: true,
+        apifyProxyGroups: ["RESIDENTIAL"],
+        countryCode: parsed.countries[0],
+      },
+    },
     fallbackCostUsd: FALLBACK_COST_USD,
     estUsdPerGbHour: META_EST_USD_PER_GB_HOUR,
   });

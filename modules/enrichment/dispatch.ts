@@ -27,7 +27,7 @@
 
 import pLimit from "p-limit";
 
-import prisma from "@/lib/prisma";
+import prisma, { Prisma } from "@/lib/prisma";
 import { parseCellKey } from "@/lib/cell";
 import {
   ENRICHMENT_PRICES,
@@ -123,13 +123,22 @@ function backoffUntil(attempts: number, now: Date): Date {
 //   - lighthouse_0_audited         · open+walled already tried; retry risks the
 //                                    $0.06 walled actor for ~no recall gain
 //   - google_ads_no-website        · no host to target the ads_search on
-//   - google_ads_skipped           · unknown business / nothing to collect
+//
+// INC-58 · `google_ads_skipped` was REMOVED from this set. 49 LEGACY FAILED
+// rows carry that reason for what were TRANSIENT DfS throws (the pre-fix
+// collector swallowed them as outcome "skipped"; 11/13 hand-retries succeeded)
+// — keeping it here poisoned the permanent-failure ledger: those 49
+// (business, google_ads) pairs read "permanently unavailable" for 30 days, got
+// EXCLUDED from quotes and SKIPPED at fan-out (the rerun quoted google_ads at a
+// fraction of its true billable count · held 30 vs the shown ~52). The NEW
+// collector writes `google_ads_error` for transient vendor errors and
+// "skipped" only for an unknown-business edge — rare enough that the cross-run
+// 3-attempt cap covers it without a reason-level sentence.
 const NON_RETRYABLE_FAILURE_REASONS: ReadonlySet<string> = new Set([
   "contacts_skipped_no_source",
   "reviews_submit_failed",
   "lighthouse_0_audited",
   "google_ads_no-website",
-  "google_ads_skipped",
 ]);
 /** True when a soft-failure reason cannot (or should not) be auto-retried. */
 export function isNonRetryableFailure(reason: string | undefined): boolean {
@@ -187,25 +196,37 @@ export async function permanentlyUnavailablePairs(
       },
     },
     select: {
+      id: true,
+      runId: true,
       businessId: true,
       family: true,
       errorMessage: true,
       finishedAt: true,
     },
   });
-  const count = new Map<string, number>();
+  // INC-58 · the cap counts DISTINCT RUNS that failed, not FAILED rows. The
+  // in-run backoff ladder writes one terminal row per run, but historic rows +
+  // reruns stack fast — counting rows let a single afternoon of retries hang a
+  // 30-day "Not available" sentence (the stuck 1-lead run: 3 rows from 3 runs
+  // over 4.5h). Distinct-runs is the honest "we tried on N separate occasions".
+  const runsPerPair = new Map<string, Set<string>>();
   const latest = new Map<string, { at: number; reason: string | null }>();
   for (const j of failed) {
     const k = pairKey(j.businessId, j.family as JobFamily);
-    count.set(k, (count.get(k) ?? 0) + 1);
+    const runsSet = runsPerPair.get(k) ?? new Set<string>();
+    runsSet.add(j.runId ?? j.id); // run-less legacy rows count individually
+    runsPerPair.set(k, runsSet);
     const at = j.finishedAt ? j.finishedAt.getTime() : 0;
     const prev = latest.get(k);
     if (!prev || at >= prev.at) latest.set(k, { at, reason: j.errorMessage });
   }
   const dead = new Set<string>();
-  for (const [k, n] of count) {
+  for (const [k, runs] of runsPerPair) {
     const reason = latest.get(k)?.reason ?? undefined;
-    if (n >= PERMANENT_FAILURE_ATTEMPT_CAP || isNonRetryableFailure(reason)) {
+    if (
+      runs.size >= PERMANENT_FAILURE_ATTEMPT_CAP ||
+      isNonRetryableFailure(reason)
+    ) {
       dead.add(k);
     }
   }
@@ -944,6 +965,10 @@ export async function fanOutRun(
     status: "QUEUED" | "SKIPPED_FRESH" | "CHARGED_FROM_DB" | "SKIPPED_ENTITLED";
     costUsd: number;
     runId: string;
+    // INC-58 · terminal-at-creation rows (fresh/entitled/db-served) get
+    // finishedAt stamped so per-business terminal-time queries don't read NULL
+    // for businesses whose every family was already satisfied.
+    finishedAt: Date | null;
   }[] = [];
   let skippedUnavailable = 0;
   for (const id of orderedIds) {
@@ -970,6 +995,7 @@ export async function fanOutRun(
           status: decision.status,
           costUsd: decision.run ? entry.plannedUsd : 0,
           runId,
+          finishedAt: decision.status === "QUEUED" ? null : now,
         });
       } else {
         jobRows.push({
@@ -978,6 +1004,7 @@ export async function fanOutRun(
           status: alreadyFresh ? "SKIPPED_FRESH" : "QUEUED",
           costUsd: alreadyFresh ? 0 : entry.plannedUsd,
           runId,
+          finishedAt: alreadyFresh ? now : null,
         });
       }
     }
@@ -998,6 +1025,37 @@ export async function fanOutRun(
         feature: "enrichment",
         runId,
         pairs: skippedUnavailable,
+      }),
+    );
+  }
+
+  // INC-58 · ZERO-JOB FAN-OUT MUST BE CLOSEABLE. When the plan expects
+  // per-business jobs but every pair was skipped (all dead pairs, or an empty/
+  // all-hidden scope), the run has 0 job rows — indistinguishable, to
+  // closeRunIfDone's phantom-guard, from a fan-out that crashed before
+  // createMany. The guard refused to close it, reconcileStuck reset it to
+  // PENDING every 15 min, and fan-out skipped everything again: an INFINITE
+  // "Enriching · 0 of 1 · updating live" loop (Viktor's stuck 1-lead retry).
+  // Stamp the run so the guard knows fan-out COMPLETED with legitimately zero
+  // jobs — closeRunIfDone then closes it honestly (0 done, hold refunded).
+  if (plan.length > 0 && jobRows.length === 0) {
+    await prisma.enrichmentRun.update({
+      where: { id: runId },
+      data: {
+        scopeRefsJson: {
+          ...(scope as Record<string, unknown>),
+          fanOutEmptyJobs: true,
+        } as Prisma.InputJsonValue,
+      },
+    });
+    console.log(
+      JSON.stringify({
+        level: "warn",
+        event: "enrich.fanout.zero_jobs",
+        feature: "enrichment",
+        runId,
+        skippedUnavailable,
+        scopeSize: orderedIds.length,
       }),
     );
   }
@@ -1360,6 +1418,9 @@ export async function processJob(
         status: "DONE",
         costUsd: plannedUsd,
         finishedAt: new Date(),
+        // A retry that SUCCEEDED must not keep attempt-1's failure message —
+        // a DONE row with "contacts_fetch_failed" reads as a contradiction.
+        errorMessage: null,
       },
     });
     await bumpRunProgress(job.runId, job.businessId);
@@ -1677,11 +1738,18 @@ export async function closeRunIfDone(
   // whose fan-out died before createMany (phantom — must NOT close as OK with 0
   // units; reconcileStuck resets it to PENDING to re-fan-out), OR a genuinely
   // cell-only run (meta/google/serp inline, no per-business jobs — legitimately
-  // has no job rows). Distinguish by the plan: buildJobPlan empty === cell-only.
+  // has no job rows), OR (INC-58) a fan-out that COMPLETED with zero jobs
+  // because every (business, family) pair was skipped (dead pairs / empty
+  // scope) — fanOutRun stamps `fanOutEmptyJobs` for that case. Without the
+  // stamp, the phantom-guard + reconcileStuck looped such runs PENDING↔RUNNING
+  // forever ("Enriching · 0 of 1" never finishing).
+  const fanOutEmptyJobs =
+    ((run.scopeRefsJson ?? {}) as { fanOutEmptyJobs?: boolean })
+      .fanOutEmptyJobs === true;
   if (jobs.length === 0) {
     const has = (f: EnrichmentType) => families.includes(f);
     const cellOnly = buildJobPlan(has).length === 0;
-    if (!cellOnly) {
+    if (!cellOnly && !fanOutEmptyJobs) {
       // Phantom half-fanned run — leave it RUNNING; reconcileStuck recovers it.
       return false;
     }
@@ -1743,10 +1811,13 @@ export async function closeRunIfDone(
   // settlement is immediate on big runs and never delayed behind the expert
   // layer. Then hand playbook execution to the Boxly worker (inline fallback).
   // WP4-3 · unitsCompleted is now the BUSINESS-level done count.
+  // INC-58 · an empty-fan-out close (every pair skipped) is PARTIAL, not OK —
+  // the user asked for units and got none; "OK · 0 of 1" would be a lie.
+  const emptyClose = fanOutEmptyJobs && jobs.length === 0 && bizDone === 0;
   await prisma.enrichmentRun.update({
     where: { id: runId },
     data: {
-      status: bizFailed > 0 ? "PARTIAL" : "OK",
+      status: bizFailed > 0 || emptyClose ? "PARTIAL" : "OK",
       unitsCompleted: bizDone,
       actualUsd: totalUsd,
     },

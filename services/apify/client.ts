@@ -301,23 +301,29 @@ export async function runActor<T = unknown>(
         status?: string;
         defaultDatasetId?: string;
         defaultKeyValueStoreId?: string;
+        /** INC-58 · usage lives TOP-LEVEL on the run object. */
+        usageTotalUsd?: number;
         stats?: { usageTotalUsd?: number };
       };
     };
     status = runJson.data?.status ?? status;
     datasetId = runJson.data?.defaultDatasetId ?? datasetId;
     keyValueStoreId = runJson.data?.defaultKeyValueStoreId ?? keyValueStoreId;
-    usageTotalUsd = runJson.data?.stats?.usageTotalUsd ?? usageTotalUsd;
+    usageTotalUsd =
+      runJson.data?.usageTotalUsd ??
+      runJson.data?.stats?.usageTotalUsd ??
+      usageTotalUsd;
   }
 
-  // INC-48 · Apify finalizes `stats.usageTotalUsd` a beat AFTER the run goes
-  // terminal, so the last in-loop poll usually still reads 0. A single fixed
-  // re-fetch loses that race under concurrency → billing fell back to a flat
-  // constant (~1% of actual) and the cost ceiling went blind. Poll the finalized
-  // cost with a bounded backoff until it's non-zero, so the CronRun ledger is
-  // accurate. Best-effort: any read failure keeps whatever we last saw and tries
-  // again next tick. Breaks the instant a non-zero lands (a real run finalizes in
-  // ~1-2 ticks); only a genuine ~$0 run runs the full budget.
+  // INC-58 (2026-07-10) · CORRECTED DIAGNOSIS. The run object's usage lives at
+  // `data.usageTotalUsd` (TOP-LEVEL) — `data.stats.usageTotalUsd` has NEVER
+  // existed on this endpoint, so every poll read `undefined` and billing always
+  // fell to the fallback ($0.02 · the blind-books bug). INC-48's "finalizes a
+  // beat later" was a misdiagnosis of the same symptom. The top-level field
+  // even updates LIVE during the run (verified against a RUNNING run), so the
+  // in-loop poll normally has the real figure before terminal. This refetch
+  // loop stays as a short belt for the rare 0-at-terminal read; the estimate
+  // below is the last resort.
   for (let i = 0; i < USAGE_REFETCH_ATTEMPTS && usageTotalUsd <= 0; i++) {
     try {
       await getSleep()(USAGE_REFETCH_INTERVAL_MS);
@@ -328,13 +334,15 @@ export async function runActor<T = unknown>(
       if (!finalRes.ok) continue;
       const fj = (await finalRes.json()) as {
         data?: {
+          usageTotalUsd?: number;
           stats?: { usageTotalUsd?: number };
           defaultDatasetId?: string;
           defaultKeyValueStoreId?: string;
         };
       };
-      if (typeof fj.data?.stats?.usageTotalUsd === "number") {
-        usageTotalUsd = fj.data.stats.usageTotalUsd;
+      const fetched = fj.data?.usageTotalUsd ?? fj.data?.stats?.usageTotalUsd;
+      if (typeof fetched === "number") {
+        usageTotalUsd = fetched;
       }
       datasetId = fj.data?.defaultDatasetId ?? datasetId;
       keyValueStoreId = fj.data?.defaultKeyValueStoreId ?? keyValueStoreId;

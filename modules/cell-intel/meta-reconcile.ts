@@ -33,6 +33,10 @@ const APIFY_BASE_URL =
 const LOOKBACK_MS = 48 * 60 * 60 * 1000;
 const MAX_BACKFILL_ROWS = 20;
 const MAX_CONTINUATIONS = 2;
+// INC-58 · hard per-cell bound: initial attempt + at most this many total rows
+// inside the lookback. Past it the cell is parked (pending marker zeroed) —
+// even a PARTIAL-looping cell can't burn proxy $ for the whole 48h window.
+const MAX_CELL_ATTEMPTS_IN_WINDOW = 4;
 const FETCH_TIMEOUT_MS = 15_000;
 
 export interface MetaReconcileSummary {
@@ -46,15 +50,27 @@ export interface MetaReconcileSummary {
 /** Fetch one Apify run's FINALIZED usage. Null = not finalized yet / unreadable
  *  (the sweep just retries next tick — never guesses). */
 const APIFY_TERMINAL = new Set(["SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"]);
+// INC-58 · $0 on a terminal run is only believable once the run has been
+// terminal for a while — the 04:36 hvac row got its REAL $0.77 zeroed because
+// the backfill read a wrong field 3.5 min after terminal and trusted "$0 +
+// terminal". With the field fixed this is a belt, not the fix.
+const ZERO_USAGE_GRACE_MS = 15 * 60_000;
 
 /**
  * Fetch a run's finalized usage. Returns the number once we can TRUST it:
- * a positive usage, OR $0 on a run Apify has marked TERMINAL (a genuinely-free
- * or fully-reconciled run — accepting it clears the estimate flag instead of
- * looping forever and starving the take-20 window · verifier hole). null means
- * "not settled yet" (unreadable, or still-running with 0 usage) → retry next tick.
+ * a positive usage, OR $0 on a run Apify marked TERMINAL at least
+ * ZERO_USAGE_GRACE_MS ago (a genuinely-free run — accepting it clears the
+ * estimate flag instead of looping forever and starving the take-20 window).
+ * null means "not settled yet" → retry next tick.
+ *
+ * INC-58 · usage lives at `data.usageTotalUsd` (TOP-LEVEL) — reading
+ * `data.stats.usageTotalUsd` (which never existed) made every backfill see
+ * undefined and the terminal-$0 branch zeroed REAL spend.
  */
-async function fetchFinalizedUsage(runId: string): Promise<number | null> {
+async function fetchFinalizedUsage(
+  runId: string,
+  now: Date,
+): Promise<number | null> {
   const token = process.env.APIFY_TOKEN;
   if (!token) return null;
   try {
@@ -64,13 +80,28 @@ async function fetchFinalizedUsage(runId: string): Promise<number | null> {
     });
     if (!res.ok) return null;
     const j = (await res.json()) as {
-      data?: { status?: string; stats?: { usageTotalUsd?: number } };
+      data?: {
+        status?: string;
+        finishedAt?: string;
+        usageTotalUsd?: number;
+        stats?: { usageTotalUsd?: number };
+      };
     };
-    const usage = j.data?.stats?.usageTotalUsd;
+    const usage = j.data?.usageTotalUsd ?? j.data?.stats?.usageTotalUsd;
     if (typeof usage === "number" && usage > 0) return usage;
-    // $0: trust it only once the run is terminal (Apify finalized it at $0);
-    // a still-running/queued run reporting 0 isn't settled — wait.
-    if (j.data?.status && APIFY_TERMINAL.has(j.data.status)) return 0;
+    // $0: trust it only on a run that has been TERMINAL for the grace window —
+    // a just-terminal (or still-running) run reporting 0 isn't settled: wait.
+    if (j.data?.status && APIFY_TERMINAL.has(j.data.status)) {
+      const finishedAt = j.data.finishedAt
+        ? Date.parse(j.data.finishedAt)
+        : NaN;
+      if (
+        Number.isFinite(finishedAt) &&
+        now.getTime() - finishedAt >= ZERO_USAGE_GRACE_MS
+      ) {
+        return 0;
+      }
+    }
     return null;
   } catch {
     return null;
@@ -125,7 +156,9 @@ export async function reconcileMetaRuns(
       });
       continue;
     }
-    const usages = await Promise.all(runIds.map(fetchFinalizedUsage));
+    const usages = await Promise.all(
+      runIds.map((id) => fetchFinalizedUsage(id, now)),
+    );
     if (usages.some((u) => u == null)) continue; // not finalized — next tick
     const total = usages.reduce<number>((s, u) => s + (u ?? 0), 0);
     await prisma.adMarketRun.update({
@@ -143,6 +176,15 @@ export async function reconcileMetaRuns(
   }
 
   // ── B · chunk continuation ─────────────────────────────────────────────────
+  // INC-58 · continuation is for BUDGET-STOPPED collections that made REAL
+  // progress — the newest row must be PARTIAL (some chunk verified/salvaged)
+  // with pendingTargets > 0. A hard-FAILED 0-progress row (a blocked cell, e.g.
+  // Meta fingerprint-blocking the session) must NEVER be auto-continued: the
+  // first shipped version retried the blocked hvac cell every 10 minutes at
+  // ~$0.9/attempt (caught + neutralized by hand within ~25 min). FAILED cells
+  // stay on the purchase-path retry (user-driven, freshness-gate-free). A
+  // per-cell attempt CAP inside the lookback bounds even the PARTIAL path so a
+  // pathological cell can't loop for the whole 48h window.
   const pendingRows = await prisma.adMarketRun.findMany({
     where: {
       platform: "META",
@@ -166,15 +208,45 @@ export async function reconcileMetaRuns(
   const continuations: { cellKey: string; outcome: string }[] = [];
   for (const cellKey of cells) {
     if (continued >= MAX_CONTINUATIONS) break;
-    // Only continue when the cell's NEWEST row still reports pending targets —
-    // a prior continuation tick may already have finished it.
+    // Gate 1 · the cell's NEWEST row must be a REAL-PROGRESS partial that still
+    // reports pending targets (a prior tick may have finished it; a FAILED
+    // newest row means the last attempt yielded nothing → stop).
     const latest = await prisma.adMarketRun.findFirst({
       where: { cellKey, platform: "META" },
       orderBy: { ranAt: "desc" },
-      select: { detailJson: true },
+      select: { status: true, detailJson: true },
     });
     const pend = Number(detailOf(latest?.detailJson ?? null).pendingTargets);
+    if (latest?.status !== "PARTIAL") continue;
     if (!Number.isFinite(pend) || pend <= 0) continue;
+    // Gate 2 · per-cell attempt cap inside the lookback: initial attempt + at
+    // most MAX_CELL_ATTEMPTS_IN_WINDOW total rows. Past it, park the cell (zero
+    // the pending marker so the scan stops re-visiting it).
+    const attemptsInWindow = await prisma.adMarketRun.count({
+      where: { cellKey, platform: "META", ranAt: { gte: since } },
+    });
+    if (attemptsInWindow >= MAX_CELL_ATTEMPTS_IN_WINDOW) {
+      // Park the cell: zero the newest row's pending marker so the scan stops
+      // re-visiting it (best-effort, one row).
+      const newest = await prisma.adMarketRun.findFirst({
+        where: { cellKey, platform: "META" },
+        orderBy: { ranAt: "desc" },
+        select: { id: true, detailJson: true },
+      });
+      if (newest) {
+        await prisma.adMarketRun.update({
+          where: { id: newest.id },
+          data: {
+            detailJson: {
+              ...detailOf(newest.detailJson),
+              pendingTargets: 0,
+              reconcileNote: "attempt-cap-reached",
+            } as Prisma.InputJsonValue,
+          },
+        });
+      }
+      continue;
+    }
     const res = await runMetaAdsForCell(cellKey, now, {
       ignoreFreshness: true,
     });
