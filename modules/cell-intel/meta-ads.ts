@@ -282,8 +282,7 @@ export async function runMetaAdsForCell(
     const lastAt = recent[0]?.ranAt ?? null;
     const inCooldown =
       lastAt !== null &&
-      now.getTime() - lastAt.getTime() <
-        META_BLOCK_COOLDOWN_HOURS * 3_600_000;
+      now.getTime() - lastAt.getTime() < META_BLOCK_COOLDOWN_HOURS * 3_600_000;
     if (allFailed && inCooldown) {
       result.outcome = "deferred";
       result.errors.push(`meta-cooldown:${recent.length}-fails`);
@@ -641,7 +640,8 @@ export async function runMetaAdsForCell(
     for (const b of unresolvedBiz) {
       if (claimedBiz.has(b.id)) continue;
       const score = matchStrength(a.pageName, b.name);
-      if (score > 0 && (!best || score > best.score)) best = { id: b.id, score };
+      if (score > 0 && (!best || score > best.score))
+        best = { id: b.id, score };
     }
     if (!best) continue;
     byPageId.set(pid, best.id);

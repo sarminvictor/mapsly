@@ -147,7 +147,13 @@ function primeUrl() {
 // how far a hung run got. The adapter's safeParse ignores recordType:"debug".
 async function bc(step, extra) {
   _bcN += 1;
-  const rec = { recordType: "debug", n: _bcN, step, t: Date.now(), ...(extra ?? {}) };
+  const rec = {
+    recordType: "debug",
+    n: _bcN,
+    step,
+    t: Date.now(),
+    ...(extra ?? {}),
+  };
   // KV setValue is an immediate PUT that survives a SIGKILL — BC_LAST always holds
   // the last step reached even if the dataset push is buffered/lost. Always on
   // (one overwritten record, near-zero cost, the key diagnostic).
@@ -411,7 +417,9 @@ function flattenAd(node, target) {
     startDate: node.start_date
       ? new Date(node.start_date * 1000).toISOString()
       : null,
-    endDate: node.end_date ? new Date(node.end_date * 1000).toISOString() : null,
+    endDate: node.end_date
+      ? new Date(node.end_date * 1000).toISOString()
+      : null,
     isActive: node.is_active ?? null,
     collationCount: node.collation_count ?? null,
     searchTerm: target.label === "search" ? target.subject : null,
@@ -529,7 +537,9 @@ async function resolvePageIdHttp(page, handleOrUrl) {
   // resolve needed. fbPageUrl() rejects profile.php, so extract it here first
   // (Meta blocks the raw HTTP resolve of most handle pages, so any id we can read
   // straight off the URL is a guaranteed win). 2026-07-10.
-  const direct = String(handleOrUrl).match(/profile\.php\?(?:[^#]*&)?id=(\d{6,})/i);
+  const direct = String(handleOrUrl).match(
+    /profile\.php\?(?:[^#]*&)?id=(\d{6,})/i,
+  );
   if (direct) return direct[1];
   const url = fbPageUrl(handleOrUrl);
   if (!url) return null;
@@ -594,7 +604,8 @@ async function directScrape(page, target, store, creds) {
           headers: {
             "content-type": "application/x-www-form-urlencoded",
             "x-fb-lsd": lsd,
-            "x-fb-friendly-name": run.reqFriendly || "AdLibrarySearchPaginationQuery",
+            "x-fb-friendly-name":
+              run.reqFriendly || "AdLibrarySearchPaginationQuery",
             "x-asbd-id": "129477",
             origin: "https://www.facebook.com",
             referer: buildUrl(target),
@@ -617,7 +628,9 @@ async function directScrape(page, target, store, creds) {
     if (!reachedDataQuery(text)) {
       // An error payload (`{"errors":[…]}` no data) is a BLOCK, not an empty.
       if (/"errors?"\s*:/.test(text) && !/"data"\s*:/.test(text)) {
-        log.warning(`[direct] error payload for "${target.subject}" p${pageNum}`);
+        log.warning(
+          `[direct] error payload for "${target.subject}" p${pageNum}`,
+        );
         return anyReached ? "verified" : "unavailable";
       }
       // A well-formed ad-key-less body still means the server answered — a

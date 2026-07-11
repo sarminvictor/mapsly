@@ -1,224 +1,1088 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Research-run architecture · start/track/finish · score + options · 2026-07-10</title>
-<style>
-  :root{
-    --bg:#0f1117; --panel:#171a22; --panel2:#1d2130; --ink:#e8ecf4; --sub:#9aa4b8;
-    --line:#2a2f3d; --accent:#5b3df5; --accent2:#7c66ff; --good:#2fbf71; --warn:#e0a500;
-    --bad:#e5484d; --badbg:#2a1618; --goodbg:#132318; --warnbg:#241f10;
-    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
-  }
-  @media (prefers-color-scheme: light){
-    :root{ --bg:#f6f7fb; --panel:#fff; --panel2:#f0f2f8; --ink:#1a1d26; --sub:#5c667c;
-      --line:#e2e6ef; --badbg:#fdecec; --goodbg:#e8f7ee; --warnbg:#fbf4dd; }
-  }
-  :root[data-theme="dark"]{ --bg:#0f1117; --panel:#171a22; --panel2:#1d2130; --ink:#e8ecf4; --sub:#9aa4b8; --line:#2a2f3d; --badbg:#2a1618; --goodbg:#132318; --warnbg:#241f10; }
-  :root[data-theme="light"]{ --bg:#f6f7fb; --panel:#fff; --panel2:#f0f2f8; --ink:#1a1d26; --sub:#5c667c; --line:#e2e6ef; --badbg:#fdecec; --goodbg:#e8f7ee; --warnbg:#fbf4dd; }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
-  .wrap{max-width:1120px;margin:0 auto;padding:40px 22px 90px}
-  header.top{border-bottom:1px solid var(--line);padding-bottom:22px;margin-bottom:30px}
-  .kicker{font:600 12px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent2)}
-  h1{font-size:28px;line-height:1.2;margin:12px 0 8px;letter-spacing:-.02em}
-  h2{font-size:20px;margin:44px 0 14px;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
-  h2 .n{font:700 13px/1 var(--mono);color:var(--accent2);background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:6px 9px}
-  h3{font-size:16px;margin:24px 0 9px}
-  p{margin:10px 0}
-  .sub{color:var(--sub)}
-  .meta{color:var(--sub);font:500 13px/1.5 var(--mono)}
-  code{font:600 12px/1 var(--mono);background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:2px 5px}
-  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:16px 0}
-  .tldr{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:14px;padding:22px 24px}
-  .grid{display:grid;gap:14px}
-  .g2{grid-template-columns:1fr 1fr} .g4{grid-template-columns:repeat(4,1fr)}
-  @media(max-width:760px){.g2,.g4{grid-template-columns:1fr}}
-  .stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px 16px}
-  .stat .v{font:800 25px/1 var(--mono);letter-spacing:-.02em}
-  .stat .l{color:var(--sub);font-size:12.5px;margin-top:6px}
-  .stat.bad .v{color:var(--bad)} .stat.good .v{color:var(--good)} .stat.warn .v{color:var(--warn)}
-  .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;margin:16px 0}
-  table{border-collapse:collapse;width:100%;font-size:13px;min-width:680px}
-  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
-  thead th{background:var(--panel2);font:700 11.5px/1.3 var(--mono);letter-spacing:.03em;color:var(--sub);text-transform:uppercase}
-  tbody tr:last-child td{border-bottom:none}
-  tbody tr:hover{background:var(--panel2)}
-  .num{font-family:var(--mono);text-align:right;white-space:nowrap}
-  .mono{font-family:var(--mono)}
-  .score{font:800 14px/1 var(--mono);padding:3px 8px;border-radius:7px;display:inline-block;min-width:40px;text-align:center}
-  .s-lo{background:var(--badbg);color:var(--bad)} .s-mid{background:var(--warnbg);color:var(--warn)} .s-hi{background:var(--goodbg);color:var(--good)}
-  .pill{display:inline-block;font:700 11px/1 var(--mono);padding:4px 8px;border-radius:20px;white-space:nowrap}
-  .p-bad{background:var(--badbg);color:var(--bad)} .p-good{background:var(--goodbg);color:var(--good)} .p-warn{background:var(--warnbg);color:var(--warn)} .p-neu{background:var(--panel2);color:var(--sub)}
-  .eff{font:800 11px/1 var(--mono);padding:3px 7px;border-radius:6px;display:inline-block}
-  .e-s{background:var(--goodbg);color:var(--good)} .e-m{background:var(--warnbg);color:var(--warn)} .e-l{background:var(--badbg);color:var(--bad)} .e-xl{background:var(--badbg);color:var(--bad);border:1px solid var(--bad)}
-  ul.tight{margin:8px 0;padding-left:20px} ul.tight li{margin:5px 0}
-  ol.plan{margin:8px 0;padding-left:0;list-style:none;counter-reset:p}
-  ol.plan li{margin:10px 0;padding:12px 14px 12px 46px;position:relative;background:var(--panel);border:1px solid var(--line);border-radius:10px;counter-increment:p}
-  ol.plan li::before{content:counter(p);position:absolute;left:12px;top:12px;font:800 13px/1.6 var(--mono);color:var(--accent2);width:24px;height:24px;text-align:center;background:var(--panel2);border:1px solid var(--line);border-radius:6px}
-  .flag{border-left:3px solid var(--warn);background:var(--warnbg);border-radius:0 10px 10px 0;padding:13px 16px;margin:14px 0;font-size:13.5px}
-  .flag.dec{border-left-color:var(--accent)}
-  .lbl{font:700 11px/1 var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--sub);display:block;margin-bottom:4px}
-  .foot{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);color:var(--sub);font-size:12.5px}
-  .win{color:var(--good);font-weight:700}
-  .axis{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
-  @media(max-width:680px){.axis{grid-template-columns:1fr}}
-  .axis .card{border:1px solid var(--line);border-radius:12px;padding:16px 18px}
-  .axis .card.exec{border-left:4px solid var(--bad)} .axis .card.notif{border-left:4px solid var(--good)}
-  .axis h4{margin:0 0 8px;font-size:14px}
-  .bar{height:24px;border-radius:6px;overflow:hidden;display:flex;font:700 11px/24px var(--mono);margin:6px 0 2px}
-  .bar .exec{background:var(--bad);color:#fff;text-align:center} .bar .notif{background:var(--good);color:#08120b;text-align:center}
-</style>
-</head>
-<body>
-<div class="wrap">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      Research-run architecture · start/track/finish · score + options ·
+      2026-07-10
+    </title>
+    <style>
+      :root {
+        --bg: #0f1117;
+        --panel: #171a22;
+        --panel2: #1d2130;
+        --ink: #e8ecf4;
+        --sub: #9aa4b8;
+        --line: #2a2f3d;
+        --accent: #5b3df5;
+        --accent2: #7c66ff;
+        --good: #2fbf71;
+        --warn: #e0a500;
+        --bad: #e5484d;
+        --badbg: #2a1618;
+        --goodbg: #132318;
+        --warnbg: #241f10;
+        --mono:
+          "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: #f6f7fb;
+          --panel: #fff;
+          --panel2: #f0f2f8;
+          --ink: #1a1d26;
+          --sub: #5c667c;
+          --line: #e2e6ef;
+          --badbg: #fdecec;
+          --goodbg: #e8f7ee;
+          --warnbg: #fbf4dd;
+        }
+      }
+      :root[data-theme="dark"] {
+        --bg: #0f1117;
+        --panel: #171a22;
+        --panel2: #1d2130;
+        --ink: #e8ecf4;
+        --sub: #9aa4b8;
+        --line: #2a2f3d;
+        --badbg: #2a1618;
+        --goodbg: #132318;
+        --warnbg: #241f10;
+      }
+      :root[data-theme="light"] {
+        --bg: #f6f7fb;
+        --panel: #fff;
+        --panel2: #f0f2f8;
+        --ink: #1a1d26;
+        --sub: #5c667c;
+        --line: #e2e6ef;
+        --badbg: #fdecec;
+        --goodbg: #e8f7ee;
+        --warnbg: #fbf4dd;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          15px/1.6 "Inter",
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 40px 22px 90px;
+      }
+      header.top {
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 22px;
+        margin-bottom: 30px;
+      }
+      .kicker {
+        font: 600 12px/1 var(--mono);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--accent2);
+      }
+      h1 {
+        font-size: 28px;
+        line-height: 1.2;
+        margin: 12px 0 8px;
+        letter-spacing: -0.02em;
+      }
+      h2 {
+        font-size: 20px;
+        margin: 44px 0 14px;
+        letter-spacing: -0.01em;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      h2 .n {
+        font: 700 13px/1 var(--mono);
+        color: var(--accent2);
+        background: var(--panel2);
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        padding: 6px 9px;
+      }
+      h3 {
+        font-size: 16px;
+        margin: 24px 0 9px;
+      }
+      p {
+        margin: 10px 0;
+      }
+      .sub {
+        color: var(--sub);
+      }
+      .meta {
+        color: var(--sub);
+        font: 500 13px/1.5 var(--mono);
+      }
+      code {
+        font: 600 12px/1 var(--mono);
+        background: var(--panel2);
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        padding: 2px 5px;
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 20px 22px;
+        margin: 16px 0;
+      }
+      .tldr {
+        background: linear-gradient(180deg, var(--panel), var(--panel2));
+        border: 1px solid var(--line);
+        border-left: 4px solid var(--accent);
+        border-radius: 14px;
+        padding: 22px 24px;
+      }
+      .grid {
+        display: grid;
+        gap: 14px;
+      }
+      .g2 {
+        grid-template-columns: 1fr 1fr;
+      }
+      .g4 {
+        grid-template-columns: repeat(4, 1fr);
+      }
+      @media (max-width: 760px) {
+        .g2,
+        .g4 {
+          grid-template-columns: 1fr;
+        }
+      }
+      .stat {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 15px 16px;
+      }
+      .stat .v {
+        font: 800 25px/1 var(--mono);
+        letter-spacing: -0.02em;
+      }
+      .stat .l {
+        color: var(--sub);
+        font-size: 12.5px;
+        margin-top: 6px;
+      }
+      .stat.bad .v {
+        color: var(--bad);
+      }
+      .stat.good .v {
+        color: var(--good);
+      }
+      .stat.warn .v {
+        color: var(--warn);
+      }
+      .tblwrap {
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        margin: 16px 0;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 13px;
+        min-width: 680px;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      thead th {
+        background: var(--panel2);
+        font: 700 11.5px/1.3 var(--mono);
+        letter-spacing: 0.03em;
+        color: var(--sub);
+        text-transform: uppercase;
+      }
+      tbody tr:last-child td {
+        border-bottom: none;
+      }
+      tbody tr:hover {
+        background: var(--panel2);
+      }
+      .num {
+        font-family: var(--mono);
+        text-align: right;
+        white-space: nowrap;
+      }
+      .mono {
+        font-family: var(--mono);
+      }
+      .score {
+        font: 800 14px/1 var(--mono);
+        padding: 3px 8px;
+        border-radius: 7px;
+        display: inline-block;
+        min-width: 40px;
+        text-align: center;
+      }
+      .s-lo {
+        background: var(--badbg);
+        color: var(--bad);
+      }
+      .s-mid {
+        background: var(--warnbg);
+        color: var(--warn);
+      }
+      .s-hi {
+        background: var(--goodbg);
+        color: var(--good);
+      }
+      .pill {
+        display: inline-block;
+        font: 700 11px/1 var(--mono);
+        padding: 4px 8px;
+        border-radius: 20px;
+        white-space: nowrap;
+      }
+      .p-bad {
+        background: var(--badbg);
+        color: var(--bad);
+      }
+      .p-good {
+        background: var(--goodbg);
+        color: var(--good);
+      }
+      .p-warn {
+        background: var(--warnbg);
+        color: var(--warn);
+      }
+      .p-neu {
+        background: var(--panel2);
+        color: var(--sub);
+      }
+      .eff {
+        font: 800 11px/1 var(--mono);
+        padding: 3px 7px;
+        border-radius: 6px;
+        display: inline-block;
+      }
+      .e-s {
+        background: var(--goodbg);
+        color: var(--good);
+      }
+      .e-m {
+        background: var(--warnbg);
+        color: var(--warn);
+      }
+      .e-l {
+        background: var(--badbg);
+        color: var(--bad);
+      }
+      .e-xl {
+        background: var(--badbg);
+        color: var(--bad);
+        border: 1px solid var(--bad);
+      }
+      ul.tight {
+        margin: 8px 0;
+        padding-left: 20px;
+      }
+      ul.tight li {
+        margin: 5px 0;
+      }
+      ol.plan {
+        margin: 8px 0;
+        padding-left: 0;
+        list-style: none;
+        counter-reset: p;
+      }
+      ol.plan li {
+        margin: 10px 0;
+        padding: 12px 14px 12px 46px;
+        position: relative;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        counter-increment: p;
+      }
+      ol.plan li::before {
+        content: counter(p);
+        position: absolute;
+        left: 12px;
+        top: 12px;
+        font: 800 13px/1.6 var(--mono);
+        color: var(--accent2);
+        width: 24px;
+        height: 24px;
+        text-align: center;
+        background: var(--panel2);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+      }
+      .flag {
+        border-left: 3px solid var(--warn);
+        background: var(--warnbg);
+        border-radius: 0 10px 10px 0;
+        padding: 13px 16px;
+        margin: 14px 0;
+        font-size: 13.5px;
+      }
+      .flag.dec {
+        border-left-color: var(--accent);
+      }
+      .lbl {
+        font: 700 11px/1 var(--mono);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--sub);
+        display: block;
+        margin-bottom: 4px;
+      }
+      .foot {
+        margin-top: 56px;
+        padding-top: 20px;
+        border-top: 1px solid var(--line);
+        color: var(--sub);
+        font-size: 12.5px;
+      }
+      .win {
+        color: var(--good);
+        font-weight: 700;
+      }
+      .axis {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        margin: 14px 0;
+      }
+      @media (max-width: 680px) {
+        .axis {
+          grid-template-columns: 1fr;
+        }
+      }
+      .axis .card {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 16px 18px;
+      }
+      .axis .card.exec {
+        border-left: 4px solid var(--bad);
+      }
+      .axis .card.notif {
+        border-left: 4px solid var(--good);
+      }
+      .axis h4 {
+        margin: 0 0 8px;
+        font-size: 14px;
+      }
+      .bar {
+        height: 24px;
+        border-radius: 6px;
+        overflow: hidden;
+        display: flex;
+        font: 700 11px/24px var(--mono);
+        margin: 6px 0 2px;
+      }
+      .bar .exec {
+        background: var(--bad);
+        color: #fff;
+        text-align: center;
+      }
+      .bar .notif {
+        background: var(--good);
+        color: #08120b;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="top">
+        <div class="kicker">
+          Enrichment runtime · start / track / finish · architecture review
+        </div>
+        <h1>
+          Why researches feel slow to start &amp; finish — and why WebSockets
+          aren't the fix
+        </h1>
+        <div class="meta">
+          2026-07-10 · code-verified against main (dispatch, kick-dispatch,
+          progress route, Boxly worker, crons) + 2026 stack-options research ·
+          4-agent analysis
+        </div>
+      </header>
 
-<header class="top">
-  <div class="kicker">Enrichment runtime · start / track / finish · architecture review</div>
-  <h1>Why researches feel slow to start &amp; finish — and why WebSockets aren't the fix</h1>
-  <div class="meta">2026-07-10 · code-verified against main (dispatch, kick-dispatch, progress route, Boxly worker, crons) + 2026 stack-options research · 4-agent analysis</div>
-</header>
+      <div class="tldr">
+        <p style="margin-top: 0">
+          <b>Bottom line.</b> Your three pains — can't start immediately, don't
+          know when it finished, general delays — are
+          <b
+            >~97–99% an execution/dispatch problem, not a notification
+            problem</b
+          >. The client already learns of changes within ~2s via polling. What's
+          slow is that the <i>work</i> doesn't start or close on time: the
+          immediate-start accelerator (<code>kickDispatch</code>) is
+          <b>dead in production</b> (missing env), so every run waits
+          <b>0–120s</b> (avg ~60s, worst case ~13 min) for the
+          <code>*/2</code> cron.
+        </p>
+        <p style="margin-bottom: 0">
+          <b>WebSockets/SSE address the wrong layer</b> — they make notification
+          faster, but notification isn't the bottleneck, and on this stack
+          (Vercel functions get cut at the duration cap, Upstash-REST can't
+          <code>SUBSCRIBE</code>) they'd reintroduce the exact problems your own
+          ADR already rejected them for.
+          <b>The real lever is one config fix</b> (<span class="win">[S]</span>)
+          plus a small close-the-gap code change (<span class="win">[S]</span>).
+          Overall system: <b>5/10</b> — dragged almost entirely by one broken
+          accelerator, not by the architecture.
+        </p>
+      </div>
 
-<div class="tldr">
-  <p style="margin-top:0"><b>Bottom line.</b> Your three pains — can't start immediately, don't know when it finished, general delays — are <b>~97–99% an execution/dispatch problem, not a notification problem</b>. The client already learns of changes within ~2s via polling. What's slow is that the <i>work</i> doesn't start or close on time: the immediate-start accelerator (<code>kickDispatch</code>) is <b>dead in production</b> (missing env), so every run waits <b>0–120s</b> (avg ~60s, worst case ~13 min) for the <code>*/2</code> cron.</p>
-  <p style="margin-bottom:0"><b>WebSockets/SSE address the wrong layer</b> — they make notification faster, but notification isn't the bottleneck, and on this stack (Vercel functions get cut at the duration cap, Upstash-REST can't <code>SUBSCRIBE</code>) they'd reintroduce the exact problems your own ADR already rejected them for. <b>The real lever is one config fix</b> (<span class="win">[S]</span>) plus a small close-the-gap code change (<span class="win">[S]</span>). Overall system: <b>5/10</b> — dragged almost entirely by one broken accelerator, not by the architecture.</p>
-</div>
+      <!-- ============================================================= -->
+      <h2><span class="n">1</span> The reframe — two axes, tangled</h2>
+      <p>
+        Your pain lives on <b>one</b> of these two axes. Fixing the other does
+        nothing.
+      </p>
+      <div class="axis">
+        <div class="card exec">
+          <h4>
+            ⚙️ Execution / dispatch —
+            <span class="pill p-bad">this is where your pain is</span>
+          </h4>
+          <p class="sub" style="margin: 6px 0">
+            How work gets <b>started, run, and closed</b> server-side. Today:
+            cron-polled queue + a dead immediate-start accelerator.
+          </p>
+          <ul class="tight" style="font-size: 13px">
+            <li>
+              <b>Start:</b> waits 0–120s for the <code>*/2</code> dispatch cron
+              because <code>kickDispatch</code> no-ops in prod
+            </li>
+            <li>
+              <b>Finish (cell runs):</b> <code>meta_ads/serp</code> close only
+              on the next tick — the enrich-cell callback never calls
+              <code>closeRunIfDone</code>
+            </li>
+          </ul>
+        </div>
+        <div class="card notif">
+          <h4>
+            📡 Notification —
+            <span class="pill p-good">already fast · leave it</span>
+          </h4>
+          <p class="sub" style="margin: 6px 0">
+            How the <b>browser learns</b> about progress/finish. Today: poll
+            <code>/progress</code> every 3–4s, Redis counters + ETag/304.
+          </p>
+          <ul class="tight" style="font-size: 13px">
+            <li>
+              A watching user sees a change within <b>~2s</b> of it happening
+              server-side
+            </li>
+            <li>
+              Cost ~$0 (304 on no-change); self-heals from DB on a Redis miss
+            </li>
+            <li>
+              <b
+                >WebSockets would shave ~1.5s off a minutes-long run —
+                imperceptible</b
+              >
+            </li>
+          </ul>
+        </div>
+      </div>
+      <p class="lbl" style="margin-top: 18px">
+        Where the user-perceived delay actually comes from
+      </p>
+      <div class="bar">
+        <div class="exec" style="width: 98%">
+          EXECUTION / DISPATCH · ~97–99%
+        </div>
+        <div class="notif" style="width: 2%">poll</div>
+      </div>
+      <p class="sub" style="font-size: 12.5px">
+        Of the tens-of-seconds-to-minutes you feel, the poll model accounts for
+        ≤4 seconds. WebSockets optimize the 2% sliver.
+      </p>
 
-<!-- ============================================================= -->
-<h2><span class="n">1</span> The reframe — two axes, tangled</h2>
-<p>Your pain lives on <b>one</b> of these two axes. Fixing the other does nothing.</p>
-<div class="axis">
-  <div class="card exec">
-    <h4>⚙️ Execution / dispatch — <span class="pill p-bad">this is where your pain is</span></h4>
-    <p class="sub" style="margin:6px 0">How work gets <b>started, run, and closed</b> server-side. Today: cron-polled queue + a dead immediate-start accelerator.</p>
-    <ul class="tight" style="font-size:13px">
-      <li><b>Start:</b> waits 0–120s for the <code>*/2</code> dispatch cron because <code>kickDispatch</code> no-ops in prod</li>
-      <li><b>Finish (cell runs):</b> <code>meta_ads/serp</code> close only on the next tick — the enrich-cell callback never calls <code>closeRunIfDone</code></li>
-    </ul>
-  </div>
-  <div class="card notif">
-    <h4>📡 Notification — <span class="pill p-good">already fast · leave it</span></h4>
-    <p class="sub" style="margin:6px 0">How the <b>browser learns</b> about progress/finish. Today: poll <code>/progress</code> every 3–4s, Redis counters + ETag/304.</p>
-    <ul class="tight" style="font-size:13px">
-      <li>A watching user sees a change within <b>~2s</b> of it happening server-side</li>
-      <li>Cost ~$0 (304 on no-change); self-heals from DB on a Redis miss</li>
-      <li><b>WebSockets would shave ~1.5s off a minutes-long run — imperceptible</b></li>
-    </ul>
-  </div>
-</div>
-<p class="lbl" style="margin-top:18px">Where the user-perceived delay actually comes from</p>
-<div class="bar"><div class="exec" style="width:98%">EXECUTION / DISPATCH · ~97–99%</div><div class="notif" style="width:2%">poll</div></div>
-<p class="sub" style="font-size:12.5px">Of the tens-of-seconds-to-minutes you feel, the poll model accounts for ≤4 seconds. WebSockets optimize the 2% sliver.</p>
+      <!-- ============================================================= -->
+      <h2><span class="n">2</span> Current-system scorecard</h2>
+      <div class="grid g4" style="margin-top: 6px">
+        <div class="stat bad">
+          <div class="v">5/10</div>
+          <div class="l">overall start→track→finish</div>
+        </div>
+        <div class="stat bad">
+          <div class="v">3/10</div>
+          <div class="l">start latency + durability</div>
+        </div>
+        <div class="stat warn">
+          <div class="v">7/10</div>
+          <div class="l">finish detection</div>
+        </div>
+        <div class="stat good">
+          <div class="v">9/10</div>
+          <div class="l">notification layer (poll)</div>
+        </div>
+      </div>
+      <div class="tblwrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th class="num">Score</th>
+              <th>Why</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><b>Start latency</b> (PENDING→RUNNING)</td>
+              <td class="num"><span class="score s-lo">3</span></td>
+              <td>
+                The dominant pain, broken in prod.
+                <code>kickDispatch</code> silently no-ops when
+                <code>NEXT_PUBLIC_APP_URL</code>/<code>CRON_SECRET</code> are
+                unset → every run waits 0–120s for the <code>*/2</code> cron.
+                The 5-min meta_ads run you saw is exactly this.
+              </td>
+            </tr>
+            <tr>
+              <td><b>Start durability</b></td>
+              <td class="num"><span class="score s-lo">3</span></td>
+              <td>
+                The fast path is a best-effort, fire-and-forget HTTP POST from a
+                dying request invocation — vulnerable to missing env, Vercel
+                Deployment-Protection 401, frozen invocations, network blips. A
+                durable retrying path (the Boxly worker) exists but is only used
+                for the self-chain, and funnels through the <i>same</i> dead
+                function.
+              </td>
+            </tr>
+            <tr>
+              <td><b>Finish detection</b> (in-app)</td>
+              <td class="num"><span class="score s-mid">7</span></td>
+              <td>
+                Good for the common case: per-business runs close on the worker
+                callback (<code>closeRunIfDone</code>) and the poll surfaces it
+                in ~2s. Gap: cell runs (<code>meta_ads/serp</code>) don't close
+                on callback → lag to the next tick. Away-user email is a
+                separate <code>*/2</code> cron.
+              </td>
+            </tr>
+            <tr>
+              <td><b>Notification layer</b> (poll+Redis+ETag)</td>
+              <td class="num"><span class="score s-hi">9</span></td>
+              <td>
+                Genuinely well-built. 3–4s polls hit a Redis-only hot path,
+                ETag→304 (~$0), self-heals on a miss, business-unit clamping
+                prevents &gt;100%/sawtooth. Sub-4s latency the instant state
+                changes. <b>SSE/WS would be strictly worse here.</b> Do not
+                touch.
+              </td>
+            </tr>
+            <tr>
+              <td><b>Architecture stack-fit</b> (poll-not-SSE ADR)</td>
+              <td class="num"><span class="score s-hi">8</span></td>
+              <td>
+                The <code>realtime-runs-adr</code> decision is correct given the
+                constraints (Vercel 300s socket cap, Upstash-REST no
+                <code>SUBSCRIBE</code>). Loses a point only because the same
+                "durable worker" insight wasn't applied to the
+                <b>start</b> path, where it matters most.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="flag">
+        <span class="lbl">One reliability hole found (worth a cheap fix)</span
+        >The progress route derives status as
+        <code>redis.status ?? run.status</code>, but each tick re-seeds Redis
+        with the <i>non-terminal</i> run status. If the single close-time
+        terminal re-seed write is lost, Redis keeps <code>RUNNING</code> forever
+        and masks the DB's terminal — the UI spins until a manual reload. Hits
+        exactly your "don't know when it finished" pain. Cheap fix: make DB
+        status authoritative when terminal (already fetched free in the
+        ownership read).
+      </div>
 
-<!-- ============================================================= -->
-<h2><span class="n">2</span> Current-system scorecard</h2>
-<div class="grid g4" style="margin-top:6px">
-  <div class="stat bad"><div class="v">5/10</div><div class="l">overall start→track→finish</div></div>
-  <div class="stat bad"><div class="v">3/10</div><div class="l">start latency + durability</div></div>
-  <div class="stat warn"><div class="v">7/10</div><div class="l">finish detection</div></div>
-  <div class="stat good"><div class="v">9/10</div><div class="l">notification layer (poll)</div></div>
-</div>
-<div class="tblwrap">
-<table>
-  <thead><tr><th>Dimension</th><th class="num">Score</th><th>Why</th></tr></thead>
-  <tbody>
-    <tr><td><b>Start latency</b> (PENDING→RUNNING)</td><td class="num"><span class="score s-lo">3</span></td><td>The dominant pain, broken in prod. <code>kickDispatch</code> silently no-ops when <code>NEXT_PUBLIC_APP_URL</code>/<code>CRON_SECRET</code> are unset → every run waits 0–120s for the <code>*/2</code> cron. The 5-min meta_ads run you saw is exactly this.</td></tr>
-    <tr><td><b>Start durability</b></td><td class="num"><span class="score s-lo">3</span></td><td>The fast path is a best-effort, fire-and-forget HTTP POST from a dying request invocation — vulnerable to missing env, Vercel Deployment-Protection 401, frozen invocations, network blips. A durable retrying path (the Boxly worker) exists but is only used for the self-chain, and funnels through the <i>same</i> dead function.</td></tr>
-    <tr><td><b>Finish detection</b> (in-app)</td><td class="num"><span class="score s-mid">7</span></td><td>Good for the common case: per-business runs close on the worker callback (<code>closeRunIfDone</code>) and the poll surfaces it in ~2s. Gap: cell runs (<code>meta_ads/serp</code>) don't close on callback → lag to the next tick. Away-user email is a separate <code>*/2</code> cron.</td></tr>
-    <tr><td><b>Notification layer</b> (poll+Redis+ETag)</td><td class="num"><span class="score s-hi">9</span></td><td>Genuinely well-built. 3–4s polls hit a Redis-only hot path, ETag→304 (~$0), self-heals on a miss, business-unit clamping prevents &gt;100%/sawtooth. Sub-4s latency the instant state changes. <b>SSE/WS would be strictly worse here.</b> Do not touch.</td></tr>
-    <tr><td><b>Architecture stack-fit</b> (poll-not-SSE ADR)</td><td class="num"><span class="score s-hi">8</span></td><td>The <code>realtime-runs-adr</code> decision is correct given the constraints (Vercel 300s socket cap, Upstash-REST no <code>SUBSCRIBE</code>). Loses a point only because the same "durable worker" insight wasn't applied to the <b>start</b> path, where it matters most.</td></tr>
-  </tbody>
-</table>
-</div>
-<div class="flag"><span class="lbl">One reliability hole found (worth a cheap fix)</span>The progress route derives status as <code>redis.status ?? run.status</code>, but each tick re-seeds Redis with the <i>non-terminal</i> run status. If the single close-time terminal re-seed write is lost, Redis keeps <code>RUNNING</code> forever and masks the DB's terminal — the UI spins until a manual reload. Hits exactly your "don't know when it finished" pain. Cheap fix: make DB status authoritative when terminal (already fetched free in the ownership read).</div>
+      <!-- ============================================================= -->
+      <h2><span class="n">3</span> Where the wall-clock actually goes</h2>
+      <p class="sub">
+        Click → visible finish, verified against the code. Stage 2 is the whole
+        story.
+      </p>
+      <div class="tblwrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Stage</th>
+              <th class="num">Typical delay</th>
+              <th>Cause</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1 · Server action (click → PENDING)</td>
+              <td class="num">~0.2–0.6s</td>
+              <td>
+                DB/Redis round-trips (auth, quote, hold credits, seed counters).
+                Fixed, fine.
+              </td>
+            </tr>
+            <tr style="background: var(--badbg)">
+              <td><b>2 · PENDING → RUNNING</b> ← the bottleneck</td>
+              <td class="num" style="color: var(--bad); font-weight: 700">
+                ~60s (0–120s)<br />up to ~13 min
+              </td>
+              <td>
+                <b><code>kickDispatch</code> no-ops in prod</b> → waits for the
+                <code>*/2</code> cron. Worst case: a lost idle-gate wake-flag
+                pushes it to the 13-min safety scan. The worker re-kick funnels
+                through the <i>same</i> dead function — not independent
+                redundancy.
+              </td>
+            </tr>
+            <tr>
+              <td>3 · fan-out (RUNNING → jobs enqueued)</td>
+              <td class="num">~1–5s</td>
+              <td>
+                Fast when the Boxly worker is up; +minutes if it's down (cells
+                run inline in the 300s tick).
+              </td>
+            </tr>
+            <tr>
+              <td>4 · Job processing</td>
+              <td class="num">~1–3 min</td>
+              <td>
+                Worker lane: concurrent + retry on own budgets. Tick lane
+                (worker down): 25 jobs/tick on the 2-min grid, and with the kick
+                dead the self-chain can't fire, so batches serialize.
+              </td>
+            </tr>
+            <tr>
+              <td>5 · Close (last unit → terminal)</td>
+              <td class="num">~0s per-business<br />0–120s cell-only</td>
+              <td>
+                Per-business closes on callback (instant).
+                <b>Cell-only <code>meta_ads/serp</code> lag to the next tick</b>
+                (enrich-cell never calls <code>closeRunIfDone</code>).
+              </td>
+            </tr>
+            <tr>
+              <td>6 · Visible finish (client poll)</td>
+              <td class="num">~1–3s</td>
+              <td>
+                Poll → Redis + ETag/304. <b>Not a bottleneck</b> — this is the
+                layer WebSockets would target.
+              </td>
+            </tr>
+            <tr>
+              <td>7 · Completion email (away user)</td>
+              <td class="num">0–120s</td>
+              <td>
+                <code>run-finished-emails</code> <code>*/2</code> cron. A socket
+                can't reach a closed tab anyway — email is the right channel,
+                just a bit slow.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-<!-- ============================================================= -->
-<h2><span class="n">3</span> Where the wall-clock actually goes</h2>
-<p class="sub">Click → visible finish, verified against the code. Stage 2 is the whole story.</p>
-<div class="tblwrap">
-<table>
-  <thead><tr><th>Stage</th><th class="num">Typical delay</th><th>Cause</th></tr></thead>
-  <tbody>
-    <tr><td>1 · Server action (click → PENDING)</td><td class="num">~0.2–0.6s</td><td>DB/Redis round-trips (auth, quote, hold credits, seed counters). Fixed, fine.</td></tr>
-    <tr style="background:var(--badbg)"><td><b>2 · PENDING → RUNNING</b> ← the bottleneck</td><td class="num" style="color:var(--bad);font-weight:700">~60s (0–120s)<br>up to ~13 min</td><td><b><code>kickDispatch</code> no-ops in prod</b> → waits for the <code>*/2</code> cron. Worst case: a lost idle-gate wake-flag pushes it to the 13-min safety scan. The worker re-kick funnels through the <i>same</i> dead function — not independent redundancy.</td></tr>
-    <tr><td>3 · fan-out (RUNNING → jobs enqueued)</td><td class="num">~1–5s</td><td>Fast when the Boxly worker is up; +minutes if it's down (cells run inline in the 300s tick).</td></tr>
-    <tr><td>4 · Job processing</td><td class="num">~1–3 min</td><td>Worker lane: concurrent + retry on own budgets. Tick lane (worker down): 25 jobs/tick on the 2-min grid, and with the kick dead the self-chain can't fire, so batches serialize.</td></tr>
-    <tr><td>5 · Close (last unit → terminal)</td><td class="num">~0s per-business<br>0–120s cell-only</td><td>Per-business closes on callback (instant). <b>Cell-only <code>meta_ads/serp</code> lag to the next tick</b> (enrich-cell never calls <code>closeRunIfDone</code>).</td></tr>
-    <tr><td>6 · Visible finish (client poll)</td><td class="num">~1–3s</td><td>Poll → Redis + ETag/304. <b>Not a bottleneck</b> — this is the layer WebSockets would target.</td></tr>
-    <tr><td>7 · Completion email (away user)</td><td class="num">0–120s</td><td><code>run-finished-emails</code> <code>*/2</code> cron. A socket can't reach a closed tab anyway — email is the right channel, just a bit slow.</td></tr>
-  </tbody>
-</table>
-</div>
+      <!-- ============================================================= -->
+      <h2>
+        <span class="n">4</span> "Why not WebSockets?" — the honest answer
+      </h2>
+      <div class="panel">
+        <p style="margin-top: 0">
+          <b>They solve notification, and notification is already ~2s fast.</b>
+          A socket to the browser cannot make server-side work
+          <i>start</i> sooner (pain 1) and cannot make a run <i>close</i> sooner
+          than <code>closeRunIfDone</code> runs (pain 2). For a closed tab a
+          socket doesn't exist at all — that's the email's job.
+        </p>
+        <p>
+          <b>And on this exact stack they're actively wrong</b> — which your own
+          ADR already worked out:
+        </p>
+        <ul class="tight">
+          <li>
+            <b>Vercel functions get cut at the duration cap</b> (300s default;
+            800s GA / 1800s beta on Pro Fluid) — a run lasts minutes-to-hours,
+            so an SSE/WS handler held open gets killed and forces reconnect
+            machinery you'd have to build anyway. Even Vercel's
+            <b>new native WebSocket beta (Jun 2026) is still duration-capped</b>
+            — it looks native but breaks at minutes-scale.
+          </li>
+          <li>
+            <b>Upstash-REST Redis can't <code>SUBSCRIBE</code></b> — an SSE
+            handler would have to poll Redis server-side in a loop: identical
+            work to the client poll, but billed as held wall-clock instead of
+            ~$0 304s.
+          </li>
+          <li>
+            The only socket-capable host you own is the
+            <b>Boxly DO worker</b> (no cap) — which is exactly where the ADR
+            says to terminate a socket <i>if you ever genuinely need one</i>.
+            You don't, yet.
+          </li>
+        </ul>
+        <p style="margin-bottom: 0">
+          <b>The verdict:</b> keep poll+Redis. Fix the dispatch layer, and the
+          existing 3–4s poll surfaces the faster start/finish for free.
+        </p>
+      </div>
 
-<!-- ============================================================= -->
-<h2><span class="n">4</span> "Why not WebSockets?" — the honest answer</h2>
-<div class="panel">
-  <p style="margin-top:0"><b>They solve notification, and notification is already ~2s fast.</b> A socket to the browser cannot make server-side work <i>start</i> sooner (pain 1) and cannot make a run <i>close</i> sooner than <code>closeRunIfDone</code> runs (pain 2). For a closed tab a socket doesn't exist at all — that's the email's job.</p>
-  <p><b>And on this exact stack they're actively wrong</b> — which your own ADR already worked out:</p>
-  <ul class="tight">
-    <li><b>Vercel functions get cut at the duration cap</b> (300s default; 800s GA / 1800s beta on Pro Fluid) — a run lasts minutes-to-hours, so an SSE/WS handler held open gets killed and forces reconnect machinery you'd have to build anyway. Even Vercel's <b>new native WebSocket beta (Jun 2026) is still duration-capped</b> — it looks native but breaks at minutes-scale.</li>
-    <li><b>Upstash-REST Redis can't <code>SUBSCRIBE</code></b> — an SSE handler would have to poll Redis server-side in a loop: identical work to the client poll, but billed as held wall-clock instead of ~$0 304s.</li>
-    <li>The only socket-capable host you own is the <b>Boxly DO worker</b> (no cap) — which is exactly where the ADR says to terminate a socket <i>if you ever genuinely need one</i>. You don't, yet.</li>
-  </ul>
-  <p style="margin-bottom:0"><b>The verdict:</b> keep poll+Redis. Fix the dispatch layer, and the existing 3–4s poll surfaces the faster start/finish for free.</p>
-</div>
+      <!-- ============================================================= -->
+      <h2><span class="n">5</span> Options, priced for our stack</h2>
+      <h3>Execution / dispatch (fixes "start immediately" + "delays")</h3>
+      <div class="tblwrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Option</th>
+              <th class="num">Effort</th>
+              <th>What it does</th>
+              <th>Fit for our stack</th>
+              <th class="num">Impact</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="background: var(--goodbg)">
+              <td>
+                <b>Fix kick-dispatch env</b> + Deployment-Protection bypass
+              </td>
+              <td class="num"><span class="eff e-s">S</span></td>
+              <td>
+                Set the 2 env vars <code>kickDispatch</code> already reads so
+                the immediate-start POST actually fires. Watch for the
+                <code>kick-dispatch.skipped</code> log line.
+              </td>
+              <td>
+                Perfect — zero new infra, code already merged. Directly kills
+                the observed bug.
+              </td>
+              <td class="num"><span class="pill p-good">Highest</span></td>
+            </tr>
+            <tr>
+              <td><b>Tighten dispatch</b> <code>*/2 → */1</code></td>
+              <td class="num"><span class="eff e-s">S</span></td>
+              <td>
+                Halve the fallback grid. The new idle-gate keeps idle ticks
+                nearly free. 1 min is Vercel's floor.
+              </td>
+              <td>Good safety net under the kick. Cheap with the idle-gate.</td>
+              <td class="num"><span class="pill p-warn">Med</span></td>
+            </tr>
+            <tr>
+              <td><b>Close the cell-run finish gap</b></td>
+              <td class="num"><span class="eff e-s">S</span></td>
+              <td>
+                Have <code>/api/internal/enrich-cell</code> call
+                <code>closeRunIfDone</code> on the last cell, mirroring the
+                per-business route.
+              </td>
+              <td>
+                Perfect — a one-spot code fix. Meta/SERP runs close on callback,
+                not the next tick.
+              </td>
+              <td class="num">
+                <span class="pill p-good">High</span> (finish)
+              </td>
+            </tr>
+            <tr>
+              <td><b>Make START durable via Boxly worker</b></td>
+              <td class="num"><span class="eff e-m">M</span></td>
+              <td>
+                Enqueue the initial dispatch drain through the retrying worker
+                at trigger time (reuse <code>enqueueRekickDispatch</code>)
+                instead of a fragile fire-and-forget fetch.
+              </td>
+              <td>
+                Excellent — leans on infra you already trust; the only capless
+                component. Removes the fragile link.
+              </td>
+              <td class="num"><span class="pill p-good">High</span></td>
+            </tr>
+            <tr>
+              <td><b>waitUntil / after() inline drain</b></td>
+              <td class="num"><span class="eff e-s">S</span></td>
+              <td>
+                Run <code>fanOutRun</code> (and a small run's whole loop) in
+                <code>after()</code> post-response instead of POSTing a kick.
+              </td>
+              <td>
+                Partial — bound by the function's own maxDuration; great for
+                small runs, not long ones. A complement.
+              </td>
+              <td class="num"><span class="pill p-warn">Med</span></td>
+            </tr>
+            <tr>
+              <td><b>Upstash QStash</b> (managed HTTP queue)</td>
+              <td class="num"><span class="eff e-m">M</span></td>
+              <td>
+                Replace cron-polled "drain PENDING" with event-driven
+                push-to-HTTP delivery + delayed-delivery retries.
+              </td>
+              <td>
+                Very strong — purpose-built for serverless, push-to-HTTP (no
+                SUBSCRIBE needed), never holds a socket.
+              </td>
+              <td class="num"><span class="pill p-good">High</span></td>
+            </tr>
+            <tr>
+              <td><b>Vercel Queues</b> (native, public beta)</td>
+              <td class="num"><span class="eff e-l">L</span></td>
+              <td>
+                Publish work to a Vercel topic; Vercel invokes an air-gapped
+                consumer the instant a message lands — no cron.
+              </td>
+              <td>
+                Good native fit, most "platform-blessed", but <b>beta</b> (API
+                churn, approximate ordering) and touches billing-critical
+                fan-out.
+              </td>
+              <td class="num">
+                <span class="pill p-good">High</span> (strategic)
+              </td>
+            </tr>
+            <tr>
+              <td><b>Inngest</b> (durable steps)</td>
+              <td class="num"><span class="eff e-l">L</span></td>
+              <td>
+                Event-driven durable workflows; would absorb much of the bespoke
+                retry/reconcile logic in <code>dispatch.ts</code>.
+              </td>
+              <td>
+                Fits constraints but is the biggest change + a new platform;
+                overlaps the Boxly worker. Larger blast radius.
+              </td>
+              <td class="num"><span class="pill p-warn">Med–High</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-<!-- ============================================================= -->
-<h2><span class="n">5</span> Options, priced for our stack</h2>
-<h3>Execution / dispatch (fixes "start immediately" + "delays")</h3>
-<div class="tblwrap">
-<table>
-  <thead><tr><th>Option</th><th class="num">Effort</th><th>What it does</th><th>Fit for our stack</th><th class="num">Impact</th></tr></thead>
-  <tbody>
-    <tr style="background:var(--goodbg)"><td><b>Fix kick-dispatch env</b> + Deployment-Protection bypass</td><td class="num"><span class="eff e-s">S</span></td><td>Set the 2 env vars <code>kickDispatch</code> already reads so the immediate-start POST actually fires. Watch for the <code>kick-dispatch.skipped</code> log line.</td><td>Perfect — zero new infra, code already merged. Directly kills the observed bug.</td><td class="num"><span class="pill p-good">Highest</span></td></tr>
-    <tr><td><b>Tighten dispatch</b> <code>*/2 → */1</code></td><td class="num"><span class="eff e-s">S</span></td><td>Halve the fallback grid. The new idle-gate keeps idle ticks nearly free. 1 min is Vercel's floor.</td><td>Good safety net under the kick. Cheap with the idle-gate.</td><td class="num"><span class="pill p-warn">Med</span></td></tr>
-    <tr><td><b>Close the cell-run finish gap</b></td><td class="num"><span class="eff e-s">S</span></td><td>Have <code>/api/internal/enrich-cell</code> call <code>closeRunIfDone</code> on the last cell, mirroring the per-business route.</td><td>Perfect — a one-spot code fix. Meta/SERP runs close on callback, not the next tick.</td><td class="num"><span class="pill p-good">High</span> (finish)</td></tr>
-    <tr><td><b>Make START durable via Boxly worker</b></td><td class="num"><span class="eff e-m">M</span></td><td>Enqueue the initial dispatch drain through the retrying worker at trigger time (reuse <code>enqueueRekickDispatch</code>) instead of a fragile fire-and-forget fetch.</td><td>Excellent — leans on infra you already trust; the only capless component. Removes the fragile link.</td><td class="num"><span class="pill p-good">High</span></td></tr>
-    <tr><td><b>waitUntil / after() inline drain</b></td><td class="num"><span class="eff e-s">S</span></td><td>Run <code>fanOutRun</code> (and a small run's whole loop) in <code>after()</code> post-response instead of POSTing a kick.</td><td>Partial — bound by the function's own maxDuration; great for small runs, not long ones. A complement.</td><td class="num"><span class="pill p-warn">Med</span></td></tr>
-    <tr><td><b>Upstash QStash</b> (managed HTTP queue)</td><td class="num"><span class="eff e-m">M</span></td><td>Replace cron-polled "drain PENDING" with event-driven push-to-HTTP delivery + delayed-delivery retries.</td><td>Very strong — purpose-built for serverless, push-to-HTTP (no SUBSCRIBE needed), never holds a socket.</td><td class="num"><span class="pill p-good">High</span></td></tr>
-    <tr><td><b>Vercel Queues</b> (native, public beta)</td><td class="num"><span class="eff e-l">L</span></td><td>Publish work to a Vercel topic; Vercel invokes an air-gapped consumer the instant a message lands — no cron.</td><td>Good native fit, most "platform-blessed", but <b>beta</b> (API churn, approximate ordering) and touches billing-critical fan-out.</td><td class="num"><span class="pill p-good">High</span> (strategic)</td></tr>
-    <tr><td><b>Inngest</b> (durable steps)</td><td class="num"><span class="eff e-l">L</span></td><td>Event-driven durable workflows; would absorb much of the bespoke retry/reconcile logic in <code>dispatch.ts</code>.</td><td>Fits constraints but is the biggest change + a new platform; overlaps the Boxly worker. Larger blast radius.</td><td class="num"><span class="pill p-warn">Med–High</span></td></tr>
-  </tbody>
-</table>
-</div>
+      <h3>Notification (how the UI learns)</h3>
+      <div class="tblwrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Option</th>
+              <th class="num">Effort</th>
+              <th>What it does</th>
+              <th>Fit for our stack</th>
+              <th class="num">Impact</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="background: var(--goodbg)">
+              <td><b>Keep poll + ETag/304</b> (baseline)</td>
+              <td class="num"><span class="eff e-s">S</span></td>
+              <td>The shipped model. Optionally tune the interval.</td>
+              <td>
+                Best fit for the actual pain — 1–2s is already low-latency;
+                notification isn't the bottleneck.
+              </td>
+              <td class="num">
+                <span class="pill p-warn">Med</span> (already good)
+              </td>
+            </tr>
+            <tr>
+              <td><b>Managed realtime</b> (Ably / Pusher / Supabase)</td>
+              <td class="num"><span class="eff e-m">M</span></td>
+              <td>
+                HTTP-publish progress events; vendor owns the WebSocket +
+                cross-instance broadcast.
+              </td>
+              <td>
+                Clean — sidesteps every stack constraint; future-proofs
+                collaboration. But adds a vendor for a need that's already met.
+              </td>
+              <td class="num"><span class="pill p-warn">Med–High</span></td>
+            </tr>
+            <tr>
+              <td><b>SSE on the Boxly worker</b></td>
+              <td class="num"><span class="eff e-l">L</span></td>
+              <td>
+                Client <code>EventSource</code> to the worker (not Vercel);
+                worker pushes events as callbacks land.
+              </td>
+              <td>
+                The only correct place to hold a socket — but turns the internal
+                worker into a public realtime endpoint (auth/CORS/scale
+                surface).
+              </td>
+              <td class="num">
+                <span class="pill p-neu">Marginal</span> over 1s poll
+              </td>
+            </tr>
+            <tr>
+              <td><b>Vercel-native SSE / WebSocket beta</b></td>
+              <td class="num"><span class="eff e-m">M</span></td>
+              <td>
+                Stream from a Vercel function / native WS (beta, Jun 2026).
+              </td>
+              <td>
+                <b>Non-fit</b> — still duration-capped, can't broadcast across
+                instances. The trap the ADR nailed.
+              </td>
+              <td class="num"><span class="pill p-bad">Low / trap</span></td>
+            </tr>
+            <tr>
+              <td><b>WebSocket on the worker</b> (bidirectional)</td>
+              <td class="num"><span class="eff e-xl">XL</span></td>
+              <td>
+                Full duplex for collaborative surfaces (live
+                lead-claiming/locking).
+              </td>
+              <td>
+                Only justified by a bidirectional need that doesn't exist in v1.
+                Largest surface to build/secure.
+              </td>
+              <td class="num">
+                <span class="pill p-bad">Low</span> for this pain
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-<h3>Notification (how the UI learns)</h3>
-<div class="tblwrap">
-<table>
-  <thead><tr><th>Option</th><th class="num">Effort</th><th>What it does</th><th>Fit for our stack</th><th class="num">Impact</th></tr></thead>
-  <tbody>
-    <tr style="background:var(--goodbg)"><td><b>Keep poll + ETag/304</b> (baseline)</td><td class="num"><span class="eff e-s">S</span></td><td>The shipped model. Optionally tune the interval.</td><td>Best fit for the actual pain — 1–2s is already low-latency; notification isn't the bottleneck.</td><td class="num"><span class="pill p-warn">Med</span> (already good)</td></tr>
-    <tr><td><b>Managed realtime</b> (Ably / Pusher / Supabase)</td><td class="num"><span class="eff e-m">M</span></td><td>HTTP-publish progress events; vendor owns the WebSocket + cross-instance broadcast.</td><td>Clean — sidesteps every stack constraint; future-proofs collaboration. But adds a vendor for a need that's already met.</td><td class="num"><span class="pill p-warn">Med–High</span></td></tr>
-    <tr><td><b>SSE on the Boxly worker</b></td><td class="num"><span class="eff e-l">L</span></td><td>Client <code>EventSource</code> to the worker (not Vercel); worker pushes events as callbacks land.</td><td>The only correct place to hold a socket — but turns the internal worker into a public realtime endpoint (auth/CORS/scale surface).</td><td class="num"><span class="pill p-neu">Marginal</span> over 1s poll</td></tr>
-    <tr><td><b>Vercel-native SSE / WebSocket beta</b></td><td class="num"><span class="eff e-m">M</span></td><td>Stream from a Vercel function / native WS (beta, Jun 2026).</td><td><b>Non-fit</b> — still duration-capped, can't broadcast across instances. The trap the ADR nailed.</td><td class="num"><span class="pill p-bad">Low / trap</span></td></tr>
-    <tr><td><b>WebSocket on the worker</b> (bidirectional)</td><td class="num"><span class="eff e-xl">XL</span></td><td>Full duplex for collaborative surfaces (live lead-claiming/locking).</td><td>Only justified by a bidirectional need that doesn't exist in v1. Largest surface to build/secure.</td><td class="num"><span class="pill p-bad">Low</span> for this pain</td></tr>
-  </tbody>
-</table>
-</div>
+      <div class="flag">
+        <span class="lbl">2026 platform shifts that matter</span
+        ><b>Fluid Compute</b> raised the function cap to
+        <b>800s GA / 1800s beta</b> on Pro — real headroom for the dispatch tick
+        + inline drains (but still not enough to hold a socket for a long run).
+        <b>Vercel Queues</b> hit public beta (Feb 2026) — a native event-driven
+        alternative to the cron-polled queue.
+        <b>Vercel native WebSockets</b> shipped (Jun 2026) but remain
+        duration-capped — still a trap for minutes-long runs.
+      </div>
 
-<div class="flag"><span class="lbl">2026 platform shifts that matter</span><b>Fluid Compute</b> raised the function cap to <b>800s GA / 1800s beta</b> on Pro — real headroom for the dispatch tick + inline drains (but still not enough to hold a socket for a long run). <b>Vercel Queues</b> hit public beta (Feb 2026) — a native event-driven alternative to the cron-polled queue. <b>Vercel native WebSockets</b> shipped (Jun 2026) but remain duration-capped — still a trap for minutes-long runs.</div>
+      <!-- ============================================================= -->
+      <h2><span class="n">6</span> The plan — ordered by impact-per-effort</h2>
+      <ol class="plan">
+        <li>
+          <span class="eff e-s">S</span> &nbsp;<b
+            >Set/verify prod env <code>NEXT_PUBLIC_APP_URL</code> +
+            <code>CRON_SECRET</code>.</b
+          >
+          The single highest-leverage change — collapses PENDING→RUNNING from
+          0–120s to seconds. The code already emits
+          <code>kick-dispatch.skipped · missing-env</code> in Vercel logs; if
+          it's there, this is it. <span class="sub">(Your env action.)</span>
+        </li>
+        <li>
+          <span class="eff e-s">S</span> &nbsp;<b
+            >Exempt <code>/api/cron/internal/*</code> from Vercel Deployment
+            Protection</b
+          >
+          (or add a bypass token). Watch for
+          <code>kick-dispatch.rejected httpStatus:401</code> — if it appears,
+          env was set but the kick is still refused at the edge.
+          <span class="sub">(Your Vercel setting.)</span>
+        </li>
+        <li>
+          <span class="eff e-s">S</span> &nbsp;<b
+            >Close the cell-run finish gap</b
+          >
+          — <code>/api/internal/enrich-cell</code> calls
+          <code>closeRunIfDone</code> on the last cell family, so meta_ads/serp
+          close on callback instead of the next tick.
+          <span class="sub">(Code — I can do this.)</span>
+        </li>
+        <li>
+          <span class="eff e-s">S</span> &nbsp;<b
+            >Make DB status authoritative when terminal</b
+          >
+          in the progress route (fix the Redis terminal-masking hole).
+          <span class="sub">(Code — I can do this.)</span>
+        </li>
+        <li>
+          <span class="eff e-s">S</span> &nbsp;<b
+            >Tighten dispatch <code>*/2 → */1</code></b
+          >
+          as a safety net (idle-gate keeps it cheap) +
+          <b
+            >fire the completion email from <code>closeRunIfDone</code> via
+            <code>after()</code></b
+          >
+          so away-users learn sub-minute.
+          <span class="sub">(Code + config.)</span>
+        </li>
+        <li>
+          <span class="eff e-m">M</span> &nbsp;<b>Make START durable</b> —
+          enqueue the initial dispatch through the retrying Boxly worker at
+          trigger time, replacing the fragile fire-and-forget fetch. Removes the
+          single most fragile link.
+          <span class="sub"
+            >(Code — needs <code>BOXLY_WORKER_*</code> env.)</span
+          >
+        </li>
+        <li>
+          <span class="eff e-m">M</span> &nbsp;<b>Instrument it</b> — emit
+          <code>enqueuedAt→firstRunningAt</code> +
+          <code>finishedAt→clientObservedAt</code> metrics with a Sentry alert
+          if start-lag p95 &gt; 30s, so the pain is measured and env drift
+          surfaces immediately. <span class="sub">(Code.)</span>
+        </li>
+        <li>
+          <span class="eff e-l">L</span> &nbsp;<b>Strategic (optional):</b>
+          migrate the cron-polled queue to <b>QStash</b> or
+          <b>Vercel Queues</b> — event-driven start + native retries, removes
+          cron latency structurally. A bigger bet; only if the S/M fixes don't
+          fully settle it.
+        </li>
+        <li>
+          <span class="eff e-l">L</span>/<span class="eff e-xl">XL</span>
+          &nbsp;<b>Defer WebSockets/SSE entirely</b> unless a genuinely
+          sub-second multi-user collaborative surface ships (e.g. live
+          lead-claiming). If it ever does, terminate the socket on the Boxly
+          worker — never a Vercel function. Not warranted by the current pain.
+        </li>
+      </ol>
 
-<!-- ============================================================= -->
-<h2><span class="n">6</span> The plan — ordered by impact-per-effort</h2>
-<ol class="plan">
-  <li><span class="eff e-s">S</span> &nbsp;<b>Set/verify prod env <code>NEXT_PUBLIC_APP_URL</code> + <code>CRON_SECRET</code>.</b> The single highest-leverage change — collapses PENDING→RUNNING from 0–120s to seconds. The code already emits <code>kick-dispatch.skipped · missing-env</code> in Vercel logs; if it's there, this is it. <span class="sub">(Your env action.)</span></li>
-  <li><span class="eff e-s">S</span> &nbsp;<b>Exempt <code>/api/cron/internal/*</code> from Vercel Deployment Protection</b> (or add a bypass token). Watch for <code>kick-dispatch.rejected httpStatus:401</code> — if it appears, env was set but the kick is still refused at the edge. <span class="sub">(Your Vercel setting.)</span></li>
-  <li><span class="eff e-s">S</span> &nbsp;<b>Close the cell-run finish gap</b> — <code>/api/internal/enrich-cell</code> calls <code>closeRunIfDone</code> on the last cell family, so meta_ads/serp close on callback instead of the next tick. <span class="sub">(Code — I can do this.)</span></li>
-  <li><span class="eff e-s">S</span> &nbsp;<b>Make DB status authoritative when terminal</b> in the progress route (fix the Redis terminal-masking hole). <span class="sub">(Code — I can do this.)</span></li>
-  <li><span class="eff e-s">S</span> &nbsp;<b>Tighten dispatch <code>*/2 → */1</code></b> as a safety net (idle-gate keeps it cheap) + <b>fire the completion email from <code>closeRunIfDone</code> via <code>after()</code></b> so away-users learn sub-minute. <span class="sub">(Code + config.)</span></li>
-  <li><span class="eff e-m">M</span> &nbsp;<b>Make START durable</b> — enqueue the initial dispatch through the retrying Boxly worker at trigger time, replacing the fragile fire-and-forget fetch. Removes the single most fragile link. <span class="sub">(Code — needs <code>BOXLY_WORKER_*</code> env.)</span></li>
-  <li><span class="eff e-m">M</span> &nbsp;<b>Instrument it</b> — emit <code>enqueuedAt→firstRunningAt</code> + <code>finishedAt→clientObservedAt</code> metrics with a Sentry alert if start-lag p95 &gt; 30s, so the pain is measured and env drift surfaces immediately. <span class="sub">(Code.)</span></li>
-  <li><span class="eff e-l">L</span> &nbsp;<b>Strategic (optional):</b> migrate the cron-polled queue to <b>QStash</b> or <b>Vercel Queues</b> — event-driven start + native retries, removes cron latency structurally. A bigger bet; only if the S/M fixes don't fully settle it.</li>
-  <li><span class="eff e-l">L</span>/<span class="eff e-xl">XL</span> &nbsp;<b>Defer WebSockets/SSE entirely</b> unless a genuinely sub-second multi-user collaborative surface ships (e.g. live lead-claiming). If it ever does, terminate the socket on the Boxly worker — never a Vercel function. Not warranted by the current pain.</li>
-</ol>
+      <div class="flag dec">
+        <span class="lbl">Decisions for you</span><b>(1)</b> Approve the S-tier
+        code fixes (steps 3–5) for a <code>/ship</code> — they're small and
+        directly address "don't know when it finished". <b>(2)</b> Set the two
+        prod env vars (step 1) — the biggest single win, and it also speeds
+        discovery + retries across the board. <b>(3)</b> Decide whether the
+        M-tier durability work (step 6) + instrumentation (step 7) is worth it
+        now, or after you confirm step 1 settles the start-lag. The WebSockets
+        question is answered: <b>not now, and not on Vercel functions.</b>
+      </div>
 
-<div class="flag dec"><span class="lbl">Decisions for you</span><b>(1)</b> Approve the S-tier code fixes (steps 3–5) for a <code>/ship</code> — they're small and directly address "don't know when it finished". <b>(2)</b> Set the two prod env vars (step 1) — the biggest single win, and it also speeds discovery + retries across the board. <b>(3)</b> Decide whether the M-tier durability work (step 6) + instrumentation (step 7) is worth it now, or after you confirm step 1 settles the start-lag. The WebSockets question is answered: <b>not now, and not on Vercel functions.</b></div>
-
-<div class="foot">
-  <p><b>Method.</b> 4-agent code-verified analysis (execution flow · notification flow · stack options · adversarial reframe) against main + 2026 Vercel/Next capability research. Files: <code>modules/enrichment/kick-dispatch.ts</code>, <code>dispatch.ts</code>, <code>app/api/cron/internal/dispatch</code>, <code>app/api/agency/runs/[id]/progress</code>, <code>app/api/internal/enrich-{job,cell}</code>, <code>vercel.json</code>, <code>.claude/rules/realtime-runs-adr.md</code>. Cross-ref INC-2026-07-10-60/61 (start-lag + poll-death).</p>
-</div>
-
-</div>
-</body>
+      <div class="foot">
+        <p>
+          <b>Method.</b> 4-agent code-verified analysis (execution flow ·
+          notification flow · stack options · adversarial reframe) against main
+          + 2026 Vercel/Next capability research. Files:
+          <code>modules/enrichment/kick-dispatch.ts</code>,
+          <code>dispatch.ts</code>, <code>app/api/cron/internal/dispatch</code>,
+          <code>app/api/agency/runs/[id]/progress</code>,
+          <code>app/api/internal/enrich-{job,cell}</code>,
+          <code>vercel.json</code>,
+          <code>.claude/rules/realtime-runs-adr.md</code>. Cross-ref
+          INC-2026-07-10-60/61 (start-lag + poll-death).
+        </p>
+      </div>
+    </div>
+  </body>
 </html>

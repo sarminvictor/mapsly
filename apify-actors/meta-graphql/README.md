@@ -8,7 +8,7 @@ The prior actor navigated **every target's** Ad Library page with **images on** 
 
 ## How ("browser to mint, HTTP to harvest")
 
-1. **Prime once** — one browser render of the first target's *public* Ad Library page to mint `datr` + `lsd` + `doc_id` (harvested fresh every run — never hardcoded; `doc_id` rotates per Meta JS-bundle deploy).
+1. **Prime once** — one browser render of the first target's _public_ Ad Library page to mint `datr` + `lsd` + `doc_id` (harvested fresh every run — never hardcoded; `doc_id` rotates per Meta JS-bundle deploy).
 2. **Harvest over HTTP** — fire the `/api/graphql` persisted-query POST via `page.request.post` for every target. It rides the **real browser TLS/JA3 fingerprint** + primed cookies (Meta's WAF scores TLS before render) but sends only a few KB of JSON — no per-target navigation, no images.
 3. **Fast-fail** — a block is knowable in one ~1 KB request, so a bad session is abandoned after 3 consecutive blocks (`MAX_CONSECUTIVE_BLOCKS`) and a run can't grind past `RUN_WALL_BUDGET_MS` (210 s).
 4. **Fallback** — only if the direct POST can't run (creds stale) does a single target fall back to a navigation-intercept, which also re-harvests creds.

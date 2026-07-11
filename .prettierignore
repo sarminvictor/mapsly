@@ -10,6 +10,11 @@ package-lock.json
 # Build log is append-only prose · prettier mis-handles inline underscores
 .claude/memory/build-log.md
 
+# Incidents log is append-only prose (inline underscores + middle-dot chars) ·
+# prettier is non-idempotent on it (--write output still fails --check), same as
+# build-log.md. State/memory prose, not source — leave it untouched.
+.claude/memory/incidents.md
+
 # Loop-lock is a state file written on every tick · contains middle-dot chars in note
 # that prettier-CI sometimes re-formats inconsistently. State file, not source.
 .claude/memory/loop-lock.json

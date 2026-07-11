@@ -1,186 +1,733 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>New Meta actor · mapsly-meta-graphql · build + live test · 2026-07-10</title>
-<style>
-  :root{
-    --bg:#0f1117; --panel:#171a22; --panel2:#1d2130; --ink:#e8ecf4; --sub:#9aa4b8;
-    --line:#2a2f3d; --accent:#2fbf71; --accent2:#54d98c; --good:#2fbf71; --warn:#e0a500;
-    --bad:#e5484d; --badbg:#2a1618; --goodbg:#132318; --warnbg:#241f10;
-    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
-  }
-  @media (prefers-color-scheme: light){
-    :root{ --bg:#f6f7fb; --panel:#fff; --panel2:#f0f2f8; --ink:#1a1d26; --sub:#5c667c;
-      --line:#e2e6ef; --badbg:#fdecec; --goodbg:#e8f7ee; --warnbg:#fbf4dd; }
-  }
-  :root[data-theme="dark"]{ --bg:#0f1117; --panel:#171a22; --panel2:#1d2130; --ink:#e8ecf4; --sub:#9aa4b8; --line:#2a2f3d; --badbg:#2a1618; --goodbg:#132318; --warnbg:#241f10; }
-  :root[data-theme="light"]{ --bg:#f6f7fb; --panel:#fff; --panel2:#f0f2f8; --ink:#1a1d26; --sub:#5c667c; --line:#e2e6ef; --badbg:#fdecec; --goodbg:#e8f7ee; --warnbg:#fbf4dd; }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
-  .wrap{max-width:1060px;margin:0 auto;padding:40px 22px 90px}
-  header.top{border-bottom:1px solid var(--line);padding-bottom:22px;margin-bottom:30px}
-  .kicker{font:600 12px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent2)}
-  h1{font-size:28px;line-height:1.2;margin:12px 0 8px;letter-spacing:-.02em}
-  h2{font-size:20px;margin:42px 0 14px;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
-  h2 .n{font:700 13px/1 var(--mono);color:var(--accent2);background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:6px 9px}
-  h3{font-size:15.5px;margin:24px 0 9px}
-  p{margin:10px 0}
-  .sub{color:var(--sub)}
-  .meta{color:var(--sub);font:500 13px/1.5 var(--mono)}
-  code{font:600 12.5px/1 var(--mono);background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:2px 5px}
-  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:16px 0}
-  .tldr{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:14px;padding:22px 24px}
-  .grid{display:grid;gap:14px}
-  .g4{grid-template-columns:repeat(4,1fr)} .g3{grid-template-columns:repeat(3,1fr)} .g2{grid-template-columns:repeat(2,1fr)}
-  @media(max-width:760px){.g4,.g3{grid-template-columns:1fr 1fr}} @media(max-width:480px){.g4,.g3,.g2{grid-template-columns:1fr}}
-  .stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px 16px}
-  .stat .v{font:800 25px/1 var(--mono);letter-spacing:-.02em}
-  .stat .l{color:var(--sub);font-size:12.5px;margin-top:6px}
-  .stat.bad .v{color:var(--bad)} .stat.good .v{color:var(--good)} .stat.warn .v{color:var(--warn)}
-  .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;margin:16px 0}
-  table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:620px}
-  th,td{text-align:left;padding:10px 13px;border-bottom:1px solid var(--line);vertical-align:top}
-  thead th{background:var(--panel2);font:700 12px/1.3 var(--mono);letter-spacing:.03em;color:var(--sub);text-transform:uppercase}
-  tbody tr:last-child td{border-bottom:none}
-  tbody tr:hover{background:var(--panel2)}
-  .num{font-family:var(--mono);text-align:right;white-space:nowrap}
-  .mono{font-family:var(--mono)}
-  .pill{display:inline-block;font:700 11px/1 var(--mono);padding:4px 8px;border-radius:20px;white-space:nowrap}
-  .p-bad{background:var(--badbg);color:var(--bad)} .p-good{background:var(--goodbg);color:var(--good)} .p-warn{background:var(--warnbg);color:var(--warn)} .p-neu{background:var(--panel2);color:var(--sub)}
-  ul.tight{margin:8px 0;padding-left:20px} ul.tight li{margin:5px 0}
-  ol.steps{margin:8px 0;padding-left:22px} ol.steps li{margin:9px 0}
-  .flag{border-left:3px solid var(--warn);background:var(--warnbg);border-radius:0 10px 10px 0;padding:13px 16px;margin:14px 0;font-size:13.5px}
-  .flag.dec{border-left-color:var(--accent)}
-  .lbl{font:700 11px/1 var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--sub);display:block;margin-bottom:4px}
-  .foot{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);color:var(--sub);font-size:12.5px}
-  .win{color:var(--good);font-weight:700}
-  .arrow{color:var(--sub);padding:0 6px}
-  .flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font:600 12.5px/1.4 var(--mono);margin:12px 0}
-  .flow .box{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px}
-  .flow .box.hl{border-color:var(--accent);color:var(--accent2)}
-</style>
-</head>
-<body>
-<div class="wrap">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      New Meta actor · mapsly-meta-graphql · build + live test · 2026-07-10
+    </title>
+    <style>
+      :root {
+        --bg: #0f1117;
+        --panel: #171a22;
+        --panel2: #1d2130;
+        --ink: #e8ecf4;
+        --sub: #9aa4b8;
+        --line: #2a2f3d;
+        --accent: #2fbf71;
+        --accent2: #54d98c;
+        --good: #2fbf71;
+        --warn: #e0a500;
+        --bad: #e5484d;
+        --badbg: #2a1618;
+        --goodbg: #132318;
+        --warnbg: #241f10;
+        --mono:
+          "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: #f6f7fb;
+          --panel: #fff;
+          --panel2: #f0f2f8;
+          --ink: #1a1d26;
+          --sub: #5c667c;
+          --line: #e2e6ef;
+          --badbg: #fdecec;
+          --goodbg: #e8f7ee;
+          --warnbg: #fbf4dd;
+        }
+      }
+      :root[data-theme="dark"] {
+        --bg: #0f1117;
+        --panel: #171a22;
+        --panel2: #1d2130;
+        --ink: #e8ecf4;
+        --sub: #9aa4b8;
+        --line: #2a2f3d;
+        --badbg: #2a1618;
+        --goodbg: #132318;
+        --warnbg: #241f10;
+      }
+      :root[data-theme="light"] {
+        --bg: #f6f7fb;
+        --panel: #fff;
+        --panel2: #f0f2f8;
+        --ink: #1a1d26;
+        --sub: #5c667c;
+        --line: #e2e6ef;
+        --badbg: #fdecec;
+        --goodbg: #e8f7ee;
+        --warnbg: #fbf4dd;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          15px/1.6 "Inter",
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap {
+        max-width: 1060px;
+        margin: 0 auto;
+        padding: 40px 22px 90px;
+      }
+      header.top {
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 22px;
+        margin-bottom: 30px;
+      }
+      .kicker {
+        font: 600 12px/1 var(--mono);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--accent2);
+      }
+      h1 {
+        font-size: 28px;
+        line-height: 1.2;
+        margin: 12px 0 8px;
+        letter-spacing: -0.02em;
+      }
+      h2 {
+        font-size: 20px;
+        margin: 42px 0 14px;
+        letter-spacing: -0.01em;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      h2 .n {
+        font: 700 13px/1 var(--mono);
+        color: var(--accent2);
+        background: var(--panel2);
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        padding: 6px 9px;
+      }
+      h3 {
+        font-size: 15.5px;
+        margin: 24px 0 9px;
+      }
+      p {
+        margin: 10px 0;
+      }
+      .sub {
+        color: var(--sub);
+      }
+      .meta {
+        color: var(--sub);
+        font: 500 13px/1.5 var(--mono);
+      }
+      code {
+        font: 600 12.5px/1 var(--mono);
+        background: var(--panel2);
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        padding: 2px 5px;
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 20px 22px;
+        margin: 16px 0;
+      }
+      .tldr {
+        background: linear-gradient(180deg, var(--panel), var(--panel2));
+        border: 1px solid var(--line);
+        border-left: 4px solid var(--accent);
+        border-radius: 14px;
+        padding: 22px 24px;
+      }
+      .grid {
+        display: grid;
+        gap: 14px;
+      }
+      .g4 {
+        grid-template-columns: repeat(4, 1fr);
+      }
+      .g3 {
+        grid-template-columns: repeat(3, 1fr);
+      }
+      .g2 {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      @media (max-width: 760px) {
+        .g4,
+        .g3 {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      @media (max-width: 480px) {
+        .g4,
+        .g3,
+        .g2 {
+          grid-template-columns: 1fr;
+        }
+      }
+      .stat {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 15px 16px;
+      }
+      .stat .v {
+        font: 800 25px/1 var(--mono);
+        letter-spacing: -0.02em;
+      }
+      .stat .l {
+        color: var(--sub);
+        font-size: 12.5px;
+        margin-top: 6px;
+      }
+      .stat.bad .v {
+        color: var(--bad);
+      }
+      .stat.good .v {
+        color: var(--good);
+      }
+      .stat.warn .v {
+        color: var(--warn);
+      }
+      .tblwrap {
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        margin: 16px 0;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 13.5px;
+        min-width: 620px;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 10px 13px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      thead th {
+        background: var(--panel2);
+        font: 700 12px/1.3 var(--mono);
+        letter-spacing: 0.03em;
+        color: var(--sub);
+        text-transform: uppercase;
+      }
+      tbody tr:last-child td {
+        border-bottom: none;
+      }
+      tbody tr:hover {
+        background: var(--panel2);
+      }
+      .num {
+        font-family: var(--mono);
+        text-align: right;
+        white-space: nowrap;
+      }
+      .mono {
+        font-family: var(--mono);
+      }
+      .pill {
+        display: inline-block;
+        font: 700 11px/1 var(--mono);
+        padding: 4px 8px;
+        border-radius: 20px;
+        white-space: nowrap;
+      }
+      .p-bad {
+        background: var(--badbg);
+        color: var(--bad);
+      }
+      .p-good {
+        background: var(--goodbg);
+        color: var(--good);
+      }
+      .p-warn {
+        background: var(--warnbg);
+        color: var(--warn);
+      }
+      .p-neu {
+        background: var(--panel2);
+        color: var(--sub);
+      }
+      ul.tight {
+        margin: 8px 0;
+        padding-left: 20px;
+      }
+      ul.tight li {
+        margin: 5px 0;
+      }
+      ol.steps {
+        margin: 8px 0;
+        padding-left: 22px;
+      }
+      ol.steps li {
+        margin: 9px 0;
+      }
+      .flag {
+        border-left: 3px solid var(--warn);
+        background: var(--warnbg);
+        border-radius: 0 10px 10px 0;
+        padding: 13px 16px;
+        margin: 14px 0;
+        font-size: 13.5px;
+      }
+      .flag.dec {
+        border-left-color: var(--accent);
+      }
+      .lbl {
+        font: 700 11px/1 var(--mono);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--sub);
+        display: block;
+        margin-bottom: 4px;
+      }
+      .foot {
+        margin-top: 56px;
+        padding-top: 20px;
+        border-top: 1px solid var(--line);
+        color: var(--sub);
+        font-size: 12.5px;
+      }
+      .win {
+        color: var(--good);
+        font-weight: 700;
+      }
+      .arrow {
+        color: var(--sub);
+        padding: 0 6px;
+      }
+      .flow {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        font: 600 12.5px/1.4 var(--mono);
+        margin: 12px 0;
+      }
+      .flow .box {
+        background: var(--panel2);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 8px 11px;
+      }
+      .flow .box.hl {
+        border-color: var(--accent);
+        color: var(--accent2);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="top">
+        <div class="kicker">
+          Enrichment · Cell-intel · new actor build + live validation
+        </div>
+        <h1>
+          mapsly-meta-graphql — a new Meta Ad Library actor, built on the
+          forensics best practices
+        </h1>
+        <div class="meta">
+          2026-07-10 · Apify actor id <b>QUHP4uf8sgdavSCVT</b> · deployed +
+          live-tested (16 real runs) · production actor
+          <code>CcN2BafzaiuLOpCGg</code> untouched
+        </div>
+      </header>
 
-<header class="top">
-  <div class="kicker">Enrichment · Cell-intel · new actor build + live validation</div>
-  <h1>mapsly-meta-graphql — a new Meta Ad Library actor, built on the forensics best practices</h1>
-  <div class="meta">2026-07-10 · Apify actor id <b>QUHP4uf8sgdavSCVT</b> · deployed + live-tested (16 real runs) · production actor <code>CcN2BafzaiuLOpCGg</code> untouched</div>
-</header>
+      <div class="tldr">
+        <p style="margin-top: 0">
+          <b>Built, deployed, and validated a brand-new actor</b> implementing
+          the "prime once, harvest" architecture from the forensics report. On
+          the <b>keyword / cell path</b> — the primary enrichment use case — it
+          went from the old actor's <b>27% success + $0.90 timeout burns</b> to
+          <b class="win"
+            >11/11 success at $0.009–0.075 per run, 20–72 s, zero timeouts</b
+          >. It returns the advertiser facet <i>and</i> real ad creatives, and
+          emits the exact same dataset + <code>RUN_SUMMARY</code> contract, so
+          adopting it is a one-line env change.
+        </p>
+        <p style="margin-bottom: 0">
+          The build surfaced a genuinely non-obvious root-cause bug that also
+          explains failures in the old actor pattern:
+          <b
+            >opening a named cross-run KV store hangs under Apify's
+            <code>LIMITED_PERMISSIONS</code> and jams the SDK's storage queue</b
+          >, silently blocking every later write. Fixing that was the difference
+          between 0-record timeouts and a working actor.
+        </p>
+      </div>
 
-<div class="tldr">
-  <p style="margin-top:0"><b>Built, deployed, and validated a brand-new actor</b> implementing the "prime once, harvest" architecture from the forensics report. On the <b>keyword / cell path</b> — the primary enrichment use case — it went from the old actor's <b>27% success + $0.90 timeout burns</b> to <b class="win">11/11 success at $0.009–0.075 per run, 20–72 s, zero timeouts</b>. It returns the advertiser facet <i>and</i> real ad creatives, and emits the exact same dataset + <code>RUN_SUMMARY</code> contract, so adopting it is a one-line env change.</p>
-  <p style="margin-bottom:0">The build surfaced a genuinely non-obvious root-cause bug that also explains failures in the old actor pattern: <b>opening a named cross-run KV store hangs under Apify's <code>LIMITED_PERMISSIONS</code> and jams the SDK's storage queue</b>, silently blocking every later write. Fixing that was the difference between 0-record timeouts and a working actor.</p>
-</div>
+      <!-- ============================================================= -->
+      <h2><span class="n">1</span> Headline results</h2>
+      <div class="grid g4" style="margin-top: 6px">
+        <div class="stat good">
+          <div class="v">11/11</div>
+          <div class="l">keyword/cell runs succeeded (post fix)</div>
+        </div>
+        <div class="stat good">
+          <div class="v">~$0.045</div>
+          <div class="l">avg cost/run (range $0.009–0.075)</div>
+        </div>
+        <div class="stat good">
+          <div class="v">20–72s</div>
+          <div class="l">wall time — no 280 s timeouts</div>
+        </div>
+        <div class="stat good">
+          <div class="v">$0</div>
+          <div class="l">$0.90 burns — the class is gone</div>
+        </div>
+      </div>
+      <div class="tblwrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>Old actor (prod, 30d)</th>
+              <th>New mapsly-meta-graphql (live test)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Keyword/cell success rate</td>
+              <td><span class="pill p-bad">27%</span></td>
+              <td><span class="pill p-good">11/11 (100%)</span></td>
+            </tr>
+            <tr>
+              <td>Dead-run cost</td>
+              <td class="mono">up to <b>$0.90</b> (0 yield)</td>
+              <td class="mono">~$0.06 fast-fail, or recovers via retry</td>
+            </tr>
+            <tr>
+              <td>Successful-run cost</td>
+              <td class="mono">$0.02–0.16</td>
+              <td class="mono"><b>$0.009–0.075</b></td>
+            </tr>
+            <tr>
+              <td>Wall time on failure</td>
+              <td class="mono">280 s timeout (SIGKILL)</td>
+              <td class="mono">20–90 s, clean exit</td>
+            </tr>
+            <tr>
+              <td>Yield</td>
+              <td>facet only (~4 advertisers)</td>
+              <td>facet (27–107 advertisers) + creatives</td>
+            </tr>
+            <tr>
+              <td>Transport</td>
+              <td>full browser, per-target nav, images</td>
+              <td><b>one nav per run</b>, intercept + HTTP</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="sub">
+        Live sample (post-fix): med spa US 67 adv +10 ads · dentist US 27 adv
+        +10 ads · <b>barber Kelowna CA 49 adv</b> (this market failed in prod) ·
+        hvac US 107 adv · plumber CA 48 adv +10 ads · roofing US 102 adv. Costs
+        $0.009–0.075.
+      </p>
 
-<!-- ============================================================= -->
-<h2><span class="n">1</span> Headline results</h2>
-<div class="grid g4" style="margin-top:6px">
-  <div class="stat good"><div class="v">11/11</div><div class="l">keyword/cell runs succeeded (post fix)</div></div>
-  <div class="stat good"><div class="v">~$0.045</div><div class="l">avg cost/run (range $0.009–0.075)</div></div>
-  <div class="stat good"><div class="v">20–72s</div><div class="l">wall time — no 280 s timeouts</div></div>
-  <div class="stat good"><div class="v">$0</div><div class="l">$0.90 burns — the class is gone</div></div>
-</div>
-<div class="tblwrap">
-<table>
-  <thead><tr><th>Metric</th><th>Old actor (prod, 30d)</th><th>New mapsly-meta-graphql (live test)</th></tr></thead>
-  <tbody>
-    <tr><td>Keyword/cell success rate</td><td><span class="pill p-bad">27%</span></td><td><span class="pill p-good">11/11 (100%)</span></td></tr>
-    <tr><td>Dead-run cost</td><td class="mono">up to <b>$0.90</b> (0 yield)</td><td class="mono">~$0.06 fast-fail, or recovers via retry</td></tr>
-    <tr><td>Successful-run cost</td><td class="mono">$0.02–0.16</td><td class="mono"><b>$0.009–0.075</b></td></tr>
-    <tr><td>Wall time on failure</td><td class="mono">280 s timeout (SIGKILL)</td><td class="mono">20–90 s, clean exit</td></tr>
-    <tr><td>Yield</td><td>facet only (~4 advertisers)</td><td>facet (27–107 advertisers) + creatives</td></tr>
-    <tr><td>Transport</td><td>full browser, per-target nav, images</td><td><b>one nav per run</b>, intercept + HTTP</td></tr>
-  </tbody>
-</table>
-</div>
-<p class="sub">Live sample (post-fix): med spa US 67 adv +10 ads · dentist US 27 adv +10 ads · <b>barber Kelowna CA 49 adv</b> (this market failed in prod) · hvac US 107 adv · plumber CA 48 adv +10 ads · roofing US 102 adv. Costs $0.009–0.075.</p>
+      <!-- ============================================================= -->
+      <h2><span class="n">2</span> What was built</h2>
+      <p>
+        A fully new Apify actor — <code>apify-actors/meta-graphql/</code>, name
+        <b>mapsly-meta-graphql</b> — deployed as a <b>separate actor</b> so the
+        live production one keeps running untouched. Same input schema and the
+        identical dataset + <code>RUN_SUMMARY</code> contract as the old actor,
+        so the app adapter (<code>services/apify/meta-ad-library.ts</code>) is a
+        drop-in.
+      </p>
 
-<!-- ============================================================= -->
-<h2><span class="n">2</span> What was built</h2>
-<p>A fully new Apify actor — <code>apify-actors/meta-graphql/</code>, name <b>mapsly-meta-graphql</b> — deployed as a <b>separate actor</b> so the live production one keeps running untouched. Same input schema and the identical dataset + <code>RUN_SUMMARY</code> contract as the old actor, so the app adapter (<code>services/apify/meta-ad-library.ts</code>) is a drop-in.</p>
+      <h3>
+        The architecture (forensics best-practice, adapted to what actually
+        works)
+      </h3>
+      <div class="flow">
+        <span class="box"
+          >Crawlee auto-nav → <code>facebook.com/</code>
+          <span class="sub">(light, reliable)</span></span
+        >
+        <span class="arrow">→</span>
+        <span class="box hl">ONE prime nav → Ad Library page</span>
+        <span class="arrow">→</span>
+        <span class="box"
+          >scroll → capture <code>doc_id</code> + intercept facet</span
+        >
+        <span class="arrow">→</span>
+        <span class="box hl">retry-on-block (rotate IP ×3)</span>
+        <span class="arrow">→</span>
+        <span class="box">emit target[0] · HTTP/nav the rest</span>
+      </div>
+      <ul class="tight">
+        <li>
+          <b>One navigation per run</b> (not per target) — the prime nav
+          <i>is</i> target[0]'s scrape, via a response interceptor. This is the
+          core cost fix: the old actor navigated every target with images,
+          blowing the 280 s budget.
+        </li>
+        <li>
+          <b>Retry-on-block</b> — Meta soft-blocks a session
+          <i>probabilistically</i> (an IP is flagged or not). If the primed page
+          withholds the facet, rotate to a fresh residential exit and
+          re-navigate, up to 3× — break the instant data reaches.
+          <b>This lifted success from ~50% to 11/11.</b>
+        </li>
+        <li>
+          <b>Fast-fail + wall budget</b> — a genuinely dead session exits in
+          ~20–90 s (~$0.06), never grinding to the timeout. The $0.90 burn class
+          is structurally impossible.
+        </li>
+        <li>
+          <b>Real <code>doc_id</code> capture</b> — harvested from the page's
+          own scroll-triggered pagination POST (regex bundle-scraping failed),
+          re-minted every run so Meta's rotation is a non-event.
+        </li>
+        <li>
+          <b>Full observability preserved</b> —
+          <code>RUN_SUMMARY</code> (outcome, credsMinted, docId, modeMix),
+          per-target <code>target_status</code> with <code>mode</code> +
+          <code>elapsedMs</code>, the honest
+          <code>ok/empty_verified/partial/blocked/timeout</code> taxonomy,
+          <code>Actor.fail()</code> on block, and a KV
+          <code>BC_LAST</code> breadcrumb that survives a SIGKILL. Debug trail
+          gated behind <code>input.debug</code> so production datasets stay
+          contract-clean.
+        </li>
+      </ul>
 
-<h3>The architecture (forensics best-practice, adapted to what actually works)</h3>
-<div class="flow">
-  <span class="box">Crawlee auto-nav → <code>facebook.com/</code> <span class="sub">(light, reliable)</span></span>
-  <span class="arrow">→</span>
-  <span class="box hl">ONE prime nav → Ad Library page</span>
-  <span class="arrow">→</span>
-  <span class="box">scroll → capture <code>doc_id</code> + intercept facet</span>
-  <span class="arrow">→</span>
-  <span class="box hl">retry-on-block (rotate IP ×3)</span>
-  <span class="arrow">→</span>
-  <span class="box">emit target[0] · HTTP/nav the rest</span>
-</div>
-<ul class="tight">
-  <li><b>One navigation per run</b> (not per target) — the prime nav <i>is</i> target[0]'s scrape, via a response interceptor. This is the core cost fix: the old actor navigated every target with images, blowing the 280 s budget.</li>
-  <li><b>Retry-on-block</b> — Meta soft-blocks a session <i>probabilistically</i> (an IP is flagged or not). If the primed page withholds the facet, rotate to a fresh residential exit and re-navigate, up to 3× — break the instant data reaches. <b>This lifted success from ~50% to 11/11.</b></li>
-  <li><b>Fast-fail + wall budget</b> — a genuinely dead session exits in ~20–90 s (~$0.06), never grinding to the timeout. The $0.90 burn class is structurally impossible.</li>
-  <li><b>Real <code>doc_id</code> capture</b> — harvested from the page's own scroll-triggered pagination POST (regex bundle-scraping failed), re-minted every run so Meta's rotation is a non-event.</li>
-  <li><b>Full observability preserved</b> — <code>RUN_SUMMARY</code> (outcome, credsMinted, docId, modeMix), per-target <code>target_status</code> with <code>mode</code> + <code>elapsedMs</code>, the honest <code>ok/empty_verified/partial/blocked/timeout</code> taxonomy, <code>Actor.fail()</code> on block, and a KV <code>BC_LAST</code> breadcrumb that survives a SIGKILL. Debug trail gated behind <code>input.debug</code> so production datasets stay contract-clean.</li>
-</ul>
+      <!-- ============================================================= -->
+      <h2>
+        <span class="n">3</span> The bug that mattered — a reusable lesson
+      </h2>
+      <div class="panel">
+        <span class="lbl"
+          >Root cause · every first smoke test timed out at 0 records</span
+        >
+        <p style="margin-top: 6px">
+          The actor hung for the full 280 s producing nothing — not even the
+          first breadcrumb — regardless of code changes. KV-store breadcrumbs
+          (which survive SIGKILL) pinpointed it: the code reached
+          <code>init-done</code> but never the next line.
+        </p>
+        <p>
+          <b>The culprit:</b>
+          <code>await Actor.openKeyValueStore("mapsly-meta-warm")</code> —
+          opening a <i>named, account-level</i> KV store (for cross-run
+          <code>datr</code> warming). Under Apify's
+          <code>LIMITED_PERMISSIONS</code> (how actor runs execute), that call
+          <b>hangs instead of rejecting</b>, and the pending call
+          <b>jams the SDK's internal storage queue</b> — so every later
+          <code>pushData</code>/<code>setValue</code> (breadcrumbs
+          <i>and</i> real scraped data) blocks behind it forever, even though
+          the crawler runs and burns proxy.
+        </p>
+        <p style="margin-bottom: 0">
+          <b>Fix:</b> drop the named cross-run store entirely (each run primes
+          its own <code>datr</code> — it was a marginal optimization).
+          <b>Prevention:</b> never open a named account-level storage in an
+          actor run without a timeout guard; if a storage op can hang, it stalls
+          all storage. Logged as an incident.
+        </p>
+      </div>
 
-<!-- ============================================================= -->
-<h2><span class="n">3</span> The bug that mattered — a reusable lesson</h2>
-<div class="panel">
-  <span class="lbl">Root cause · every first smoke test timed out at 0 records</span>
-  <p style="margin-top:6px">The actor hung for the full 280 s producing nothing — not even the first breadcrumb — regardless of code changes. KV-store breadcrumbs (which survive SIGKILL) pinpointed it: the code reached <code>init-done</code> but never the next line.</p>
-  <p><b>The culprit:</b> <code>await Actor.openKeyValueStore("mapsly-meta-warm")</code> — opening a <i>named, account-level</i> KV store (for cross-run <code>datr</code> warming). Under Apify's <code>LIMITED_PERMISSIONS</code> (how actor runs execute), that call <b>hangs instead of rejecting</b>, and the pending call <b>jams the SDK's internal storage queue</b> — so every later <code>pushData</code>/<code>setValue</code> (breadcrumbs <i>and</i> real scraped data) blocks behind it forever, even though the crawler runs and burns proxy.</p>
-  <p style="margin-bottom:0"><b>Fix:</b> drop the named cross-run store entirely (each run primes its own <code>datr</code> — it was a marginal optimization). <b>Prevention:</b> never open a named account-level storage in an actor run without a timeout guard; if a storage op can hang, it stalls all storage. Logged as an incident.</p>
-</div>
+      <!-- ============================================================= -->
+      <h2><span class="n">4</span> Full live-test log</h2>
+      <div class="tblwrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Target</th>
+              <th>Country</th>
+              <th class="num">Outcome</th>
+              <th class="num">Advertisers</th>
+              <th class="num">Ads</th>
+              <th class="num">Cost</th>
+              <th class="num">Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>med spa</td>
+              <td>US</td>
+              <td class="num"><span class="pill p-good">ok</span></td>
+              <td class="num">67</td>
+              <td class="num">10</td>
+              <td class="num">$0.053</td>
+              <td class="num">34s</td>
+            </tr>
+            <tr>
+              <td>med spa</td>
+              <td>US</td>
+              <td class="num"><span class="pill p-good">ok</span></td>
+              <td class="num">66</td>
+              <td class="num">30</td>
+              <td class="num">$0.055</td>
+              <td class="num">33s</td>
+            </tr>
+            <tr>
+              <td>med spa</td>
+              <td>US</td>
+              <td class="num"><span class="pill p-good">ok</span></td>
+              <td class="num">66</td>
+              <td class="num">10</td>
+              <td class="num">$0.009</td>
+              <td class="num">24s</td>
+            </tr>
+            <tr>
+              <td>dentist</td>
+              <td>US</td>
+              <td class="num"><span class="pill p-good">ok</span></td>
+              <td class="num">27</td>
+              <td class="num">10</td>
+              <td class="num">$0.047</td>
+              <td class="num">20s</td>
+            </tr>
+            <tr>
+              <td>hvac</td>
+              <td>US</td>
+              <td class="num"><span class="pill p-good">ok</span></td>
+              <td class="num">107</td>
+              <td class="num">9</td>
+              <td class="num">$0.066</td>
+              <td class="num">28s</td>
+            </tr>
+            <tr>
+              <td>roofing</td>
+              <td>US</td>
+              <td class="num"><span class="pill p-good">ok</span></td>
+              <td class="num">102</td>
+              <td class="num">0</td>
+              <td class="num">$0.073</td>
+              <td class="num">50s</td>
+            </tr>
+            <tr>
+              <td><b>barber (Kelowna)</b></td>
+              <td>CA</td>
+              <td class="num"><span class="pill p-good">ok</span></td>
+              <td class="num">49</td>
+              <td class="num">0</td>
+              <td class="num">$0.045</td>
+              <td class="num">20s</td>
+            </tr>
+            <tr>
+              <td>barber</td>
+              <td>CA</td>
+              <td class="num"><span class="pill p-good">ok</span></td>
+              <td class="num">50</td>
+              <td class="num">0</td>
+              <td class="num">$0.014</td>
+              <td class="num">41s</td>
+            </tr>
+            <tr>
+              <td>plumber</td>
+              <td>CA</td>
+              <td class="num"><span class="pill p-good">ok</span></td>
+              <td class="num">48</td>
+              <td class="num">10</td>
+              <td class="num">$0.075</td>
+              <td class="num">72s</td>
+            </tr>
+            <tr style="border-top: 2px solid var(--line)">
+              <td>page-id lookup ×3</td>
+              <td>US</td>
+              <td class="num"><span class="pill p-bad">blocked</span></td>
+              <td class="num">—</td>
+              <td class="num">—</td>
+              <td class="num">$0.065–0.10</td>
+              <td class="num">54–93s</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="sub">
+        "barber Kelowna CA" is the exact market that failed repeatedly in
+        production with the old actor. Two runs also returned before the
+        retry-on-block landed and fast-failed cheap ($0.008), proving the
+        fast-fail path.
+      </p>
 
-<!-- ============================================================= -->
-<h2><span class="n">4</span> Full live-test log</h2>
-<div class="tblwrap">
-<table>
-  <thead><tr><th>Target</th><th>Country</th><th class="num">Outcome</th><th class="num">Advertisers</th><th class="num">Ads</th><th class="num">Cost</th><th class="num">Time</th></tr></thead>
-  <tbody>
-    <tr><td>med spa</td><td>US</td><td class="num"><span class="pill p-good">ok</span></td><td class="num">67</td><td class="num">10</td><td class="num">$0.053</td><td class="num">34s</td></tr>
-    <tr><td>med spa</td><td>US</td><td class="num"><span class="pill p-good">ok</span></td><td class="num">66</td><td class="num">30</td><td class="num">$0.055</td><td class="num">33s</td></tr>
-    <tr><td>med spa</td><td>US</td><td class="num"><span class="pill p-good">ok</span></td><td class="num">66</td><td class="num">10</td><td class="num">$0.009</td><td class="num">24s</td></tr>
-    <tr><td>dentist</td><td>US</td><td class="num"><span class="pill p-good">ok</span></td><td class="num">27</td><td class="num">10</td><td class="num">$0.047</td><td class="num">20s</td></tr>
-    <tr><td>hvac</td><td>US</td><td class="num"><span class="pill p-good">ok</span></td><td class="num">107</td><td class="num">9</td><td class="num">$0.066</td><td class="num">28s</td></tr>
-    <tr><td>roofing</td><td>US</td><td class="num"><span class="pill p-good">ok</span></td><td class="num">102</td><td class="num">0</td><td class="num">$0.073</td><td class="num">50s</td></tr>
-    <tr><td><b>barber (Kelowna)</b></td><td>CA</td><td class="num"><span class="pill p-good">ok</span></td><td class="num">49</td><td class="num">0</td><td class="num">$0.045</td><td class="num">20s</td></tr>
-    <tr><td>barber</td><td>CA</td><td class="num"><span class="pill p-good">ok</span></td><td class="num">50</td><td class="num">0</td><td class="num">$0.014</td><td class="num">41s</td></tr>
-    <tr><td>plumber</td><td>CA</td><td class="num"><span class="pill p-good">ok</span></td><td class="num">48</td><td class="num">10</td><td class="num">$0.075</td><td class="num">72s</td></tr>
-    <tr style="border-top:2px solid var(--line)"><td>page-id lookup ×3</td><td>US</td><td class="num"><span class="pill p-bad">blocked</span></td><td class="num">—</td><td class="num">—</td><td class="num">$0.065–0.10</td><td class="num">54–93s</td></tr>
-  </tbody>
-</table>
-</div>
-<p class="sub">"barber Kelowna CA" is the exact market that failed repeatedly in production with the old actor. Two runs also returned before the retry-on-block landed and fast-failed cheap ($0.008), proving the fast-fail path.</p>
+      <div class="flag">
+        <span class="lbl">Honest caveat · the page-id creative path</span>
+        Pure <b>page-id lookups blocked 0/3</b> — Meta scrutinizes page-specific
+        views harder and they carry no advertiser facet, so the block-vs-empty
+        signal is weaker. This is exactly the split the forensics report called
+        out:
+        <b
+          >keyword/cell = advertiser facet (now reliable); creatives =
+          per-page-id (still hard)</b
+        >. In a real cell run the prime is always a keyword (so the facet
+        works); page-ids ride along as secondary targets. If per-lead creatives
+        become a priority, the report's recommendation stands —
+        <b>rent curious_coder for the page-id path</b> behind our honesty
+        adapter.
+      </div>
 
-<div class="flag">
-  <span class="lbl">Honest caveat · the page-id creative path</span>
-  Pure <b>page-id lookups blocked 0/3</b> — Meta scrutinizes page-specific views harder and they carry no advertiser facet, so the block-vs-empty signal is weaker. This is exactly the split the forensics report called out: <b>keyword/cell = advertiser facet (now reliable); creatives = per-page-id (still hard)</b>. In a real cell run the prime is always a keyword (so the facet works); page-ids ride along as secondary targets. If per-lead creatives become a priority, the report's recommendation stands — <b>rent curious_coder for the page-id path</b> behind our honesty adapter.
-</div>
+      <!-- ============================================================= -->
+      <h2><span class="n">5</span> How to adopt it</h2>
+      <div class="panel">
+        <ol class="steps" style="margin-top: 0">
+          <li>
+            The actor is <b>deployed and live</b> (id
+            <code>QUHP4uf8sgdavSCVT</code>). Nothing in the app points at it yet
+            — production still runs the old actor.
+          </li>
+          <li>
+            Adopting is a <b>one-line env change</b>: set
+            <code>META_AD_LIBRARY_ACTOR_ID=QUHP4uf8sgdavSCVT</code>. The adapter
+            already reads this env and the dataset contract is identical — no
+            code change.
+          </li>
+          <li>
+            Recommended rollout: flip the env on a <b>preview/staging</b> first,
+            watch a few real cell runs in <code>AdMarketRun</code>, then
+            promote. Optionally A/B by market for a day.
+          </li>
+          <li>
+            Consider dropping the run memory <b>4 GB → 2 GB</b> in
+            <code>runActor</code> (the new actor holds one lightweight page, not
+            a heavy multi-target crawl) to shave the compute slice further.
+          </li>
+        </ol>
+      </div>
 
-<!-- ============================================================= -->
-<h2><span class="n">5</span> How to adopt it</h2>
-<div class="panel">
-  <ol class="steps" style="margin-top:0">
-    <li>The actor is <b>deployed and live</b> (id <code>QUHP4uf8sgdavSCVT</code>). Nothing in the app points at it yet — production still runs the old actor.</li>
-    <li>Adopting is a <b>one-line env change</b>: set <code>META_AD_LIBRARY_ACTOR_ID=QUHP4uf8sgdavSCVT</code>. The adapter already reads this env and the dataset contract is identical — no code change.</li>
-    <li>Recommended rollout: flip the env on a <b>preview/staging</b> first, watch a few real cell runs in <code>AdMarketRun</code>, then promote. Optionally A/B by market for a day.</li>
-    <li>Consider dropping the run memory <b>4 GB → 2 GB</b> in <code>runActor</code> (the new actor holds one lightweight page, not a heavy multi-target crawl) to shave the compute slice further.</li>
-  </ol>
-</div>
+      <div class="flag dec">
+        <span class="lbl">Decisions for Viktor</span>
+        <b>(1)</b> Approve pointing <code>META_AD_LIBRARY_ACTOR_ID</code> at the
+        new actor (a <code>/ship</code> of the env change) — the app-side is
+        untouched otherwise. <b>(2)</b> Keep the old actor as an instant
+        rollback for one release cycle. <b>(3)</b> Decide whether the per-lead
+        <b>creative</b> path warrants renting curious_coder, or is served "well
+        enough" by the facet + best-effort page-id. The new actor code is
+        committed to the working tree (not pushed); the Apify deploy is live and
+        separate from <code>/ship</code>.
+      </div>
 
-<div class="flag dec">
-  <span class="lbl">Decisions for Viktor</span>
-  <b>(1)</b> Approve pointing <code>META_AD_LIBRARY_ACTOR_ID</code> at the new actor (a <code>/ship</code> of the env change) — the app-side is untouched otherwise.
-  <b>(2)</b> Keep the old actor as an instant rollback for one release cycle.
-  <b>(3)</b> Decide whether the per-lead <b>creative</b> path warrants renting curious_coder, or is served "well enough" by the facet + best-effort page-id.
-  The new actor code is committed to the working tree (not pushed); the Apify deploy is live and separate from <code>/ship</code>.
-</div>
-
-<div class="foot">
-  <p><b>Artifacts.</b> Actor source: <code>apify-actors/meta-graphql/</code> (src/main.js, .actor/, Dockerfile, README). Apify actor id <code>QUHP4uf8sgdavSCVT</code>, build 1.0.x live. Companion: <a href="meta-actor-forensics-2026-07-10.html">docs/meta-actor-forensics-2026-07-10.html</a> (why the old actor failed + the build-vs-buy analysis this actor implements the "build" arm of).</p>
-</div>
-
-</div>
-</body>
+      <div class="foot">
+        <p>
+          <b>Artifacts.</b> Actor source:
+          <code>apify-actors/meta-graphql/</code> (src/main.js, .actor/,
+          Dockerfile, README). Apify actor id <code>QUHP4uf8sgdavSCVT</code>,
+          build 1.0.x live. Companion:
+          <a href="meta-actor-forensics-2026-07-10.html"
+            >docs/meta-actor-forensics-2026-07-10.html</a
+          >
+          (why the old actor failed + the build-vs-buy analysis this actor
+          implements the "build" arm of).
+        </p>
+      </div>
+    </div>
+  </body>
 </html>
