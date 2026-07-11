@@ -198,7 +198,17 @@ export async function runActor<T = unknown>(
   const memory = opts.memoryMbytes ?? 4096;
   const timeoutSecs = opts.timeoutSecs ?? 280;
   const pollInterval = opts.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
-  const maxWait = opts.maxWaitMs ?? DEFAULT_MAX_WAIT_MS;
+  // Poll ceiling MUST cover the actor's own run timeout — else a legit long run
+  // (e.g. the DOM/Lighthouse actor at timeoutSecs=600) throws `did not finish
+  // within ...` at DEFAULT_MAX_WAIT_MS BEFORE we bill or read its dataset: the
+  // run keeps billing on Apify unbooked (the cost ceiling goes blind) and the
+  // already-fetched items we PAID for are discarded. Derive from timeoutSecs +
+  // a finalize buffer so the salvage path (partial items on TIMED-OUT/ABORTED)
+  // actually runs. Floored at the legacy default so short actors are unchanged
+  // (Meta at 280s → 295_000, identical to before).
+  const maxWait =
+    opts.maxWaitMs ??
+    Math.max(timeoutSecs * 1000 + 15_000, DEFAULT_MAX_WAIT_MS);
 
   // 1 · start the run. WP3-9 · pace via the apify token bucket (no-op sans
   // Redis) + retry ONCE on a transient start failure (429/5xx) so a momentary

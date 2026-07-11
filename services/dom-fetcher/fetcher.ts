@@ -45,6 +45,18 @@ const OPERATION = "dom-fetcher.fetch";
  *  with the batch size so the fallback approximates the metered cost. */
 const FALLBACK_COST_PER_URL_USD = 0.005;
 
+/**
+ * Residential-aware $/GB-hour for the TIMED-OUT cost estimate. The DOM actor
+ * runs on groups:['RESIDENTIAL'] and pulls full DOMs (document+script+xhr) plus
+ * a retry ladder through that lane, so estimating a timed-out batch at
+ * `runActor`'s DATACENTER default (0.4) under-books it and blinds the $5 ceiling
+ * on exactly the expensive runs. Set BELOW the Meta adapter's 2.8 (Meta streams
+ * images; we block image/media/font/stylesheet, so far lighter proxy bytes).
+ * CONSERVATIVE placeholder — a real per-batch measurement should replace it; for
+ * a cost CEILING a slight over-estimate is the safe direction (never under-book).
+ */
+const DOM_EST_USD_PER_GB_HOUR = 1.5;
+
 /** Max URLs the actor accepts in one run (input-schema bound). */
 const MAX_URLS_PER_RUN = 1000;
 
@@ -220,6 +232,7 @@ async function fetchDomsRaw(input: DomFetchInput): Promise<FetchDomsResult> {
     memoryMbytes: parsed.memoryMbytes,
     timeoutSecs: RUN_TIMEOUT_SECS,
     fallbackCostUsd: FALLBACK_COST_PER_URL_USD * parsed.urls.length,
+    estUsdPerGbHour: DOM_EST_USD_PER_GB_HOUR,
   });
   return { results: items.map(toDomResult), runId, usageTotalUsd };
 }
@@ -422,6 +435,7 @@ export async function fetchLighthouse(
     memoryMbytes: DOM_MEMORY_MB.lighthouse,
     timeoutSecs: opts.timeoutSecs ?? RUN_TIMEOUT_SECS,
     fallbackCostUsd: 0.06,
+    estUsdPerGbHour: DOM_EST_USD_PER_GB_HOUR,
   });
   const first = items[0];
   return {

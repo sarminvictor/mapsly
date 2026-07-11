@@ -42,15 +42,11 @@ let DEBUG = false; // set from input.debug — gates dataset breadcrumbs (KV BC_
 await Actor.init();
 await bc("init-done");
 
-// Cross-run warm-`datr` persistence is DROPPED. `Actor.openKeyValueStore(name)`
-// (a NAMED, account-level store) HANGS forever under this run's LIMITED_PERMISSIONS
-// — and worse, the pending call jams the SDK's internal storage queue, so EVERY
-// later setValue/pushData (breadcrumbs AND real scraped data) blocks behind it. That
-// was the root cause of every 0-record timeout in the first smoke tests. Each run
-// primes its own `datr` anyway, so cross-run warming was only a marginal trust
-// optimization — not worth a hard hang. warmStore stays null; all uses are guarded.
-const warmStore = null;
-await bc("warmstore-skipped");
+// Cross-run warm-`datr` persistence is intentionally NOT used: `Actor.openKeyValueStore(name)`
+// (a NAMED store) HANGS under this run's LIMITED_PERMISSIONS and jams the SDK's storage
+// queue (was the root cause of every 0-record timeout in the first smoke tests). Each run
+// primes its own `datr` anyway, so cross-run warming was only a marginal trust win — dropped.
+// The dead `warmStore=null` var + the guarded WARM_DATR reload block were removed 2026-07-11.
 
 // ---- Input --------------------------------------------------------------
 const input = (await Actor.getInput()) ?? {};
@@ -87,6 +83,7 @@ const maxItems = Number.isFinite(input.maxItems)
 // Cost governors (the anti-$0.90-burn levers).
 const MAX_CONSECUTIVE_BLOCKS = 3; // fast-fail: abandon after 3 blocked targets in a row
 const RUN_WALL_BUDGET_MS = 180_000; // stop launching targets past this — leaves headroom to finalize
+const RESOLVE_BUDGET_MS = 45_000; // cap the pageUrls→id resolution phase (walled handles block) so it can't eat the whole handler
 
 if (searchTerms.length === 0 && pageIds.length === 0 && pageUrls.length === 0) {
   throw new Error(
@@ -157,11 +154,9 @@ async function bc(step, extra) {
   // KV setValue is an immediate PUT that survives a SIGKILL — BC_LAST always holds
   // the last step reached even if the dataset push is buffered/lost. Always on
   // (one overwritten record, near-zero cost, the key diagnostic).
-  try {
-    await Actor.setValue("BC_LAST", rec);
-  } catch {
-    /* best-effort */
-  }
+  // Fire-and-forget: BC_LAST is a best-effort diagnostic; awaiting it serializes a
+  // KV round-trip into the proxy-billed run clock on every one of the ~15+ calls.
+  void Actor.setValue("BC_LAST", rec).catch(() => {});
   // Full breadcrumb trail to the dataset only when input.debug — keeps a production
   // dataset to the contract records (advertiser/ad/target_status/resolution) the app
   // adapter expects; the adapter's safeParse ignores recordType:"debug" regardless.
@@ -544,7 +539,7 @@ async function resolvePageIdHttp(page, handleOrUrl) {
   const url = fbPageUrl(handleOrUrl);
   if (!url) return null;
   try {
-    const res = await page.request.get(url, { timeout: 20000 });
+    const res = await page.request.get(url, { timeout: 8000 });
     const text = await res.text();
     return extractPageId(text);
   } catch (e) {
@@ -581,7 +576,9 @@ async function directScrape(page, target, store, creds) {
 
   let cursor = null;
   let anyReached = false;
-  const MAX_PAGES = 5;
+  // Follow pagination up to what the caller actually asked for (maxItems), not a
+  // fixed 150 (5×30) that silently truncated a page-id target requesting up to 1000.
+  const MAX_PAGES = Math.min(50, Math.max(1, Math.ceil(maxItems / 30)));
   for (let pageNum = 0; pageNum < MAX_PAGES; pageNum += 1) {
     const vars = JSON.parse(JSON.stringify(baseVars));
     if ("cursor" in vars || cursor) vars.cursor = cursor;
@@ -774,7 +771,10 @@ async function scrapeTarget(page, target, session) {
       })),
     );
   }
-  const ip = await currentEgressIp(page);
+  const ip =
+    outcome === "blocked" || outcome === "timeout"
+      ? await currentEgressIp(page)
+      : null;
   await Actor.pushData({
     recordType: "target_status",
     subject: target.subject,
@@ -898,28 +898,8 @@ const crawler = new PlaywrightCrawler({
     // the whole session — this is what unlocks the cheap HTTP-direct path.
     page.on("request", captureCredsFromRequest);
 
-    // 1 · reload a previously-warmed datr so trust compounds across runs.
-    try {
-      const saved = warmStore ? await warmStore.getValue("WARM_DATR") : null;
-      if (saved && saved.value) {
-        await page.context().addCookies([
-          {
-            name: "datr",
-            value: String(saved.value),
-            domain: ".facebook.com",
-            path: "/",
-            secure: true,
-            httpOnly: true,
-            sameSite: "None",
-          },
-        ]);
-        log.info("Loaded warmed datr from KV (cross-run trust).");
-      }
-    } catch (e) {
-      log.warning(`WARM_DATR reload failed: ${e.message}`);
-    }
-
-    await bc("warm-datr-done");
+    // 1 · (cross-run datr warming removed — each run primes its own datr; see top note)
+    await bc("handler-primed-start");
 
     // 2 · PRIME — navigate the first target's Ad Library page. The prime nav ALSO
     // scrapes target[0]: an interceptor collects the facet/ads Meta embeds in this
@@ -1069,7 +1049,10 @@ const crawler = new PlaywrightCrawler({
           })),
         );
       }
-      const ip = await currentEgressIp(page);
+      const ip =
+        outcome === "blocked" || outcome === "timeout"
+          ? await currentEgressIp(page)
+          : null;
       const st = {
         subject: primeTarget.subject,
         label: primeTarget.label,
@@ -1090,7 +1073,18 @@ const crawler = new PlaywrightCrawler({
     }
 
     // 3 · resolve pageUrls → numeric ids over HTTP (no render), append as targets.
+    // Bounded: walled handles (Meta blocks most raw HTTP resolves) must not consume
+    // the whole 220s handler in resolution alone, leaving no time to scrape any
+    // searchTerm/pageId target — cap the phase and stop launching further resolves.
+    const resolveStart = Date.now();
     for (const pu of pageUrls) {
+      if (Date.now() - resolveStart > RESOLVE_BUDGET_MS) {
+        log.warning(
+          `resolve budget reached — stopping pageUrls resolution early ` +
+            `(remaining unresolved will be skipped this run)`,
+        );
+        break;
+      }
       const id = await resolvePageIdHttp(page, pu);
       if (id) {
         log.info(`Resolved "${pu}" → page_id ${id}`);

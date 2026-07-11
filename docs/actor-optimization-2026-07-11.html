@@ -1,0 +1,1439 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Scraper actors · plain-English optimization plan · 2026-07-11</title>
+    <style>
+      :root {
+        --bg: #0f1117;
+        --panel: #171a22;
+        --panel2: #1d2130;
+        --ink: #e8ecf4;
+        --sub: #9aa4b8;
+        --line: #2a2f3d;
+        --accent: #5b3df5;
+        --accent2: #7c66ff;
+        --good: #2fbf71;
+        --warn: #e0a500;
+        --bad: #e5484d;
+        --badbg: #2a1618;
+        --goodbg: #132318;
+        --warnbg: #241f10;
+        --mono:
+          "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: #f6f7fb;
+          --panel: #ffffff;
+          --panel2: #f0f2f8;
+          --ink: #1a1d26;
+          --sub: #5c667c;
+          --line: #e2e6ef;
+          --badbg: #fdecec;
+          --goodbg: #e8f7ee;
+          --warnbg: #fbf4dd;
+        }
+      }
+      :root[data-theme="dark"] {
+        --bg: #0f1117;
+        --panel: #171a22;
+        --panel2: #1d2130;
+        --ink: #e8ecf4;
+        --sub: #9aa4b8;
+        --line: #2a2f3d;
+        --badbg: #2a1618;
+        --goodbg: #132318;
+        --warnbg: #241f10;
+      }
+      :root[data-theme="light"] {
+        --bg: #f6f7fb;
+        --panel: #ffffff;
+        --panel2: #f0f2f8;
+        --ink: #1a1d26;
+        --sub: #5c667c;
+        --line: #e2e6ef;
+        --badbg: #fdecec;
+        --goodbg: #e8f7ee;
+        --warnbg: #fbf4dd;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          15.5px/1.65 -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          Helvetica,
+          Arial,
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 40px 24px 96px;
+      }
+      header.top {
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 22px;
+        margin-bottom: 26px;
+      }
+      .eyebrow {
+        font: 600 12px/1 var(--mono);
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+        color: var(--accent2);
+      }
+      h1 {
+        font-size: 29px;
+        line-height: 1.2;
+        margin: 12px 0 8px;
+        letter-spacing: -0.02em;
+      }
+      .lede {
+        color: var(--sub);
+        font-size: 16px;
+        max-width: 74ch;
+      }
+      h2 {
+        font-size: 22px;
+        margin: 46px 0 6px;
+        letter-spacing: -0.01em;
+        scroll-margin-top: 20px;
+      }
+      .h2sub {
+        color: var(--sub);
+        font-size: 14.5px;
+        margin: 0 0 14px;
+      }
+      h3 {
+        font-size: 16.5px;
+        margin: 24px 0 6px;
+      }
+      p {
+        margin: 10px 0;
+      }
+      a {
+        color: var(--accent2);
+      }
+      code,
+      .mono {
+        font-family: var(--mono);
+        font-size: 0.88em;
+      }
+      code {
+        background: var(--panel2);
+        padding: 1px 5px;
+        border-radius: 4px;
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 18px 22px;
+        margin: 16px 0;
+      }
+      .grid2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      @media (max-width: 720px) {
+        .grid2 {
+          grid-template-columns: 1fr;
+        }
+        h1 {
+          font-size: 24px;
+        }
+      }
+      .verdict {
+        background: linear-gradient(180deg, var(--panel2), var(--panel));
+        border: 1px solid var(--accent);
+        border-radius: 14px;
+        padding: 20px 24px;
+        margin: 22px 0;
+      }
+      .verdict h2 {
+        margin: 0 0 8px;
+        font-size: 18px;
+      }
+      .pill {
+        display: inline-block;
+        font: 600 11px/1 var(--mono);
+        padding: 4px 9px;
+        border-radius: 999px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        border: 1px solid var(--line);
+      }
+      .pill.good {
+        background: var(--goodbg);
+        color: var(--good);
+        border-color: transparent;
+      }
+      .pill.warn {
+        background: var(--warnbg);
+        color: var(--warn);
+        border-color: transparent;
+      }
+      .pill.bad {
+        background: var(--badbg);
+        color: var(--bad);
+        border-color: transparent;
+      }
+      .pill.acc {
+        background: color-mix(in srgb, var(--accent) 18%, transparent);
+        color: var(--accent2);
+        border-color: transparent;
+      }
+      .tag {
+        font: 600 10px/1 var(--mono);
+        padding: 3px 7px;
+        border-radius: 5px;
+        letter-spacing: 0.03em;
+        white-space: nowrap;
+      }
+      .t-meta {
+        background: color-mix(in srgb, var(--accent) 20%, transparent);
+        color: var(--accent2);
+      }
+      .t-dom {
+        background: color-mix(in srgb, var(--good) 18%, transparent);
+        color: var(--good);
+      }
+      .t-both {
+        background: var(--panel2);
+        color: var(--sub);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 13.8px;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        font: 600 11px/1.3 var(--mono);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--sub);
+      }
+      tbody tr:hover {
+        background: color-mix(in srgb, var(--accent) 5%, transparent);
+      }
+      .num {
+        font-family: var(--mono);
+        text-align: center;
+        font-weight: 600;
+        width: 30px;
+        color: var(--sub);
+      }
+      .achieve {
+        color: var(--good);
+      }
+      ul {
+        margin: 8px 0;
+        padding-left: 20px;
+      }
+      li {
+        margin: 6px 0;
+      }
+      .callout {
+        border-left: 3px solid var(--accent);
+        background: var(--panel2);
+        padding: 12px 16px;
+        border-radius: 0 10px 10px 0;
+        margin: 14px 0;
+      }
+      .callout.bad {
+        border-color: var(--bad);
+      }
+      .callout.warn {
+        border-color: var(--warn);
+      }
+      .callout.good {
+        border-color: var(--good);
+      }
+      .toc {
+        columns: 2;
+        font-size: 13.8px;
+        gap: 30px;
+      }
+      .toc a {
+        display: block;
+        padding: 3px 0;
+        color: var(--sub);
+        text-decoration: none;
+      }
+      .toc a:hover {
+        color: var(--accent2);
+      }
+      @media (max-width: 720px) {
+        .toc {
+          columns: 1;
+        }
+      }
+      .muted {
+        color: var(--sub);
+      }
+      .small {
+        font-size: 13px;
+      }
+      .eff-S {
+        color: var(--good);
+      }
+      .eff-M {
+        color: var(--warn);
+      }
+      .eff-L {
+        color: var(--bad);
+      }
+      hr {
+        border: 0;
+        border-top: 1px solid var(--line);
+        margin: 32px 0;
+      }
+      .footnote {
+        font-size: 12px;
+        color: var(--sub);
+      }
+      .case {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 4px 18px 14px;
+        margin: 14px 0;
+        background: var(--panel);
+      }
+      .case .lbl {
+        font: 600 11px/1 var(--mono);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--accent2);
+        display: inline-block;
+        margin: 14px 0 2px;
+      }
+      .big {
+        font-size: 17px;
+      }
+      .checklist {
+        list-style: none;
+        padding-left: 0;
+      }
+      .checklist li {
+        padding-left: 26px;
+        position: relative;
+      }
+      .checklist li::before {
+        content: "→";
+        position: absolute;
+        left: 0;
+        color: var(--accent2);
+        font-weight: 700;
+      }
+      details {
+        margin: 10px 0;
+      }
+      summary {
+        cursor: pointer;
+        font-weight: 600;
+        color: var(--accent2);
+        font-size: 14px;
+      }
+      .correction {
+        border-left: 3px solid var(--good);
+        background: var(--goodbg);
+        padding: 10px 15px;
+        border-radius: 0 10px 10px 0;
+        margin: 12px 0;
+        font-size: 13.5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="top">
+        <div class="eyebrow">
+          Scrapers · plain-English plan · v2 (fact-checked against our code)
+        </div>
+        <h1>
+          Our two scraper robots — what's good, what's costing us, what to do
+        </h1>
+        <p class="lede">
+          We rent two little robots on Apify. One reads a business website so we
+          can pull contacts. One looks up who's running Facebook ads in a town.
+          This is a plain read on each, the full story of how we built the
+          Facebook one (and what kept breaking), and a short to-do list where
+          <strong>every item says what it gets us.</strong>
+          <span class="muted"
+            >This version corrects the first draft against what our code
+            actually does — you were right on all four points.</span
+          >
+        </p>
+        <p class="small muted">
+          2026-07-11 · nothing here is built yet · memory stays at 4 GB
+          (decided) · we use our own actors only (no rentals)
+        </p>
+      </header>
+
+      <div class="correction">
+        <strong
+          >What changed from the first draft, after checking the code &amp;
+          history:</strong
+        >
+        ① We <em>already</em> try a cheap fetch first — that recommendation is
+        dropped. ② Images-ON is a <em>deliberate</em> anti-block choice you
+        A/B-proved, so turning them off is <em>test-first</em>, not a safe quick
+        win. ③ Renting a proven actor is <em>out</em> — our actors only. ④ Our
+        Cloudflare handling is close to best-in-class; one small idea left, and
+        it needs measuring first.
+      </div>
+
+      <div class="panel toc">
+        <a href="#summary">1 · The whole thing on one screen</a>
+        <a href="#dom">2 · The website robot — by real use case</a>
+        <a href="#cf">3 · Is our Cloudflare handling best-in-class?</a>
+        <a href="#meta-story">4 · The Facebook robot — the whole build story</a>
+        <a href="#meta-plan">5 · The Facebook robot — what to do next</a>
+        <a href="#todo">6 · The to-do list (what each gets us)</a>
+        <a href="#overall">7 · What we get overall</a>
+        <a href="#appendix">8 · The technical detail (for build time)</a>
+      </div>
+
+      <!-- ───────────── SUMMARY ───────────── -->
+      <h2 id="summary">1 · The whole thing on one screen</h2>
+
+      <div class="verdict">
+        <h2>In one breath</h2>
+        <p style="margin: 6px 0 0">
+          Both robots are built the <em>right</em> way — and the biggest
+          cost-saver I was going to suggest, <strong>you already do</strong> (a
+          free fetch handles ~70% of websites before we ever pay for a browser).
+          So the wins left are smaller and honest:
+          <strong>fix one billing bug</strong> that throws away work we paid
+          for, <strong>trim a couple of wasteful settings</strong>, and
+          <strong>test — not assume —</strong> two ideas that could re-trigger
+          Facebook blocks. Memory stays 4 GB. We don't rent robots.
+        </p>
+      </div>
+
+      <div class="grid2">
+        <div class="panel">
+          <div class="pill good">Already good — leave it</div>
+          <ul class="small" style="margin-top: 10px">
+            <li>
+              Cheap fetch first, browser only for protected sites —
+              <strong>already how it works.</strong>
+            </li>
+            <li>
+              Lighthouse (speed audit) is
+              <strong>separate and on-demand</strong> — never on a normal read.
+            </li>
+            <li>
+              The "block vs. genuinely-empty" honesty check — best-in-class,
+              don't touch.
+            </li>
+          </ul>
+        </div>
+        <div class="panel">
+          <div class="pill bad">Fix — small but real</div>
+          <ul class="small" style="margin-top: 10px">
+            <li>
+              A billing bug throws away up to 250 already-paid page reads on
+              long runs.
+            </li>
+            <li>
+              The website robot retries walled sites 5× — wasteful; 2 is enough.
+            </li>
+            <li>
+              The Facebook robot's "identity" and the website robot's don't
+              always match their location.
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>The moves — split into "confirmed" and "test first"</h3>
+      <table>
+        <thead>
+          <tr>
+            <th class="num">#</th>
+            <th>Do this</th>
+            <th>What it gets us</th>
+            <th>Confidence</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="num">1</td>
+            <td>
+              <span class="tag t-both">BOTH</span> Fix the billing bug that
+              quits waiting too early
+            </td>
+            <td class="achieve">
+              Stop discarding up to 250 paid page reads; bill runs right (the $5
+              safety cap stops going blind).
+            </td>
+            <td>
+              <span class="pill good" style="font-size: 9px">Confirmed</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="num">2</td>
+            <td>
+              <span class="tag t-dom">WEB</span> Fewer retries (5→2) + match
+              identity to location
+            </td>
+            <td class="achieve">
+              Roughly half the wasted cost on hard sites; fewer sites throw up a
+              wall at all.
+            </td>
+            <td>
+              <span class="pill good" style="font-size: 9px">Confirmed</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="num">3</td>
+            <td>
+              <span class="tag t-meta">FB</span> Trim wasted extra requests on
+              good Facebook runs
+            </td>
+            <td class="achieve">
+              A little faster and cheaper on every successful run.
+            </td>
+            <td>
+              <span class="pill good" style="font-size: 9px">Confirmed</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="num">4</td>
+            <td>
+              <span class="tag t-meta">FB</span> Turn images off on the harvest
+              paths
+            </td>
+            <td class="achieve">
+              <em>If it's safe:</em> a wasted run costs cents not ~$0.90.
+              <strong>But images were kept ON on purpose</strong> — turning them
+              off can get us blocked, so this needs a live test.
+            </td>
+            <td>
+              <span class="pill warn" style="font-size: 9px">Test first</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="num">5</td>
+            <td>
+              <span class="tag t-dom">WEB</span> Upgrade the free first-fetch to
+              look more like a real browser
+            </td>
+            <td class="achieve">
+              <em>Maybe:</em> rescue some walled sites into the cheap tier.
+              <strong
+                >Measure how many sites this would actually help before building
+                it.</strong
+              >
+            </td>
+            <td>
+              <span class="pill warn" style="font-size: 9px"
+                >Measure first</span
+              >
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- ───────────── DOM BY USE CASE ───────────── -->
+      <h2 id="dom">2 · The website robot — by real use case</h2>
+      <p class="h2sub">
+        You asked the right question. Here's each situation — and you're already
+        handling them well.
+      </p>
+
+      <div class="case">
+        <span class="lbl">Case A · "Just get me the contacts"</span> —
+        <span class="pill good">already doing it right ✔</span>
+        <p style="margin: 6px 0">
+          <strong>The situation:</strong> a normal small-business website, no
+          protection. We just want the page so our backend can pull the email
+          and phone.
+        </p>
+        <p style="margin: 6px 0">
+          <strong>What we do today — and it's correct:</strong> we try a
+          <strong>free plain fetch first</strong> (no browser, no proxy, $0).
+          The code says ~70% of business sites are open and this gets them for
+          free. <strong>Only the ones that fail</strong> — Cloudflare-walled,
+          empty, JS-only — fall through to the paid browser robot. That's
+          exactly the cheap-first design I was going to suggest; you already
+          built it.
+        </p>
+        <p class="achieve" style="margin: 6px 0">
+          <strong>What we achieve:</strong> nothing to add here. The paid
+          browser only ever runs on sites that already refused the free fetch —
+          so there's no easy saving left in this case.
+          <span class="muted"
+            >(The one <em>maybe</em> is in Case B below.)</span
+          >
+        </p>
+      </div>
+
+      <div class="case">
+        <span class="lbl">Case B · "The site is behind Cloudflare"</span> —
+        <span class="pill good">good, two small tightenings</span>
+        <p style="margin: 6px 0">
+          <strong>The situation:</strong> the free fetch bounced off a "checking
+          your browser…" wall, so we bring out the real browser robot to get
+          past it.
+        </p>
+        <p style="margin: 6px 0">
+          <strong>Tightening 1 — fewer retries.</strong> Today the robot retries
+          a walled site on a fresh address up to <strong>5 times</strong>. A
+          site still blocked after 2 fresh addresses won't clear on the 3rd–5th
+          — we're just paying. Drop to 2.
+        </p>
+        <p style="margin: 6px 0">
+          <strong>Tightening 2 — match identity to location.</strong> The
+          robot's language/region should match the internet address it uses.
+          Right now they can mismatch, which itself trips more walls. (The
+          Facebook robot already does this; the website one doesn't.)
+        </p>
+        <p style="margin: 6px 0">
+          <strong>The one "maybe."</strong> Our free first-fetch is a
+          <em>plain</em> fetch with a normal browser label. Some sites block
+          that on sight but would answer a fetch that <em>looks</em> more like a
+          real browser (a "TLS-impersonation" fetch) —
+          <strong>without</strong> needing a full browser. That could rescue
+          some sites from the expensive browser tier into a cheap one.
+          <strong>But</strong> we don't know how many walled sites are "just
+          picky about the label" vs. a real challenge that needs a browser.
+          Cheap to find out — we already count free-vs-paid; just log
+          <em>why</em> each site got kicked to paid. Measure, then decide.
+        </p>
+        <p class="achieve" style="margin: 6px 0">
+          <strong>What we achieve:</strong> ~half the wasted cost on hard sites
+          (retries), fewer walls (identity match), and possibly a cheaper middle
+          tier (the "maybe," after measuring).
+        </p>
+      </div>
+
+      <div class="case">
+        <span class="lbl">Case C · "Audit the site's speed (Lighthouse)"</span>
+        — <span class="pill good">already correct ✔</span>
+        <p style="margin: 6px 0">
+          <strong>Your question — does Lighthouse run on every read?</strong>
+          No. It's a <em>separate</em> function that runs
+          <strong>one site at a time, only when asked</strong>, and the code
+          flags it as "the expensive path (~$0.06), reserved for walled sites."
+          A normal contact read never triggers it.
+        </p>
+        <p class="achieve" style="margin: 6px 0">
+          <strong>What we achieve:</strong> nothing to change.
+          <span class="muted"
+            >One optional check: confirm the backend only asks for Lighthouse
+            when a signal truly needs the score, not "just in case."</span
+          >
+        </p>
+      </div>
+
+      <!-- ───────────── CF BEST IN CLASS ───────────── -->
+      <h2 id="cf">3 · Is our Cloudflare handling best-in-class?</h2>
+      <p class="h2sub">
+        You asked directly. Short answer: <strong>yes, mostly.</strong> Here's
+        the honest scorecard vs. how the best do it in 2026.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Best practice (2026)</th>
+            <th>Us?</th>
+            <th>Note</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Cheap fetch first, browser only on a real wall</td>
+            <td><span class="pill good" style="font-size: 9px">Yes</span></td>
+            <td class="small">
+              We do this at the app level (free fetch → paid browser). Textbook.
+            </td>
+          </tr>
+          <tr>
+            <td>Return raw page, parse on the backend</td>
+            <td><span class="pill good" style="font-size: 9px">Yes</span></td>
+            <td class="small">
+              Our edge — lets us run 60+ signals over the page. Most rented
+              scrapers can't.
+            </td>
+          </tr>
+          <tr>
+            <td>Detect the challenge properly (not just the title)</td>
+            <td><span class="pill good" style="font-size: 9px">Yes</span></td>
+            <td class="small">
+              We check the title + Cloudflare's own header + page markers
+              (Turnstile). Solid.
+            </td>
+          </tr>
+          <tr>
+            <td>"Was it blocked or genuinely empty?" honesty</td>
+            <td><span class="pill good" style="font-size: 9px">Yes+</span></td>
+            <td class="small">
+              Better than anything on the store — we never sell a block as "no
+              contacts."
+            </td>
+          </tr>
+          <tr>
+            <td>Retry on a fresh address, then give up cleanly</td>
+            <td>
+              <span class="pill warn" style="font-size: 9px">Almost</span>
+            </td>
+            <td class="small">
+              We retry 5× — too many. 2 is the sweet spot (Case B).
+            </td>
+          </tr>
+          <tr>
+            <td>Identity (region/language) matches the address used</td>
+            <td><span class="pill bad" style="font-size: 9px">Gap</span></td>
+            <td class="small">
+              Website robot doesn't pin this yet — a small bot-tell (Case B).
+            </td>
+          </tr>
+          <tr>
+            <td>
+              A middle rung: "look-like-a-browser" fetch before a full browser
+            </td>
+            <td><span class="pill warn" style="font-size: 9px">Maybe</span></td>
+            <td class="small">
+              The one genuinely new idea — measure first (Case B).
+            </td>
+          </tr>
+          <tr>
+            <td>During an active wall, load the full page (don't strip CSS)</td>
+            <td><span class="pill warn" style="font-size: 9px">Minor</span></td>
+            <td class="small">
+              We strip CSS to save bytes; on a challenge page, loading
+              everything looks more human. Tiny tweak.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        <strong>Verdict:</strong> our design is best-in-class where it counts
+        (cheap-first, honest, raw-HTML, proper detection). The gaps are all
+        small housekeeping — fewer retries, pin the identity, one measure-first
+        idea. Nothing to rebuild.
+      </p>
+
+      <!-- ───────────── META STORY ───────────── -->
+      <h2 id="meta-story">4 · The Facebook robot — the whole build story</h2>
+      <p class="h2sub">
+        You're right that the plan has to start from what already failed. Here's
+        every attempt and what broke.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th class="num">#</th>
+            <th>What we tried</th>
+            <th>What happened</th>
+            <th>Lesson</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="num">1</td>
+            <td class="small">
+              <strong>Original robot</strong> — a full browser opens each
+              Facebook page (images on)
+            </td>
+            <td class="small">
+              <span class="pill bad" style="font-size: 9px">73% failed</span> A
+              dead run burned up to <strong>~$0.90</strong>; ~93% of that was
+              just downloading Facebook's images/page weight.
+            </td>
+            <td class="small">
+              A full browser to fetch what is really one data request = wrong,
+              expensive tool.
+            </td>
+          </tr>
+          <tr>
+            <td class="num">2</td>
+            <td class="small">
+              <strong>Skip the browser</strong> — post the data request directly
+              (the "R1" attempt)
+            </td>
+            <td class="small">
+              <span class="pill bad" style="font-size: 9px">blocked</span>
+              Facebook rejected the direct request every time. No gain. Caused
+              two incidents.
+            </td>
+            <td class="small">
+              The direct shortcut hits a wall we still haven't fully explained
+              (see move #6, appendix).
+            </td>
+          </tr>
+          <tr>
+            <td class="num">3</td>
+            <td class="small">
+              <strong>Stealth rebuild</strong> (Jul 6) — turn images back
+              <strong>ON</strong> to "look human", keep one warm session
+            </td>
+            <td class="small">
+              <span class="pill bad" style="font-size: 9px"
+                >cost regression</span
+              >
+              2 quick tests passed, but real spend on failed runs jumped
+              <strong>24×</strong> — cheap $0.02 failures became slow $0.90
+              ones.
+              <strong
+                >But it did confirm: a browser with zero images gets blocked
+                more.</strong
+              >
+            </td>
+            <td class="small">
+              Images-ON helps us look human — but on the old per-page design it
+              cost a fortune. Keep the "human" idea, kill the per-page design.
+            </td>
+          </tr>
+          <tr>
+            <td class="num">4</td>
+            <td class="small">
+              <strong>Forensics</strong> (Jul 10) — deep review on real data
+            </td>
+            <td class="small">
+              <span class="pill warn" style="font-size: 9px">diagnosis</span>
+              Confirmed wrong-transport root cause.
+            </td>
+            <td class="small">
+              Rebuild the transport around "one page-open, then fetch lightly."
+            </td>
+          </tr>
+          <tr>
+            <td class="num">5</td>
+            <td class="small">
+              <strong>New robot</strong> <code>mapsly-meta-graphql</code> (Jul
+              10) — open <em>one</em> page to get a "pass", then fetch data
+              lightly; retry on a fresh address; quit fast
+            </td>
+            <td class="small">
+              <span class="pill good" style="font-size: 9px">11/11 ok</span>
+              Market path now works:
+              <strong>$0.009–0.075 a run, 20–72s</strong> (was 27% success).
+              <strong>But:</strong> the direct fetch <em>still</em> gets
+              rejected, so the "open one page and listen" trick is what carries
+              it; and pulling a specific advertiser's actual ads still gets
+              blocked (0 of 3).
+            </td>
+            <td class="small">
+              The rebuild fixed the cost <em>and</em> confined images to one
+              page-open. Two walls remain (below).
+            </td>
+          </tr>
+          <tr>
+            <td class="num">6</td>
+            <td class="small"><strong>Facet-first fix</strong> (v0.19.28)</td>
+            <td class="small">
+              <span class="pill warn" style="font-size: 9px"
+                >prod-only fail</span
+              >
+              Keyword tests passed but real market runs failed — we asked it to
+              resolve 20 businesses' pages, which Facebook blocks. Switched to
+              one "who advertises here" query.
+            </td>
+            <td class="small">
+              Test with the <em>real</em> input shape, not the convenient one.
+              (Bit us twice.)
+            </td>
+          </tr>
+          <tr>
+            <td class="num">7</td>
+            <td class="small">
+              <strong>Block cooldown + empty check</strong> (v0.19.29)
+            </td>
+            <td class="small">
+              <span class="pill good" style="font-size: 9px">tamed</span> One
+              market re-blocked 7×/hour. Added: wait 12h after 3 fails, plus a
+              real "empty vs blocked" test.
+            </td>
+            <td class="small">
+              Some markets just block no matter what — stop paying to retry
+              them.
+            </td>
+          </tr>
+          <tr>
+            <td class="num">8</td>
+            <td class="small"><strong>Billing hotfix</strong> (INC-58)</td>
+            <td class="small">
+              <span class="pill warn" style="font-size: 9px">was blind</span>
+              Reading the wrong cost field — every run looked like $0.02. We'd
+              under-counted Facebook spend ~40×.
+            </td>
+            <td class="small">
+              Read the right number; the safety cap depends on it.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout warn">
+        <strong>Three walls that never moved — no matter what we tried:</strong>
+        <ul style="margin: 8px 0 0">
+          <li>
+            <strong>The direct-fetch wall.</strong> Posting the data request
+            directly always gets rejected. Every version works around it by
+            opening a real page and listening in.
+            <em>We still don't know for sure why</em> — one cheap 30-min test
+            would tell us (appendix).
+          </li>
+          <li>
+            <strong>The "list only" wall.</strong> A keyword/market search only
+            returns <em>who</em> advertises — never their actual ads. Facebook
+            built it that way; no code changes it.
+          </li>
+          <li>
+            <strong>The "real ads" wall.</strong> The only way to get a specific
+            advertiser's actual ad images is to look up their page directly —
+            and that path blocks hard.
+            <strong
+              >And since we only use our own robots, there's no buy-around
+              this.</strong
+            >
+            It's in-house or we accept it.
+          </li>
+        </ul>
+      </div>
+
+      <!-- ───────────── META PLAN ───────────── -->
+      <h2 id="meta-plan">5 · The Facebook robot — what to do next</h2>
+      <p class="h2sub">
+        Given those three walls, and that we build everything in-house:
+      </p>
+      <ul class="checklist">
+        <li>
+          <strong>Trim the obvious waste first.</strong> On every good run we
+          fire an extra "which address am I on?" request we don't need, and a
+          page-lookup step with no time limit (move #3).
+          <span class="achieve"
+            >Gets us: a little faster + cheaper on every run, zero risk.</span
+          >
+        </li>
+        <li>
+          <strong>Test the images question — carefully.</strong> Turning images
+          off on the harvest paths <em>could</em> make wasted runs cost cents
+          instead of ~$0.90, but images-ON is a proven anti-block measure. So
+          this is a <strong>live A/B</strong>, not a code-and-ship (move #4).
+          <span class="achieve"
+            >Gets us: either a real cost cut, or proof it's not worth the block
+            risk. The new design already shrank this problem — so it may be
+            minor.</span
+          >
+        </li>
+        <li>
+          <strong>Settle the direct-fetch mystery cheaply.</strong> A 30-minute
+          test tells us if the wall is a fixable "fingerprint" issue or a hard
+          Facebook rule (appendix, move #6).
+          <span class="achieve"
+            >Gets us: either more ads per run (in-house), or certainty to stop
+            trying.</span
+          >
+        </li>
+        <li>
+          <strong>Skip re-doing the expensive first step.</strong> Save the
+          "pass" from one run and reuse it for other markets while it's valid
+          (bigger in-house project).
+          <span class="achieve"
+            >Gets us: one page-open shared across many markets.</span
+          >
+        </li>
+        <li>
+          <strong>Accept the "real ads" limit for now.</strong> With no rentals,
+          per-advertiser ad images stay a hard, blocked path. Keep our robot as
+          the "who advertises" list (which it's uniquely good at) and revisit
+          creatives only if an in-house idea proves out.
+          <span class="achieve"
+            >Gets us: honesty about what the product can deliver today.</span
+          >
+        </li>
+      </ul>
+      <p class="small muted">
+        Everything else about the new robot — quit-fast, retry-on-block,
+        cooldown, the honesty check — is good and stays.
+      </p>
+
+      <!-- ───────────── TODO ───────────── -->
+      <h2 id="todo">6 · The to-do list — what each gets us</h2>
+      <p class="h2sub">Grouped by confidence. Every row says the payoff.</p>
+
+      <h3>
+        <span class="pill good" style="font-size: 9px">Confirmed</span> &nbsp;Do
+        now — small, safe, real
+      </h3>
+      <table>
+        <thead>
+          <tr>
+            <th class="num">#</th>
+            <th>Change</th>
+            <th>Robot</th>
+            <th>What we achieve</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="num">1</td>
+            <td class="small">
+              Fix the poll-timeout so we stop discarding paid page reads
+            </td>
+            <td><span class="tag t-both">BOTH</span></td>
+            <td class="achieve small">
+              Keep up to 250 paid reads; bill correctly; cap not blind
+            </td>
+          </tr>
+          <tr>
+            <td class="num">2</td>
+            <td class="small">
+              Website robot: retries 5→2 + match identity to location
+            </td>
+            <td><span class="tag t-dom">WEB</span></td>
+            <td class="achieve small">
+              ~½ the wasted cost on hard sites; fewer walls
+            </td>
+          </tr>
+          <tr>
+            <td class="num">3</td>
+            <td class="small">
+              Facebook robot: trim wasted extra requests on good runs
+            </td>
+            <td><span class="tag t-meta">FB</span></td>
+            <td class="achieve small">A little faster + cheaper every run</td>
+          </tr>
+          <tr>
+            <td class="num">7</td>
+            <td class="small">Small cleanups (dead code, silent 150-ad cap)</td>
+            <td><span class="tag t-meta">FB</span></td>
+            <td class="achieve small">
+              Easier to maintain; no surprise truncation
+            </td>
+          </tr>
+          <tr>
+            <td class="num">8</td>
+            <td class="small">
+              Fix the cost estimate so it separates compute from bandwidth
+            </td>
+            <td><span class="tag t-both">BOTH</span></td>
+            <td class="achieve small">
+              Honest numbers on timed-out runs; safety cap works
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>
+        <span class="pill warn" style="font-size: 9px"
+          >Test / measure first</span
+        >
+        &nbsp;Promising, but prove it live
+      </h3>
+      <table>
+        <thead>
+          <tr>
+            <th class="num">#</th>
+            <th>Change</th>
+            <th>Robot</th>
+            <th>What we achieve — <em>if it proves out</em></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="num">4</td>
+            <td class="small">
+              Turn images off on Facebook harvest paths
+              <span class="muted">(A/B — can re-trigger blocks)</span>
+            </td>
+            <td><span class="tag t-meta">FB</span></td>
+            <td class="achieve small">
+              Wasted runs cost cents not ~$0.90 —
+              <em>only if blocks don't rise</em>
+            </td>
+          </tr>
+          <tr>
+            <td class="num">5</td>
+            <td class="small">
+              Log <em>why</em> sites get kicked to the paid actor; if many are
+              "just picky", add a look-like-a-browser fetch tier
+            </td>
+            <td><span class="tag t-dom">WEB</span></td>
+            <td class="achieve small">
+              Move some walled sites into a cheap tier —
+              <em>size the prize before building</em>
+            </td>
+          </tr>
+          <tr>
+            <td class="num">6</td>
+            <td class="small">
+              30-min test: is the direct-fetch wall a fingerprint issue? If yes,
+              fetch "inside" the browser
+            </td>
+            <td><span class="tag t-meta">FB</span></td>
+            <td class="achieve small">
+              Possibly more ads per run (in-house) — or certainty to stop trying
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>
+        <span class="pill acc" style="font-size: 9px">Bigger</span>
+        &nbsp;In-house projects — structural savings
+      </h3>
+      <table>
+        <thead>
+          <tr>
+            <th class="num">#</th>
+            <th>Change</th>
+            <th>Robot</th>
+            <th>What we achieve</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="num">9</td>
+            <td class="small">
+              Save + reuse the Facebook "pass" across markets
+            </td>
+            <td><span class="tag t-meta">FB</span></td>
+            <td class="achieve small">
+              One expensive page-open shared across many runs
+            </td>
+          </tr>
+          <tr>
+            <td class="num">10</td>
+            <td class="small">
+              Send simple/unprotected hops over cheaper internet addresses
+            </td>
+            <td><span class="tag t-both">BOTH</span></td>
+            <td class="achieve small">
+              Cuts our single biggest cost line — bandwidth
+            </td>
+          </tr>
+          <tr>
+            <td class="num">11</td>
+            <td class="small">
+              Make the robot builds reproducible (lock versions)
+            </td>
+            <td><span class="tag t-both">BOTH</span></td>
+            <td class="achieve small">
+              Block rates stop changing on their own
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- ───────────── OVERALL ───────────── -->
+      <h2 id="overall">7 · What we get overall</h2>
+      <div class="verdict">
+        <h2>The payoff, plainly</h2>
+        <ul class="big" style="margin: 8px 0 0; line-height: 1.7">
+          <li>
+            <span class="achieve">✅ Stop losing paid work:</span> the billing
+            fix keeps hundreds of page reads we already paid for, and our $5
+            safety cap stops going blind.
+            <em>This is the clearest, safest win.</em>
+          </li>
+          <li>
+            <span class="achieve">💸 Less waste on hard sites:</span> fewer
+            retries + matched identity cut cost and trigger fewer walls.
+          </li>
+          <li>
+            <span class="achieve">🧪 Two upside bets, honestly tested:</span>
+            images-off (Facebook) and a look-like-a-browser fetch tier (website)
+            — both could save real money, both could backfire, so we
+            <em>measure before we ship</em>.
+          </li>
+          <li>
+            <span class="achieve">🛡️ Fewer surprises:</span> locking build
+            versions means the robots don't quietly change behaviour on us.
+          </li>
+        </ul>
+        <p style="margin: 14px 0 0">
+          <strong>The one-line strategy:</strong> the designs are already right
+          and the big cost-saver is already in place — so this round is
+          <em>tightening</em>, not rebuilding. Fix the billing bug, trim the
+          waste, and treat the two block-sensitive ideas as experiments, not
+          certainties.
+        </p>
+      </div>
+
+      <p>
+        Nothing is built yet. Natural first step is the
+        <strong>Confirmed</strong> block — all small and low-risk; #1 (billing
+        bug) is the one that clearly matters. Say the word and I'll start there
+        (the Facebook-robot deploy goes through <code>apify push</code>; the
+        app-side bits through the normal <code>/ship</code> approval).
+      </p>
+
+      <!-- ───────────── APPENDIX ───────────── -->
+      <h2 id="appendix">8 · The technical detail (for build time)</h2>
+      <p class="h2sub">
+        Skip unless we implement — the exact code-level backing.
+      </p>
+
+      <details>
+        <summary>
+          Where cheap-fetch-first already lives (so we don't rebuild it)
+        </summary>
+        <div class="small">
+          <p>
+            <code>modules/discovery/enrich-contacts.ts</code> runs a two-pass
+            flow: <strong>Pass 1</strong> =
+            <code>freeFetchDom</code>
+            (<code>services/dom-fetcher/free-fetch.ts</code>) — a plain
+            <code>$0</code> <code>fetch</code>, 20-wide concurrency, static
+            desktop UA, SSRF-guarded — over every target. It classifies 403/503
+            + Cloudflare markers + &lt;500-byte bodies as <code>blocked</code>.
+            <strong>Pass 2</strong> = only the <code>blocked</code> remainder
+            goes to <code>fetchDomsForCell</code> (the paid Apify browser
+            actor). The result carries <code>freeFetched</code> vs
+            <code>actorFetched</code> counts — so we can already measure the
+            split; we just don't log the block <em>reason</em> yet (that's move
+            #5's cheap prerequisite).
+          </p>
+        </div>
+      </details>
+
+      <details>
+        <summary>
+          Why images-ON is deliberate (move #4 is test-first, not do-now)
+        </summary>
+        <div class="small">
+          <p>
+            The 2026-07-06 stealth rebuild explicitly chose to "block ONLY
+            media/video (allow images/CSS/fonts — look human)" because "a
+            browser that fetched ZERO images is the biggest bot-tell," and a
+            live A/B "flipped a succeeding run to blocked" when images were off.
+            So blocking images on the fallback navigation (a real page load)
+            carries genuine block risk and must be A/B'd live (<code
+              >apify push</code
+            >
+            + real runs), never shipped source-only.
+          </p>
+          <p>
+            <strong>Nuance that shrinks the prize:</strong> the expensive image
+            burn was the <em>old</em> per-target-nav actor. The new actor
+            already navigates <em>once</em> (the prime) then harvests over HTTP
+            — so images-on is mostly confined to that one prime render. The
+            remaining exposure is only when the prime
+            <em>fails to mint tokens</em> and every target falls to a fallback
+            nav with images. Real, but narrower than the old ~$0.90 headline —
+            which is exactly why it's "test and size it," not "assume a big
+            win."
+          </p>
+        </div>
+      </details>
+
+      <details>
+        <summary>
+          The direct-fetch wall — likely cause + the 30-min test (move #6)
+        </summary>
+        <div class="small">
+          <p>
+            Our code assumes <code>page.request.post</code> "rides the browser's
+            TLS/JA3 fingerprint." Research says it does <em>not</em> —
+            Playwright's request context runs in <strong>Node's</strong> network
+            stack, so it presents a Node fingerprint, and Meta's WAF scores TLS
+            <em>before</em> it checks the login token. That plausibly explains
+            why the direct POST always error-payloads while "open a page and
+            listen to its own request" works. Our own prior notes blamed Meta
+            <em>server-validating the signature</em> instead. Both plausible,
+            different fixes — so <strong>test before investing:</strong>
+          </p>
+          <ul>
+            <li>
+              <strong>JA3 echo test (~30 min):</strong> POST to
+              <code>tls.peet.ws</code> via <code>page.request.post</code> vs via
+              <code>page.evaluate(fetch)</code>; compare the fingerprint.
+            </li>
+            <li>
+              <strong>If they differ</strong> → move the harvest into
+              <code>page.evaluate(() =&gt; fetch('/api/graphql', …))</code> so
+              it runs in the real Chrome renderer (real fingerprint +
+              same-origin cookies). In-house, no new dependency. Expect the
+              direct path to start working → more targets per page-open.
+            </li>
+            <li>
+              <strong>If they don't differ</strong> → it's Meta's signature
+              rule; stop chasing the direct path.
+            </li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>Confirmed code defects (verified against source)</summary>
+        <table>
+          <thead>
+            <tr>
+              <th>Sev</th>
+              <th>Robot</th>
+              <th>Defect &amp; fix</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="pill bad" style="font-size: 9px">HIGH</span></td>
+              <td><span class="tag t-both">BOTH</span></td>
+              <td class="small">
+                <strong>Poll ceiling vs actor timeout.</strong>
+                <code>client.ts</code> caps polling at
+                <code>DEFAULT_MAX_WAIT_MS 295_000</code>, but the DOM/Lighthouse
+                path starts the actor at <code>timeoutSecs 600</code> and never
+                passes <code>maxWaitMs</code>. A 295–600s batch throws (line
+                264) <em>before</em> <code>incrementCost</code> (line 368): run
+                bills unbooked, up to 250 fetched DOMs discarded. <em>Fix:</em>
+                <code
+                  >maxWait = opts.maxWaitMs ?? (timeoutSecs*1000 + 30_000)</code
+                >. Meta (280s) unaffected.
+              </td>
+            </tr>
+            <tr>
+              <td><span class="pill warn" style="font-size: 9px">MED</span></td>
+              <td><span class="tag t-dom">WEB</span></td>
+              <td class="small">
+                <strong>Fingerprint locale not pinned to proxy country</strong>
+                (unlike Meta's <code>localesForCountry</code>) +
+                <strong><code>maxRequestRetries:5</code></strong> burns
+                residential bytes on walled sites. <em>Fix:</em> add
+                <code>fingerprintGeneratorOptions.locales</code> from
+                <code>country</code>; retries → 2–3.
+              </td>
+            </tr>
+            <tr>
+              <td><span class="pill warn" style="font-size: 9px">MED</span></td>
+              <td><span class="tag t-meta">FB</span></td>
+              <td class="small">
+                <strong>Wasted <code>ipify</code> GET on every target</strong>
+                (line 777, only needed for block attribution) +
+                <strong>unguarded pageUrls resolution loop</strong> (20s/URL, no
+                wall-budget check). <em>Fix:</em> gate ipify to blocked/timeout;
+                add wall-budget check; resolve timeout 20s→8s.
+              </td>
+            </tr>
+            <tr>
+              <td><span class="pill warn" style="font-size: 9px">MED</span></td>
+              <td><span class="tag t-meta">FB</span></td>
+              <td class="small">
+                <strong>Images-off on harvest/fallback paths</strong> — real
+                cost lever <em>but</em> A/B-gated (see the images note). Route
+                (block image+font+css) on the fallback nav + before the scroll
+                loop; measure block rate live.
+              </td>
+            </tr>
+            <tr>
+              <td><span class="pill warn" style="font-size: 9px">MED</span></td>
+              <td><span class="tag t-both">BOTH</span></td>
+              <td class="small">
+                <strong>Non-reproducible Docker builds</strong> (<code
+                  >npm install</code
+                >, no lockfile, major-tag base, Node 20 vs 22).
+                <em>Fix:</em> lockfiles + <code>npm ci</code> + digest-pinned
+                base.
+              </td>
+            </tr>
+            <tr>
+              <td><span class="pill" style="font-size: 9px">LOW</span></td>
+              <td><span class="tag t-meta">FB</span></td>
+              <td class="small">
+                <strong>150-ad silent cap</strong> (<code>MAX_PAGES 5×30</code>
+                vs <code>maxItems</code> up to 1000);
+                <strong>dead <code>warmStore</code>/WARM_DATR</strong>;
+                <strong>synchronous BC_LAST breadcrumbs</strong> on the billed
+                clock. <em>Fix:</em>
+                <code>MAX_PAGES = min(50, ceil(maxItems/30))</code>; delete dead
+                path; fire-and-forget breadcrumbs.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </details>
+
+      <details>
+        <summary>
+          Scorecard (1–10) &amp; the store — for reference only (we don't rent)
+        </summary>
+        <div class="small">
+          <table>
+            <thead>
+              <tr>
+                <th>Dimension</th>
+                <th class="num">FB</th>
+                <th class="num">WEB</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Robustness</td>
+                <td class="num">6</td>
+                <td class="num">7</td>
+              </tr>
+              <tr>
+                <td>Reliability</td>
+                <td class="num">6</td>
+                <td class="num">6</td>
+              </tr>
+              <tr>
+                <td>Speed</td>
+                <td class="num">6</td>
+                <td class="num">6</td>
+              </tr>
+              <tr>
+                <td>Cost</td>
+                <td class="num">5</td>
+                <td class="num">6</td>
+              </tr>
+              <tr>
+                <td>Maintainability</td>
+                <td class="num">5</td>
+                <td class="num">6</td>
+              </tr>
+            </tbody>
+          </table>
+          <p>
+            Website robot scores higher than the first draft implied — because
+            the cheap-fetch-first tier (which I'd wrongly flagged as missing) is
+            already there. The store actors (curious_coder 100%/$0.75-per-1K,
+            memo23 cheerio, etc.) are noted
+            <strong>only as technique references</strong> — per the standing
+            rule, we run our own actors and never route through a rented one.
+          </p>
+        </div>
+      </details>
+
+      <hr />
+      <p class="footnote">
+        Method: 6 research sweeps + scoring, then fact-checked against our own
+        source — <code>services/dom-fetcher/free-fetch.ts</code>,
+        <code>modules/discovery/enrich-contacts.ts</code>,
+        <code>services/apify/client.ts</code>, both actor <code>main.js</code> —
+        and the Meta build history (forensics/build docs, memory
+        <code>meta-actor-robustness</code>, incidents INC-48/49/58). Four owner
+        corrections applied: cheap-fetch-first already exists; images-ON is a
+        deliberate A/B-proven anti-block; own-actors-only (no rentals);
+        Cloudflare handling is near best-in-class. Memory stays 4 GB.
+        Recommend-only — nothing implemented.
+      </p>
+    </div>
+  </body>
+</html>

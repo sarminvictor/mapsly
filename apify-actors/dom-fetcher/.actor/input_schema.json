@@ -39,6 +39,12 @@
       "type": "integer",
       "description": "Recycle the browser to avoid memory leaks on long runs.",
       "default": 20
+    },
+    "lighthouse": {
+      "title": "Run Lighthouse",
+      "type": "boolean",
+      "description": "Run a real mobile Lighthouse audit in the cleared session (for Cloudflare-walled sites DataForSEO can't audit). Forces maxConcurrency 1.",
+      "default": false
     }
   }
 }

@@ -2,7 +2,7 @@
   "actorSpecification": 1,
   "name": "mapsly-contact-scraper",
   "title": "Mapsly DOM Fetcher (Cloudflare-busting)",
-  "version": "1.0",
+  "version": "1.2",
   "buildTag": "latest",
   "input": "./input_schema.json",
   "dockerfile": "../Dockerfile"
