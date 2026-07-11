@@ -19,6 +19,11 @@ import { rawListWhere } from "@/modules/discovery/raw-list";
 
 const Input = z.object({
   discoveryId: z.string().min(1).max(64),
+  /** Candidate scope business ids (visible ∪ selected) — the sheet passes these
+   *  so it can compute the SCOPED market-cell count for the selected/visible
+   *  scope (per-cell families must price/run only the cells those leads belong
+   *  to, not every market of the research). Bounded to the page + selection. */
+  businessIds: z.array(z.string().min(1).max(64)).max(5000).default([]),
 });
 
 export type EnrichScopeResult =
@@ -30,6 +35,9 @@ export type EnrichScopeResult =
       marketCount: number;
       /** Wallet balance in credits (plan + purchased + rollover − held). */
       walletCredits: number;
+      /** businessId → cellKey for the passed candidate ids, so the sheet can
+       *  derive the SCOPED cell count/keys for the selected/visible scope. */
+      businessCells: Record<string, string>;
     }
   | { status: "unauthorized" }
   | { status: "forbidden" }
@@ -65,7 +73,7 @@ export async function getEnrichScopeAction(
       return { status: "forbidden" };
     }
 
-    const [marketCount, wallet] = await Promise.all([
+    const [marketCount, wallet, cellRows] = await Promise.all([
       prisma.business.count({
         where: rawListWhere({ cellKeys: discovery.cellKeys }),
       }),
@@ -78,7 +86,21 @@ export async function getEnrichScopeAction(
           heldCredits: true,
         },
       }),
+      // cellKey per candidate scope id — scoped to this discovery's cells so we
+      // never leak another discovery's business. Empty when the sheet passes no
+      // ids (the "whole research" open) → the sheet uses all cellKeys.
+      parsed.data.businessIds.length > 0
+        ? prisma.business.findMany({
+            where: {
+              id: { in: parsed.data.businessIds },
+              cellKey: { in: discovery.cellKeys },
+            },
+            select: { id: true, cellKey: true },
+          })
+        : Promise.resolve([]),
     ]);
+    const businessCells: Record<string, string> = {};
+    for (const r of cellRows) if (r.cellKey) businessCells[r.id] = r.cellKey;
 
     const walletCredits = wallet
       ? Math.max(
@@ -95,6 +117,7 @@ export async function getEnrichScopeAction(
       cellKeys: discovery.cellKeys,
       marketCount,
       walletCredits,
+      businessCells,
     };
   } catch (err) {
     console.error(

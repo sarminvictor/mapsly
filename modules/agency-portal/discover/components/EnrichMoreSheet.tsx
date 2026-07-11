@@ -58,6 +58,10 @@ interface ScopeInfo {
   cellKeys: string[];
   marketCount: number;
   walletCredits: number;
+  /** businessId → cellKey for the candidate scope ids — lets the sheet scope the
+   *  per-cell (Meta/SERP) pricing + run to the SELECTED market's cells, not every
+   *  cell of the research. */
+  businessCells: Record<string, string>;
 }
 
 /**
@@ -172,23 +176,30 @@ export function EnrichMoreSheet({
   // matching the LeadDrawer pattern.
   const panelRef = useRef<HTMLDivElement | null>(null);
 
-  // Load cellKeys + market count + wallet once per open (per discovery).
+  // Load cellKeys + market count + wallet + the candidate ids' cellKeys once per
+  // open. Pass the candidate scope ids (visible ∪ selected) so the sheet can scope
+  // the per-cell (Meta/SERP) pricing to the SELECTED market's cells.
   useEffect(() => {
     if (fetchedFor.current === discoveryId) return;
     fetchedFor.current = discoveryId;
+    const candidateIds = [...new Set([...selectedIds, ...visibleIds])];
     void (async () => {
-      const r = await getEnrichScopeAction({ discoveryId });
+      const r = await getEnrichScopeAction({
+        discoveryId,
+        businessIds: candidateIds,
+      });
       if (r.status === "ok") {
         setScopeInfo({
           cellKeys: r.cellKeys,
           marketCount: r.marketCount,
           walletCredits: r.walletCredits,
+          businessCells: r.businessCells,
         });
       } else {
         setScopeError(true);
       }
     })();
-  }, [discoveryId]);
+  }, [discoveryId, selectedIds, visibleIds]);
 
   // U5 · Escape closes (scrim click handled on the overlay) + Tab focus-trap +
   // initial focus into the panel + focus-return to the trigger on close, so the
@@ -251,7 +262,22 @@ export function EnrichMoreSheet({
   );
   const scopeCount =
     scope === "all" ? (scopeInfo?.marketCount ?? 0) : scopeIds.length;
-  const cellCount = scopeInfo?.cellKeys.length ?? 0;
+  // The cells the CURRENT scope covers: the whole research ("all") → every cell;
+  // selected/visible → only the cells the scoped leads belong to (so the per-cell
+  // Meta/SERP price + run scope to the SELECTED market, not every visible market —
+  // the "suggests all markets" bug). The server re-derives the same set from the
+  // businessIds at preflight, so this is the honest display for the authoritative run.
+  const scopedCellKeys = useMemo(() => {
+    if (!scopeInfo) return [];
+    if (scope === "all") return scopeInfo.cellKeys;
+    const set = new Set<string>();
+    for (const id of scopeIds) {
+      const k = scopeInfo.businessCells[id];
+      if (k) set.add(k);
+    }
+    return [...set];
+  }, [scope, scopeIds, scopeInfo]);
+  const cellCount = scopedCellKeys.length;
 
   // The enrichment-type tokens the selected data GROUPS map to (Ad activity →
   // meta_ads + google_ads, Contacts & site tech → contacts + tech, …), then
@@ -371,7 +397,9 @@ export function EnrichMoreSheet({
       const pf = await preflightEnrichAction({
         discoveryId,
         businessIds: scopeIds,
-        cellKeys: scopeInfo.cellKeys,
+        // Scoped to the selected market's cells (server re-derives authoritatively
+        // from businessIds; sending the scoped set keeps client + server in sync).
+        cellKeys: scopedCellKeys,
         enrichments,
       });
       if (pf.status !== "ok") {

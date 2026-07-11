@@ -63,6 +63,9 @@ const db = {
   runs: [] as FakeRun[],
   /** Business ids the cell-resolution findMany returns (WP5-4 filter tests). */
   cellBusinesses: [] as string[],
+  /** businessId → cellKey for the scope fix (2026-07-10) · preflight derives the
+   *  effective market cells from the SCOPED businesses' Business.cellKey. */
+  businessCellKeys: {} as Record<string, string>,
   /** Every `where` the cell-resolution findMany was called with. */
   businessWheres: [] as Record<string, unknown>[],
   seq: 0,
@@ -79,6 +82,7 @@ const db = {
     this.estimates = [];
     this.runs = [];
     this.cellBusinesses = [];
+    this.businessCellKeys = {};
     this.businessWheres = [];
     this.seq = 0;
   },
@@ -203,10 +207,27 @@ vi.mock("@/lib/prisma", () => {
       async ({
         where,
         take,
+        select,
       }: {
         where: Record<string, unknown>;
         take?: number;
+        select?: Record<string, boolean>;
       }) => {
+        // Scope fix (2026-07-10) · effective-cell resolution for EXPLICIT
+        // businessIds: preflight reads `{ id:{in}, select:{cellKey} }` to derive
+        // the market cells from the scoped businesses. Shape-match it exactly and
+        // return the seeded cellKey per id. NOT a cell-resolution query → do NOT
+        // push to businessWheres (the filter tests assert its length).
+        const idIn =
+          where?.id && typeof where.id === "object" && "in" in where.id
+            ? ((where.id as { in: string[] }).in ?? [])
+            : null;
+        if (select?.cellKey === true && idIn) {
+          return idIn
+            .map((id) => db.businessCellKeys[id])
+            .filter((c): c is string => Boolean(c))
+            .map((cellKey) => ({ cellKey }));
+        }
         if (where && "cellKey" in where) {
           db.businessWheres.push(where);
           const ids =
@@ -296,16 +317,27 @@ describe("preflightEnrichAction", () => {
     expect(Array.isArray(refs.lines)).toBe(true);
   });
 
-  test("per-cell families use cellKeys length as the unit count", async () => {
+  test("per-cell families price the scoped businesses' DISTINCT cells (scope fix)", async () => {
+    // Scope fix (2026-07-10) · selecting one market's leads must run Meta/SERP
+    // only on THOSE leads' cells — not every visible cell of the research. The
+    // caller may pass extra cellKeys (all visible markets), but the effective
+    // cells are derived server-side from the scoped businesses' Business.cellKey.
+    // b1,b2 → c1; b3 → c2 ⇒ 2 distinct cells, NOT the 4 cellKeys passed.
+    db.businessCellKeys = { b1: "c1", b2: "c1", b3: "c2" };
     const r = await preflightEnrichAction({
-      businessIds: ["b1", "b2"],
-      cellKeys: ["c1", "c2", "c3"],
+      businessIds: ["b1", "b2", "b3"],
+      cellKeys: ["c1", "c2", "c3", "c4"], // 4 visible cells passed — must be ignored
       enrichments: ["meta_ads"],
     });
     expect(r.status).toBe("ok");
     if (r.status !== "ok") return;
     expect(r.lines[0]?.unit).toBe("cell");
-    expect(r.lines[0]?.total).toBe(3); // cellCount, not businessCount
+    expect(r.lines[0]?.total).toBe(2); // c1 + c2 only, not the 4 passed cellKeys
+
+    // The stored scope re-quoted on run carries the SAME 2 cells — so the fan-out
+    // and the billing agree with the quote (no all-markets over-charge/over-run).
+    const refs = db.estimates[0]?.scopeRefsJson as { cellKeys?: string[] };
+    expect(new Set(refs.cellKeys)).toEqual(new Set(["c1", "c2"]));
   });
 
   test("WP2-2 · topN caps the scope server-side (priced set == stored set)", async () => {

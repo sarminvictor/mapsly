@@ -261,6 +261,31 @@ export async function preflightEnrichAction(
       // honor it, just cap the count.
       businessIds = businessIds.slice(0, parsed.data.topN);
     }
+
+    // 2026-07-10 · SCOPE THE CELL FAMILIES (meta_ads/serp) TO THE SELECTED MARKET.
+    // When the caller scoped by EXPLICIT businessIds (selected/visible leads), the
+    // per-cell families must run only on the cells THOSE businesses belong to —
+    // NOT every cell of the discovery. Without this, selecting one market's leads
+    // still quoted + ran Meta/SERP through ALL visible markets (the "suggests all
+    // markets" bug). Derive the effective cells from the scoped businesses'
+    // Business.cellKey (authoritative — the estimate, the stored scope re-quoted on
+    // run, the fan-out, and the billing all then agree on the same cells). The
+    // "enrich the market" path (businessIds RESOLVED from cellKeys above, so
+    // parsed.data.businessIds was empty) keeps its cellKeys as-is — those ARE the
+    // intended market scope.
+    let effectiveCellKeys = parsed.data.cellKeys;
+    if (parsed.data.businessIds.length > 0 && businessIds.length > 0) {
+      const cellRows = await prisma.business.findMany({
+        where: { id: { in: businessIds } },
+        select: { cellKey: true },
+      });
+      effectiveCellKeys = [
+        ...new Set(
+          cellRows.map((r) => r.cellKey).filter((c): c is string => Boolean(c)),
+        ),
+      ];
+    }
+
     // Entitlement model (Phase 2 · G6): the billing reducer becomes the FREE
     // quadrant (owned ∧ fresh), not global freshness — so a non-owner served
     // from our DB is billable and the hold covers it. DB freshness stops being a
@@ -270,13 +295,13 @@ export async function preflightEnrichAction(
           agencyId,
           enrichments: parsed.data.enrichments,
           businessIds,
-          cellKeys: parsed.data.cellKeys,
+          cellKeys: effectiveCellKeys,
           now,
         })
       : await countFreshForRun({
           enrichments: parsed.data.enrichments,
           businessIds,
-          cellKeys: parsed.data.cellKeys,
+          cellKeys: effectiveCellKeys,
           now,
         });
     // P3 · PER-FAMILY line totals — exclude PERMANENTLY-UNAVAILABLE pairs from
@@ -323,7 +348,7 @@ export async function preflightEnrichAction(
     const lines = buildEnrichLines({
       enrichments: parsed.data.enrichments,
       businessCount: businessIds.length,
-      cellCount: parsed.data.cellKeys.length,
+      cellCount: effectiveCellKeys.length,
       freshByEnrichment,
       ...(businessCountByEnrichment ? { businessCountByEnrichment } : {}),
     });
@@ -338,7 +363,7 @@ export async function preflightEnrichAction(
           kind: "enrichment",
           discoveryId: parsed.data.discoveryId ?? null,
           businessIds,
-          cellKeys: parsed.data.cellKeys,
+          cellKeys: effectiveCellKeys,
           // Persist the estimator inputs so authorizeEstimate can re-quote.
           lines: lines as unknown as Prisma.InputJsonValue,
         } as Prisma.InputJsonObject,
