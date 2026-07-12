@@ -4,10 +4,12 @@
 //   1. If a fresh (≤30d) AdMarketRun(platform=SERP) exists → served-from-DB.
 //   2. Else, for the cell's representative keyword:
 //        a. upsert the Keyword row (shared market-level cost layer),
-//        b. ONE serpLocalPack scan → reverse-attribute Maps ranks per indexed
-//           business → SerpResult(kind=MAPS),
-//        c. ONE serpOrganic scan → reverse-attribute organic ranks per indexed
-//           business (by domain) → SerpResult(kind=ORGANIC),
+//        b. ONE DEEP maps scan (depth ~300) → attribute a Maps rank to ~EVERY
+//           business via Google CID (100% populated → not the fuzzy title match
+//           that reached ~17 of 400) → SerpResult(kind=MAPS),
+//        c. ONE deeper serpOrganic scan (depth 100) → attribute organic ranks by
+//           domain, SKIPPING booking/social hosts (vagaro/instagram) so a
+//           platform "website" can't steal a ranking → SerpResult(kind=ORGANIC),
 //        d. rankedKeywords for a SMALL selected set of businesses (cap) →
 //           upsert Keyword + BusinessKeyword with etv / visits / traffic-value,
 //        e. one AdMarketRun(platform=SERP) telemetry row.
@@ -18,11 +20,7 @@
 // MUST run inside an open CronRun (the DataForSEO adapters enforce this).
 
 import prisma, { Prisma } from "@/lib/prisma";
-import {
-  serpLocalPack,
-  serpOrganic,
-  rankedKeywords,
-} from "@/services/dataforseo";
+import { mapsSearch, serpOrganic, rankedKeywords } from "@/services/dataforseo";
 import {
   isCellRunFresh,
   latestAdMarketRun,
@@ -39,6 +37,48 @@ import {
 const MAX_RANKED_KEYWORD_BIZ = 3;
 /** Max ranked_keywords rows persisted per business (best-ranked first). */
 const MAX_RANKED_ROWS_PER_BIZ = 50;
+/** Deep maps listing limit — attribute a maps rank to ~EVERY business in the
+ *  cell (the old 3-result web local-pack reached ~1). Business-Listings search,
+ *  CID-matched. */
+const MAPS_SCAN_DEPTH = 300;
+/** Organic scan depth — reach beyond the head-term top-20 without tripping the
+ *  DfS transport timeout that a depth-100 scrape hit. */
+const ORGANIC_SCAN_DEPTH = 50;
+
+/**
+ * Booking / social / aggregator hosts many SMBs list as their "website"
+ * (e.g. a barber whose only site is vagaro.com or an instagram.com page). A SERP
+ * result on one of these is the PLATFORM's ranking, not the business's, so we
+ * NEVER reverse-attribute an organic result by these domains — the same
+ * platform-domain false-positive the google_ads per-business rebuild fixed. Maps
+ * attribution is unaffected (it keys off the business's own Google CID).
+ */
+const PLATFORM_HOSTS = new Set([
+  "vagaro.com",
+  "fresha.com",
+  "booksy.com",
+  "setmore.com",
+  "squareup.com",
+  "square.site",
+  "getsquire.com",
+  "trafft.com",
+  "schedulicity.com",
+  "instagram.com",
+  "facebook.com",
+  "m.facebook.com",
+  "linktr.ee",
+  "google.com",
+  "sites.google.com",
+  "wixsite.com",
+  "business.site",
+]);
+function isPlatformHost(host: string): boolean {
+  const h = host.toLowerCase().replace(/^www\./, "");
+  if (PLATFORM_HOSTS.has(h)) return true;
+  // subdomains (e.g. crownbarbershop.setmore.com, foo.square.site).
+  for (const p of PLATFORM_HOSTS) if (h.endsWith("." + p)) return true;
+  return false;
+}
 
 export interface CellSerpResult {
   cellKey: string;
@@ -82,6 +122,7 @@ function matchByDomain(
 export async function runSerpForCell(
   cellKey: string,
   now: Date = new Date(),
+  opts: { force?: boolean } = {},
 ): Promise<CellSerpResult> {
   const result: CellSerpResult = {
     cellKey,
@@ -93,11 +134,13 @@ export async function runSerpForCell(
     errors: [],
   };
 
-  // 1 · freshness gate.
-  const last = await latestAdMarketRun(cellKey, "SERP");
-  if (isCellRunFresh(last?.ranAt ?? null, now, CELL_INTEL_FRESHNESS_DAYS)) {
-    result.outcome = "served-from-db";
-    return result;
+  // 1 · freshness gate (opts.force bypasses it — admin re-run / redesign re-scan).
+  if (!opts.force) {
+    const last = await latestAdMarketRun(cellKey, "SERP");
+    if (isCellRunFresh(last?.ranAt ?? null, now, CELL_INTEL_FRESHNESS_DAYS)) {
+      result.outcome = "served-from-db";
+      return result;
+    }
   }
 
   // 2 · resolve cell context.
@@ -114,10 +157,16 @@ export async function runSerpForCell(
   }
   result.keyword = keyword;
 
+  // Reverse-attribution maps. CID is the RELIABLE key for maps results (every
+  // listing carries its cid; 100% populated from discovery) — build it first.
+  // byHost is the fallback for ORGANIC results (which carry a domain, not a cid);
+  // it SKIPS platform hosts so a booking/social "website" can't steal a ranking.
+  const byCid = new Map<string, string>();
   const byHost = new Map<string, string>();
   for (const b of ctx.businesses) {
+    if (b.googleCid) byCid.set(b.googleCid, b.id);
     const host = hostOf(b);
-    if (host) byHost.set(host, b.id);
+    if (host && !isPlatformHost(host)) byHost.set(host, b.id);
   }
 
   // 3 · upsert the shared Keyword row (market-level, cell-deduped).
@@ -156,33 +205,45 @@ export async function runSerpForCell(
     return result;
   }
 
-  // 4 · ONE Maps local-pack scan → reverse-attribute per-business ranks.
+  // 4 · ONE DEEP Maps scan → attribute a maps rank to ~EVERY business in the
+  // cell via Google CID (reliable + platform-proof; 100% populated). This is the
+  // core fix: the old depth-20 title/domain match reached ~17 of a 400-biz cell;
+  // depth-300 CID-matching reaches essentially all of them.
   try {
-    const { items } = await serpLocalPack({
-      keyword,
+    // Use Business Listings (Maps) search — the SAME endpoint discovery used to
+    // build this cell, so every returned row carries a `cid` matching our stored
+    // googleCid. It returns the FULL category listing ranked by Maps prominence
+    // (up to ~1000), NOT the 3-result web local-pack, so we attribute a maps rank
+    // to ~every business. The array order IS the maps rank. Category-filtered to
+    // the cell's vertical, so the top-3 are the real "3-pack" (not adjacent hair
+    // salons a web local-pack mixes in).
+    const { items } = await mapsSearch({
+      categories: [ctx.categorySlug],
       location_coordinate: ctx.locationCoordinate,
       language_code: "en",
-      device: "mobile",
-      depth: 20,
+      limit: MAPS_SCAN_DEPTH,
     });
     const pack = items.slice(0, 3).map((it) => it.title ?? null);
-    // WP9-9 · batch the per-item SerpResult inserts into ONE createMany instead
-    // of N sequential `create` round-trips. These are plain inserts (no upsert
-    // conflict key), so the batch is a straight swap — bounded at depth≤20 rows.
     const mapsRows: Prisma.SerpResultCreateManyInput[] = [];
+    const mapsSeen = new Set<string>();
+    let mapsRank = 0;
     for (const it of items) {
+      mapsRank += 1;
+      // CID is the reliable key (100% populated, same discovery source);
+      // title/domain only for the rare row missing a cid.
       const businessId =
-        matchByTitle(it.title, ctx.businesses) ??
+        (it.cid && byCid.get(it.cid)) ||
+        matchByTitle(it.title, ctx.businesses) ||
         matchByDomain(it.domain, byHost);
-      if (!businessId) continue;
-      const rank = it.rank_group ?? it.rank_absolute ?? null;
+      if (!businessId || mapsSeen.has(businessId)) continue;
+      mapsSeen.add(businessId);
       mapsRows.push({
         keywordId,
         businessId,
         kind: "MAPS",
         scannedAt: now,
-        localPackRank: rank != null && rank <= 3 ? rank : null,
-        organicAbsRank: it.rank_absolute ?? null,
+        localPackRank: mapsRank <= 3 ? mapsRank : null,
+        organicAbsRank: mapsRank,
         landingUrl: it.url ?? null,
         pack1Name: pack[0] ?? null,
         pack2Name: pack[1] ?? null,
@@ -204,7 +265,7 @@ export async function runSerpForCell(
       location_code: ctx.locationCode,
       language_code: "en",
       device: "mobile",
-      depth: 20,
+      depth: ORGANIC_SCAN_DEPTH,
     });
     // WP9-9 · same batching as the Maps section — one createMany, bounded rows.
     const organicRows: Prisma.SerpResultCreateManyInput[] = [];

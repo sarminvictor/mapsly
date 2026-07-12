@@ -23,6 +23,10 @@ export interface CellBusiness {
   domain: string | null;
   website: string | null;
   fbPageId: string | null;
+  /** Google CID — the reliable key for reverse-attributing a Maps SERP result
+   *  to this business (every listing carries its cid). 100% populated from
+   *  discovery, so it beats fuzzy title/domain matching for the maps scan. */
+  googleCid: string | null;
 }
 
 export interface CellContext {
@@ -49,6 +53,7 @@ const BIZ_SELECT = {
   domain: true,
   website: true,
   fbPageId: true,
+  googleCid: true,
 } as const;
 
 /** Max businesses loaded per cell for attribution (bounds memory + DB cost). */

@@ -644,10 +644,12 @@ export const COLUMNS: readonly ColumnDef[] = [
     rowFields: ["googleAdCount"],
   },
   {
-    // AUDIT F2 · best local-pack rank — stored on SerpResult, never shown.
+    // 2026-07-11 · redesigned SERP gives every business a Google Maps position
+    // (CID-matched deep scan), so this now shows a rank for the whole cell — not
+    // just the ≤3 local-pack winners it left blank before.
     key: "serpRank",
     label: "SERP",
-    fullLabel: "Best local-pack rank (lower is better)",
+    fullLabel: "Google Maps rank in the market (lower is better)",
     kind: "num",
     sortable: true,
     defaultOn: false,

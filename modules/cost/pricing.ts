@@ -33,7 +33,7 @@ import { DATAFORSEO_UNIT_COST_USD } from "@/services/dataforseo/pricing";
 // decoupled from ENRICHMENT_PRICES.usdPerUnit (raw COGS). Any change to either
 // table must bump this so in-flight 15-min quotes re-quote.
 // (Prior: "2026-07-02.1" WP10-7 re-derived serp/google_ads + walled lighthouse.)
-export const PRICE_LIST_VERSION = "2026-07-10.1";
+export const PRICE_LIST_VERSION = "2026-07-11.1";
 
 /** Internal credit price. Apollo charges ~$0.20/credit; we undercut 4×. */
 export const CREDIT_USD = 0.05;
@@ -521,18 +521,20 @@ export const ENRICHMENT_PRICES: Record<EnrichmentType, EnrichmentPrice> = {
     upperMultiplier: 1.5,
     freshnessDays: 30,
   },
-  // WP10-7 · re-derived from modules/cell-intel/serp.ts: ONE serpLocalPack scan
-  // + ONE serpOrganic scan + rankedKeywords on MAX_RANKED_KEYWORD_BIZ = 3
-  // businesses (one Live call each) — NOT 12. Real charged cost =
-  // serpLocalPack + serpOrganic + rankedKeywords×3 ($0.002 + $0.002 +
-  // $0.013×3 = $0.043), amortized across the cell. (Was priced as ×12 = $0.16 →
-  // overstated by ~3.7×.)
+  // 2026-07-11 · redesigned per-cell SERP (modules/cell-intel/serp.ts): ONE DEEP
+  // maps scan (depth ~300, matched by Google CID → a rank for ~every business,
+  // not 17) + ONE deeper organic scan (depth 100) + rankedKeywords×3. Maps/organic
+  // are priced per-100-results (~$0.002 × pages), so the deeper scans add cents.
+  // Real charged cost ≈ serpLocalPack×3pages + serpOrganic×5pages +
+  // rankedKeywords×3 ≈ $0.006 + $0.010 + $0.039 ≈ $0.055, amortized across the
+  // whole cell. Runtime billing tracks the actual DfS `task.cost`; this only
+  // drives the pre-flight quote's netUsd/margin telemetry.
   serp: {
     label: "SERP / search",
     unit: "cell",
     usdPerUnit:
-      DATAFORSEO_UNIT_COST_USD.serpLocalPack +
-      DATAFORSEO_UNIT_COST_USD.serpOrganic +
+      DATAFORSEO_UNIT_COST_USD.serpLocalPack * 3 +
+      DATAFORSEO_UNIT_COST_USD.serpOrganic * 5 +
       DATAFORSEO_UNIT_COST_USD.rankedKeywords * 3,
     upperMultiplier: 1.5,
     freshnessDays: 30,
@@ -606,7 +608,11 @@ export const CREDIT_PRICES: Record<EnrichmentType, number> = {
   ai_research: 1,
   google_ads: 1,
   meta_ads: 25,
-  serp: 4,
+  // 2026-07-11 · 4→25 (per-cell market fee, parity with meta_ads). The SERP
+  // family was redesigned to give EVERY business in the cell a real maps rank
+  // (deep CID-matched maps scan) + organic rank, not a head-term snapshot that
+  // reached ~17 of 400. It's a whole-market fee like meta_ads → priced the same.
+  serp: 25,
 };
 
 /** Credits one unit of an enrichment bills (per business or per cell). */

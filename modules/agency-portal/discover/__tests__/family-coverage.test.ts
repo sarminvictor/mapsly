@@ -463,10 +463,11 @@ describe("group credit helpers · ONE estimator for button + sheet", () => {
     expect(groupLeadCredits(byKey("meta_ads"))).toBe(0);
     expect(groupLeadCredits(byKey("search"))).toBe(0);
   });
-  test("per-cell prices: meta 25/cell + serp 4/cell, lead groups 0", () => {
-    // meta_ads repriced 12→25/cell (real ~$0.87/run · 1 charge per market); serp 4/cell.
+  test("per-cell prices: meta 25/cell + serp 25/cell, lead groups 0", () => {
+    // meta_ads repriced 12→25/cell (real ~$0.87/run · 1 charge per market);
+    // serp 4→25/cell (2026-07-11 · deep CID-matched maps redesign · parity w/ meta).
     expect(groupCellCredits(byKey("meta_ads"))).toBe(25);
-    expect(groupCellCredits(byKey("search"))).toBe(4);
+    expect(groupCellCredits(byKey("search"))).toBe(25);
     expect(groupCellCredits(byKey("contacts_tech"))).toBe(0);
   });
 });

@@ -29,11 +29,13 @@ describe("price list (golden)", () => {
     expect(ENRICHMENT_PRICES.contacts.usdPerUnit).toBeCloseTo(0.008, 6);
     // WP10-7 · re-derived from the real call graph (modules/cell-intel):
     //  serp = serpLocalPack + serpOrganic + rankedKeywords×3 (MAX_RANKED_KEYWORD_BIZ),
-    //         = 0.002 + 0.002 + 0.013×3 = 0.043 (was ×12 = 0.16);
+    //         2026-07-11: redesigned to a DEEP CID-matched maps scan (×3 pages)
+    //         + deeper organic (×5 pages) + rankedKeywords×3
+    //         = 0.002×3 + 0.002×5 + 0.013×3 = 0.055 (was 0.043);
     //  B1 · google_ads is now PER-BUSINESS — one target-host adsSearch call
     //         ($0.002) per website-having lead (was per-cell adsAdvertisers +
     //         adsSearch = 0.004 amortized across the cell).
-    expect(ENRICHMENT_PRICES.serp.usdPerUnit).toBeCloseTo(0.043, 6);
+    expect(ENRICHMENT_PRICES.serp.usdPerUnit).toBeCloseTo(0.055, 6);
     expect(ENRICHMENT_PRICES.google_ads.usdPerUnit).toBeCloseTo(0.002, 6);
     // 2026-07-10: corrected 0.12→0.85 to match the REAL Apify console cost
     // (~$0.72–1.22/run, mean ~$0.87 · proxy-dominated); upperMultiplier 2.
@@ -99,7 +101,7 @@ describe("CREDIT_PRICES (customer billing schedule)", () => {
     expect(CREDIT_PRICES.ai_research).toBe(1);
     expect(CREDIT_PRICES.google_ads).toBe(1);
     expect(CREDIT_PRICES.meta_ads).toBe(25); // 12→25 (real ~$0.87/run · 1/market)
-    expect(CREDIT_PRICES.serp).toBe(4);
+    expect(CREDIT_PRICES.serp).toBe(25); // 2026-07-11 · 4→25 · per-cell market fee, parity w/ meta_ads
   });
 
   test("a fully-enriched lead = 6 credits (contacts + reviews + speed + AI)", () => {
@@ -209,16 +211,16 @@ describe("estimateRun", () => {
     const r = estimateRun({
       lines: [
         { enrichment: "lighthouse", total: 100, fresh: 20 }, // net 80×0.00425 = 0.34
-        { enrichment: "serp", total: 9 }, // WP10-7 · net 9×0.043 = 0.387
+        { enrichment: "serp", total: 9 }, // 2026-07-11 · net 9×0.055 = 0.495
         { enrichment: "reviews", total: 50, fresh: 10 }, // net 40×0.015 = 0.60
       ],
     });
-    // WP10-7 · serp is now $0.043/unit (was $0.16): 0.34 + 0.387 + 0.60 = 1.327.
-    expect(r.netUsd).toBeCloseTo(1.327, 4); // COGS telemetry unchanged
+    // serp is now $0.055/unit (deep maps + organic): 0.34 + 0.495 + 0.60 = 1.435.
+    expect(r.netUsd).toBeCloseTo(1.435, 4);
     expect(r.gate).toBe("confirm");
     expect(r.confidence).toBe("bounded"); // reviews + lighthouse are variable
-    // CREDIT_PRICES: lighthouse 80×2 + serp 9×4 + reviews 40×2 = 160 + 36 + 80.
-    expect(r.netCredits).toBe(276);
+    // CREDIT_PRICES: lighthouse 80×2 + serp 9×25 + reviews 40×2 = 160 + 225 + 80 = 465.
+    expect(r.netCredits).toBe(465);
   });
 
   test("all fresh → net $0 but freshHit shows the saving", () => {

@@ -217,21 +217,30 @@ export async function getWorkbenchRowFieldsAction(
       wants.has("serpRank")
         ? prisma.serpResult
             .findMany({
-              where: { businessId: { in: ids } },
-              select: { businessId: true, localPackRank: true },
-              // Best (lowest) rank per business — DISTINCT ON keeps the first
-              // (best) row per the order below (the page/builder pattern).
+              // The redesigned SERP scan gives EVERY business a Google Maps
+              // position (kind=MAPS · organicAbsRank 1..N), matched by CID —
+              // not just the 1-3 local-pack winners. Read that so the column
+              // shows a rank for the whole cell, not "none" for ~everyone.
+              where: { businessId: { in: ids }, kind: "MAPS" },
+              select: {
+                businessId: true,
+                localPackRank: true,
+                organicAbsRank: true,
+              },
+              // Best (lowest) maps position per business — DISTINCT ON keeps the
+              // first row per the order below.
               distinct: ["businessId"],
               orderBy: [
                 { businessId: "asc" },
-                { localPackRank: { sort: "asc", nulls: "last" } },
+                { organicAbsRank: { sort: "asc", nulls: "last" } },
               ],
             })
             .then((rows) => {
               for (const r of rows) {
-                if (r.businessId && r.localPackRank != null) {
-                  values[r.businessId]!.serpRank = r.localPackRank;
-                }
+                if (!r.businessId) continue;
+                // Prefer the deep maps position; fall back to the 3-pack rank.
+                const rank = r.organicAbsRank ?? r.localPackRank;
+                if (rank != null) values[r.businessId]!.serpRank = rank;
               }
             })
         : Promise.resolve(),
