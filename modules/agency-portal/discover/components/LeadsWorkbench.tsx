@@ -4336,9 +4336,10 @@ export function LeadsWorkbench({
                     // ("Site speed & SEO · Lighthouse performance") so the
                     // boundary rule reads as a labelled cluster, not a stray line.
                     data-tip={
-                      groupStartKeys.has(c.key) && c.group
+                      c.help ??
+                      (groupStartKeys.has(c.key) && c.group
                         ? `${dataGroupFor(c.group).label} · ${c.fullLabel ?? c.label}`
-                        : (c.fullLabel ?? c.label)
+                        : (c.fullLabel ?? c.label))
                     }
                     aria-sort={
                       c.sortable && sortKey === c.key

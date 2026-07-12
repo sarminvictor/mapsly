@@ -393,6 +393,10 @@ export interface ColumnDef {
   label: string;
   /** Full label for the th title attr. */
   fullLabel?: string;
+  /** Detailed header tooltip written for Tom (agency owner / freelancer): what
+   *  the column is, how to read it (incl. which direction is "good"), and the
+   *  pitch angle it opens. Rendered in the header hover tip when present. */
+  help?: string;
   kind: ColumnKind;
   /** Whether the column header is sortable. */
   sortable: boolean;
@@ -465,6 +469,7 @@ export const COLUMNS: readonly ColumnDef[] = [
   {
     key: "biz",
     label: "Business",
+    help: "The lead — business name + address. Click the row to open the full research drawer.",
     kind: "biz",
     sortable: false,
     defaultOn: true,
@@ -474,6 +479,7 @@ export const COLUMNS: readonly ColumnDef[] = [
   {
     key: "match",
     label: "Match %",
+    help: "Fit score (0–100%) against the signals you picked for this research. Higher = closer to your ideal lead. A lead with no data on a signal is excluded from the score, not penalized — so enrich more to sharpen it.",
     kind: "match",
     sortable: true,
     defaultOn: true,
@@ -485,6 +491,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     key: "pains",
     label: "Pain points",
     fullLabel: "Pain points (pitch angles)",
+    help: "The concrete problems we found on this lead — each is a ready pitch angle (e.g. “owner replies to 0% of reviews”, “site loads in 6s”). Use them as your outreach opening lines.",
     kind: "pains",
     sortable: false,
     defaultOn: true,
@@ -494,6 +501,7 @@ export const COLUMNS: readonly ColumnDef[] = [
   {
     key: "reviews",
     label: "Reviews",
+    help: "Google review count — the strongest proxy for revenue and volume. Higher = a busier, better-funded operator worth pitching. Pair it with Rating.",
     kind: "num",
     sortable: true,
     // Promoted to default (2026-07-06) — review count is the revenue proxy Tom
@@ -513,6 +521,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     // the goal-first research-span reorder (it's an anchor now).
     key: "rating",
     label: "Rating",
+    help: "Average Google star rating (0–5). Low rating with many reviews = an unhappy-customers angle. A high rating = a healthy operator who can afford you. Pair it with the Reviews count.",
     kind: "num",
     sortable: true,
     defaultOn: false,
@@ -526,6 +535,7 @@ export const COLUMNS: readonly ColumnDef[] = [
   {
     key: "website",
     label: "Website",
+    help: "Their website. If it resolves to a booking or social page (vagaro.com, an Instagram/Facebook link) they have no real site of their own — a pitch in itself. Click to open it.",
     kind: "site",
     sortable: false,
     // On by default — "Has a website: match" begged the question "why not the
@@ -539,6 +549,7 @@ export const COLUMNS: readonly ColumnDef[] = [
   {
     key: "phones",
     label: "Phone",
+    help: "Phone numbers we pulled from their site — validated, junk stripped. Your cold-call list. Filter “Phones ≥ 1” to keep only reachable leads.",
     kind: "contact",
     sortable: false,
     // Contacts are what the agency paid to enrich — show them by default so a
@@ -554,6 +565,7 @@ export const COLUMNS: readonly ColumnDef[] = [
   {
     key: "emails",
     label: "Email",
+    help: "Email addresses we pulled from their site (owner / front-desk / generic). Your cold-email list. Filter “Emails ≥ 1” to keep only emailable leads.",
     kind: "contact",
     sortable: false,
     defaultOn: true,
@@ -567,6 +579,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     key: "perf",
     label: "Lighthouse",
     fullLabel: "Lighthouse performance",
+    help: "Google Lighthouse mobile speed score (0–100). Under ~50 = a slow site bleeding mobile customers — a clean website/speed pitch. Higher is better.",
     kind: "num",
     sortable: true,
     defaultOn: false,
@@ -584,6 +597,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     key: "seo",
     label: "SEO",
     fullLabel: "Lighthouse SEO score",
+    help: "Google Lighthouse on-page SEO score (0–100). Low = fixable technical gaps (missing meta tags, no schema, weak mobile). Higher is better.",
     kind: "num",
     sortable: true,
     defaultOn: false,
@@ -605,6 +619,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     // column could NEVER show an in-flight state).
     key: "aiSummary",
     label: "AI summary",
+    help: "A one-line AI read of the business from its own site — what they do, who they serve, how they position. Context to personalize outreach before you write it.",
     kind: "text",
     sortable: false,
     defaultOn: false,
@@ -621,6 +636,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     key: "metaAdCount",
     label: "Meta ads",
     fullLabel: "Active Meta (FB/IG) ad creatives",
+    help: "Active Facebook/Instagram ad creatives we found running for this business. >0 = they already spend on paid social — warm for an ads upsell. 0 = they’re dark on Meta — a visibility angle. Higher = more active advertiser.",
     kind: "num",
     sortable: true,
     defaultOn: false,
@@ -634,6 +650,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     key: "googleAdCount",
     label: "Google ads",
     fullLabel: "Active Google ad creatives (target-host attribution)",
+    help: "Active Google ads running on this business’s OWN website domain (attributed by their domain, so it’s their ads — not a rival’s). >0 = they run Google/PPC. 0 = not advertising on Google. Higher = more active.",
     kind: "num",
     sortable: true,
     defaultOn: false,
@@ -650,6 +667,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     key: "serpRank",
     label: "SERP",
     fullLabel: "Google Maps rank in the market (lower is better)",
+    help: "Where this business ranks on Google Maps for the market’s main search (e.g. “barber shop Calgary”). 1 = top pin — lower is better. Positions 1–3 are the coveted “3-pack”. Buried (say >20) = weak local SEO, a strong “get you into the pack” angle. Blank = not in the top ~300 we scan.",
     kind: "num",
     sortable: true,
     defaultOn: false,
@@ -662,6 +680,7 @@ export const COLUMNS: readonly ColumnDef[] = [
   {
     key: "builtOn",
     label: "Built on",
+    help: "The website platform/CMS we detected (WordPress, Wix, Squarespace, Shopify…). Tells you how involved a rebuild would be and hints at their tech sophistication.",
     kind: "text",
     sortable: false,
     // Off by default now that the Website column carries the URL — the CMS name
@@ -679,6 +698,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     // AUDIT C3 · the exact booking tool (Square/Vagaro/Fresha) — stored, unshown.
     key: "bookingTool",
     label: "Booking tool",
+    help: "The online-booking software they run (Square, Vagaro, Fresha, Booksy…), or none. “None” on an appointment business = a booking-setup angle. A named tool tells you their stack.",
     kind: "text",
     sortable: false,
     defaultOn: false,
@@ -694,6 +714,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     // (secondary contact channel), addable from the Fields menu.
     key: "socials",
     label: "Socials",
+    help: "Social profiles we found links to (Facebook, Instagram, TikTok, X). Extra reach plus a read on where they’re already active.",
     kind: "socials",
     sortable: false,
     defaultOn: false,
@@ -704,6 +725,7 @@ export const COLUMNS: readonly ColumnDef[] = [
   {
     key: "reachable",
     label: "Reachable",
+    help: "How contactable this lead is — Rich / Multi (several channels), Email or Phone (one channel), or None. Higher tiers = easier to reach. The exact channels are in the drawer.",
     kind: "reach",
     sortable: false,
     // Demoted to addable (2026-07-06) — with Phone + Email default-on, a third
@@ -718,6 +740,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     key: "cov",
     label: "Enriched",
     fullLabel: "Enrichment coverage (data groups have / not yet)",
+    help: "Research completeness per lead. Green chips = have data, grey = not yet (click to enrich).",
     kind: "cov",
     sortable: false,
     // Off by default per the prototype's B7 decision — this info lives in the
@@ -729,6 +752,7 @@ export const COLUMNS: readonly ColumnDef[] = [
   {
     key: "status",
     label: "Status",
+    help: "Your outreach stage for this lead — New → Contacted → Replied → Won / Lost. Click to advance it through your pipeline.",
     kind: "status",
     sortable: false,
     defaultOn: true,
@@ -738,6 +762,7 @@ export const COLUMNS: readonly ColumnDef[] = [
   {
     key: "touch",
     label: "Touch",
+    help: "Touchpoints logged for this lead (calls, emails, notes) — your outreach history at a glance.",
     kind: "touch",
     sortable: false,
     defaultOn: true,
@@ -747,6 +772,7 @@ export const COLUMNS: readonly ColumnDef[] = [
   {
     key: "lastContactedAt",
     label: "Last contacted",
+    help: "When you last logged a touchpoint. Sort it to surface who’s overdue for follow-up (oldest first).",
     kind: "lastC",
     sortable: true,
     // Demoted to addable (2026-07-06) — Status + Touch already encode the
@@ -1614,8 +1640,23 @@ export function sortRows(
   const col = COLUMN_BY_KEY.get(key);
   const accessor = col?.sortValue ?? col?.numValue;
   if (!accessor) return [...rows];
-  const num = (r: WorkbenchLeadRow): number => accessor(r) ?? -Infinity;
-  return [...rows].sort((a, b) => (num(a) - num(b)) * dir);
+  // "Lower is better" columns (SERP Google-Maps rank, best organic rank, …)
+  // invert the effective direction so the arrow stays meaningful: the primary
+  // (desc/▼) sort surfaces the BEST value — the LOWEST rank — at the top, not
+  // the worst. Without this, "lower is better" ordered biggest-number-first.
+  const effDir: 1 | -1 =
+    col?.higherIsBetter === false ? ((dir * -1) as 1 | -1) : dir;
+  return [...rows].sort((a, b) => {
+    const av = accessor(a);
+    const bv = accessor(b);
+    // Nulls ALWAYS sink to the bottom, regardless of direction. The old
+    // `?? -Infinity` floated them to the TOP on an ascending sort (so sorting a
+    // rank best-first showed the un-ranked "enrich" rows first).
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    return (av - bv) * effDir;
+  });
 }
 
 // ── Grouping by signal set (#5 · segment by pitch angle) ─────────────────────

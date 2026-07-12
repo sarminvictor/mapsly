@@ -135,6 +135,10 @@ export interface HydratedReviews {
 export interface HydratedSerp {
   /** Best (lowest) localPackRank across scanned rows, null if none/absent. */
   bestLocalPackRank: number | null;
+  /** Best (lowest) Google Maps position across MAPS rows — the CID-matched deep
+   *  scan gives ~every business one (unlike localPackRank, which is 1-3 only).
+   *  Optional: additive field; consumers fall back to bestLocalPackRank. */
+  bestMapsRank?: number | null;
   /** Best (lowest) organicRank across scanned rows, null if none/absent. */
   bestOrganicRank: number | null;
   /** Best organicRank restricted to brand-query rows (branded-only recipe). */
@@ -2096,8 +2100,10 @@ async function hydrateInternal(
       where: idFilter,
       select: {
         businessId: true,
+        kind: true,
         localPackRank: true,
         organicRank: true,
+        organicAbsRank: true,
         isBrandQuery: true,
       },
     }),
@@ -2737,20 +2743,34 @@ export function rollupReviewAgg(
 }
 
 interface SerpRow {
+  // kind + organicAbsRank are additive (the deep MAPS scan); optional so older
+  // fixtures/rows without them still type-check. rollupSerp guards on both.
+  kind?: string;
   localPackRank: number | null;
   organicRank: number | null;
+  organicAbsRank?: number | null;
   isBrandQuery: boolean;
 }
 
 export function rollupSerp(rows: SerpRow[] | null): HydratedSerp | null {
   if (!rows || rows.length === 0) return null;
   let bestLocalPackRank: number | null = null;
+  let bestMapsRank: number | null = null;
   let bestOrganicRank: number | null = null;
   let brandedOrganicRank: number | null = null;
   let hasBrandQuery = false;
   let nonBrandRankedCount = 0;
 
   for (const s of rows) {
+    // Deep Google Maps position (MAPS rows carry organicAbsRank 1..N). This is
+    // what the SERP column shows — a rank for ~every business, not just the ≤3
+    // local-pack winners.
+    if (s.kind === "MAPS" && s.organicAbsRank != null) {
+      bestMapsRank =
+        bestMapsRank == null
+          ? s.organicAbsRank
+          : Math.min(bestMapsRank, s.organicAbsRank);
+    }
     if (s.localPackRank != null) {
       bestLocalPackRank =
         bestLocalPackRank == null
@@ -2778,6 +2798,7 @@ export function rollupSerp(rows: SerpRow[] | null): HydratedSerp | null {
 
   return {
     bestLocalPackRank,
+    bestMapsRank,
     bestOrganicRank,
     brandedOrganicRank,
     hasBrandQuery,

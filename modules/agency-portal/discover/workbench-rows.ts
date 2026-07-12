@@ -555,12 +555,13 @@ export async function buildWorkbenchRows(
           ? null
           : (rowData.googleAdCountByBusiness.get(b.id) ?? null)
         : undefined,
-      // Best (lowest) local-pack rank — the hydration rollup's exact value
-      // (null = scanned but off the pack, or never scanned).
+      // Google Maps rank — the deep CID-matched scan gives ~every business one
+      // (bestMapsRank). Fall back to the 3-pack rank for older rows without a
+      // maps position. null = scanned but off the listing, or never scanned.
       serpRank: keep("serpRank")
         ? entMode && !familyEntitled(b.id, "serp")
           ? null
-          : (hyd?.serp?.bestLocalPackRank ?? null)
+          : (hyd?.serp?.bestMapsRank ?? hyd?.serp?.bestLocalPackRank ?? null)
         : undefined,
       // aiSummary is AI_RESEARCH-family paid research → gate the VALUE (G9).
       aiSummary: keep("aiSummary")

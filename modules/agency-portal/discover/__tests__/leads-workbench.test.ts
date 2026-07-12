@@ -784,6 +784,29 @@ describe("sortRows", () => {
     ]);
   });
 
+  test("lower-is-better column (serpRank) sorts best-first; nulls sink both dirs", () => {
+    const rows = [
+      row({ leadId: "worst", serpRank: 275 }),
+      row({ leadId: "best", serpRank: 1 }),
+      row({ leadId: "mid", serpRank: 50 }),
+      row({ leadId: "none", serpRank: null }),
+    ];
+    // desc/▼ (primary) = BEST first (lowest maps rank), un-ranked rows LAST.
+    expect(sortRows(rows, "serpRank", -1).map((r) => r.leadId)).toEqual([
+      "best",
+      "mid",
+      "worst",
+      "none",
+    ]);
+    // asc/▲ = worst first (reverse view) — nulls STILL sink, not floated to top.
+    expect(sortRows(rows, "serpRank", 1).map((r) => r.leadId)).toEqual([
+      "worst",
+      "mid",
+      "best",
+      "none",
+    ]);
+  });
+
   test("sorts by lastContactedAt desc; never-contacted sinks", () => {
     const rows = [
       row({ leadId: "never", lastContactedAt: null }),

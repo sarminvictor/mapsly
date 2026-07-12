@@ -833,6 +833,35 @@ describe("rollupSerp", () => {
     expect(rollupSerp([])).toBeNull();
     expect(rollupSerp(null)).toBeNull();
   });
+  test("bestMapsRank = best organicAbsRank across MAPS rows only", () => {
+    const s = rollupSerp([
+      // MAPS rows carry the deep Google Maps position on organicAbsRank.
+      {
+        kind: "MAPS",
+        localPackRank: null,
+        organicAbsRank: 67,
+        organicRank: null,
+        isBrandQuery: false,
+      },
+      {
+        kind: "MAPS",
+        localPackRank: 3,
+        organicAbsRank: 3,
+        organicRank: null,
+        isBrandQuery: false,
+      },
+      // an ORGANIC row's organicAbsRank must NOT count toward the maps rank.
+      {
+        kind: "ORGANIC",
+        localPackRank: null,
+        organicAbsRank: 1,
+        organicRank: 9,
+        isBrandQuery: false,
+      },
+    ]);
+    expect(s?.bestMapsRank).toBe(3); // min of MAPS 67, 3 — not the ORGANIC 1
+    expect(s?.bestLocalPackRank).toBe(3);
+  });
 });
 
 describe("rollupAds", () => {
