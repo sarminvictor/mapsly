@@ -3,6 +3,7 @@ import { setRequestLocale, getTranslations } from "next-intl/server";
 
 import { Link } from "@/i18n/navigation";
 import { CANONICAL_ORIGIN } from "@/lib/seo/canonical";
+import { getLocaleAlternates } from "@/i18n/pathnames";
 
 // Terms of Service · public marketing page.
 
@@ -18,13 +19,7 @@ export async function generateMetadata({
     description: t("subtitle"),
     alternates: {
       canonical: `${CANONICAL_ORIGIN}/terms`,
-      languages: {
-        "en-US": "/terms",
-        "es-US": "/es/terminos",
-        "en-CA": "/en-ca/terms",
-        "fr-CA": "/fr/conditions",
-        "x-default": "/terms",
-      },
+      languages: getLocaleAlternates("/terms"),
     },
     openGraph: {
       type: "article",

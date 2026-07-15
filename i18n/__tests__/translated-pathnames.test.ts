@@ -119,18 +119,18 @@ describe("getLocalizedPath", () => {
     expect(getLocalizedPath("/", "en")).toBe("/");
   });
 
-  test("non-default locales get a /{locale-lowercased} prefix", () => {
+  test("non-default locales get a /{locale} prefix, verbatim casing", () => {
     expect(getLocalizedPath("/for-agencies", "es")).toBe("/es/para-agencias");
     expect(getLocalizedPath("/for-agencies", "fr")).toBe("/fr/pour-agences");
     expect(getLocalizedPath("/for-agencies", "en-CA")).toBe(
-      "/en-ca/for-agencies",
+      "/en-CA/for-agencies",
     );
   });
 
   test("root path resolves to /{locale} for prefixed locales (no trailing slash)", () => {
     expect(getLocalizedPath("/", "es")).toBe("/es");
     expect(getLocalizedPath("/", "fr")).toBe("/fr");
-    expect(getLocalizedPath("/", "en-CA")).toBe("/en-ca");
+    expect(getLocalizedPath("/", "en-CA")).toBe("/en-CA");
   });
 
   test("locale-agnostic pathnames (string config) use the canonical for every locale", () => {
@@ -187,7 +187,7 @@ describe("getLocaleAlternates", () => {
     expect(getLocaleAlternates("/for-agencies")).toEqual({
       "en-US": "/for-agencies",
       "es-US": "/es/para-agencias",
-      "en-CA": "/en-ca/for-agencies",
+      "en-CA": "/en-CA/for-agencies",
       "fr-CA": "/fr/pour-agences",
       "x-default": "/for-agencies",
     });
@@ -197,7 +197,7 @@ describe("getLocaleAlternates", () => {
     expect(getLocaleAlternates("/for-businesses")).toEqual({
       "en-US": "/for-businesses",
       "es-US": "/es/para-empresas",
-      "en-CA": "/en-ca/for-businesses",
+      "en-CA": "/en-CA/for-businesses",
       "fr-CA": "/fr/pour-entreprises",
       "x-default": "/for-businesses",
     });
@@ -207,7 +207,7 @@ describe("getLocaleAlternates", () => {
     expect(getLocaleAlternates("/")).toEqual({
       "en-US": "/",
       "es-US": "/es",
-      "en-CA": "/en-ca",
+      "en-CA": "/en-CA",
       "fr-CA": "/fr",
       "x-default": "/",
     });
@@ -238,7 +238,7 @@ describe("getLocaleAlternates", () => {
     for (const canonical of Object.keys(routing.pathnames)) {
       const alts = getLocaleAlternates(canonical);
       expect(
-        alts["en-CA"].replace(/^\/en-ca/, "") || "/",
+        alts["en-CA"].replace(/^\/en-CA/, "") || "/",
         `en-CA path segment vs en-US mismatch for ${canonical}`,
       ).toBe(alts["en-US"]);
     }

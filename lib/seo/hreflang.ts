@@ -47,14 +47,20 @@ export const LOCALE_TO_BCP47: Record<Locale, string> = {
  * Routing locale → URL slug (the segment that appears in the URL path).
  *
  * Default locale resolves to empty string (no prefix per `localePrefix:
- * "as-needed"`). The `en-CA` routing slug is lowercased to `en-ca` for URLs
- * because that's what `next-intl` emits + what existing pages in the repo
- * already use (see `app/[locale]/(marketing)/page.tsx` LOCALE_TO_PATH).
+ * "as-needed"`). Every other slug is the routing locale VERBATIM.
+ *
+ * This used to lowercase `en-CA` → `en-ca`, justified as "that's what next-intl
+ * emits". That was false: next-intl routes on the literal code from
+ * `routing.locales`, so `/en-ca/*` 307s to `/en-CA/*` (verified against
+ * production 2026-07-15). The lowercase slug therefore pointed every en-CA
+ * hreflang + sitemap entry at a redirect — the same defect class as the apex
+ * canonical fixed in the same pass. Keep these keys identical to
+ * `routing.locales`; `__tests__/hreflang.test.ts` locks that invariant.
  */
 export const LOCALE_TO_URL_SLUG: Record<Locale, string> = {
   en: "",
   es: "es",
-  "en-CA": "en-ca",
+  "en-CA": "en-CA",
   fr: "fr",
 };
 
@@ -97,7 +103,7 @@ export function resolveTranslatedPath(
  *
  *   localizedPath("/", "en")              → "/"
  *   localizedPath("/", "es")              → "/es"
- *   localizedPath("/", "en-CA")           → "/en-ca"
+ *   localizedPath("/", "en-CA")           → "/en-CA"
  *   localizedPath("/", "fr")              → "/fr"
  *   localizedPath("/for-agencies", "en")  → "/for-agencies"
  *   localizedPath("/for-agencies", "es")  → "/es/para-agencias"
@@ -124,7 +130,7 @@ export function localizedPath(logicalPath: string, locale: Locale): string {
  *     → {
  *         "en-US":     "/",
  *         "es-US":     "/es",
- *         "en-CA":     "/en-ca",
+ *         "en-CA":     "/en-CA",
  *         "fr-CA":     "/fr",
  *         "x-default": "/",
  *       }
@@ -157,7 +163,7 @@ export interface AlternatesBlock {
  *
  *   buildAlternates("/for-agencies", "en")
  *     → {
- *         canonical: "https://mapsly.ai/for-agencies",
+ *         canonical: "https://www.mapsly.ai/for-agencies",
  *         languages: {
  *           "en-US":     "/for-agencies",
  *           "es-US":     "/es/para-agencias",

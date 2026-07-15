@@ -176,14 +176,14 @@ describe("bizCanonicalUrl + bizLocalizedPath", () => {
     expect(bizLocalizedPath("foo", "en")).toBe("/biz/foo");
   });
 
-  test("non-default locales prefix with lowercased code", () => {
+  test("non-default locales prefix with the locale code verbatim", () => {
     expect(bizCanonicalUrl("foo", "es")).toBe(`${CANONICAL_ORIGIN}/es/biz/foo`);
     expect(bizCanonicalUrl("foo", "fr")).toBe(`${CANONICAL_ORIGIN}/fr/biz/foo`);
     expect(bizCanonicalUrl("foo", "en-CA")).toBe(
-      `${CANONICAL_ORIGIN}/en-ca/biz/foo`,
+      `${CANONICAL_ORIGIN}/en-CA/biz/foo`,
     );
     expect(bizLocalizedPath("foo", "es")).toBe("/es/biz/foo");
-    expect(bizLocalizedPath("foo", "en-CA")).toBe("/en-ca/biz/foo");
+    expect(bizLocalizedPath("foo", "en-CA")).toBe("/en-CA/biz/foo");
   });
 
   test("every canonical it builds is on the non-redirecting host", () => {

@@ -78,7 +78,12 @@ export function getLocalizedPath(
   // either, but the branch documents intent.
   if (isDefault && isAsNeeded) return segment;
 
-  const prefix = `/${locale.toLowerCase()}`;
+  // The locale code VERBATIM — never lowercased. next-intl routes on the
+  // literal code from `routing.locales`, so `/en-ca/*` is not a real route: it
+  // 307s to `/en-CA/*`. Lowercasing here aimed every hreflang + sitemap entry
+  // for en-CA at a redirect (9 of 36 sitemap URLs; fixed 2026-07-15). The old
+  // code justified itself with "that's what next-intl emits" — it isn't.
+  const prefix = `/${locale}`;
   if (segment === "/") return prefix;
   return `${prefix}${segment}`;
 }

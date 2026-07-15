@@ -1,4 +1,4 @@
-// Routing-test for /en-ca path + locale-specific copy.
+// Routing-test for /en-CA path + locale-specific copy.
 //
 // I.4 deliverable. The Canadian English locale is implemented as a sparse
 // override file on top of en.json — the spec ".claude/rules/i18n.md" says

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import { CANONICAL_ORIGIN } from "@/lib/seo/canonical";
+import { getLocaleAlternates } from "@/i18n/pathnames";
 
 // Cancellation + refund policy · public marketing page.
 // Mirrors the privacy/terms/cookies legal-page shape: long-form static
@@ -18,13 +19,7 @@ export async function generateMetadata({
     description: t("subtitle"),
     alternates: {
       canonical: `${CANONICAL_ORIGIN}/refunds`,
-      languages: {
-        "en-US": "/refunds",
-        "es-US": "/es/reembolsos",
-        "en-CA": "/en-ca/refunds",
-        "fr-CA": "/fr/remboursements",
-        "x-default": "/refunds",
-      },
+      languages: getLocaleAlternates("/refunds"),
     },
     openGraph: {
       type: "article",

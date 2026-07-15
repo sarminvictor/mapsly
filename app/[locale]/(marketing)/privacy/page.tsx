@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import { CANONICAL_ORIGIN } from "@/lib/seo/canonical";
+import { getLocaleAlternates } from "@/i18n/pathnames";
 
 // Privacy Policy · public marketing page.
 // Long-form static content. Cached aggressively under cacheComponents PPR
@@ -18,13 +19,7 @@ export async function generateMetadata({
     description: t("subtitle"),
     alternates: {
       canonical: `${CANONICAL_ORIGIN}/privacy`,
-      languages: {
-        "en-US": "/privacy",
-        "es-US": "/es/privacidad",
-        "en-CA": "/en-ca/privacy",
-        "fr-CA": "/fr/confidentialite",
-        "x-default": "/privacy",
-      },
+      languages: getLocaleAlternates("/privacy"),
     },
     openGraph: {
       type: "article",

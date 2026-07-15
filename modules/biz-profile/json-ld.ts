@@ -120,17 +120,22 @@ export function buildLocalBusinessSchema(
  * `/biz/[slug]` is the SAME path in every locale (slug is locale-agnostic);
  * the locale prefix governs the leading segment.
  *
- *   bizCanonicalUrl("radiance-laser-center", "en")    → "https://mapsly.ai/biz/radiance-laser-center"
- *   bizCanonicalUrl("radiance-laser-center", "es")    → "https://mapsly.ai/es/biz/radiance-laser-center"
- *   bizCanonicalUrl("radiance-laser-center", "fr")    → "https://mapsly.ai/fr/biz/radiance-laser-center"
+ *   bizCanonicalUrl("radiance-laser-center", "en")    → "https://www.mapsly.ai/biz/radiance-laser-center"
+ *   bizCanonicalUrl("radiance-laser-center", "es")    → "https://www.mapsly.ai/es/biz/radiance-laser-center"
+ *   bizCanonicalUrl("radiance-laser-center", "en-CA") → "https://www.mapsly.ai/en-CA/biz/radiance-laser-center"
+ *
+ * The prefix is the locale code VERBATIM. It used to be lowercased, which sent
+ * every en-CA biz-profile canonical to `/en-ca/biz/*` — a URL that 307s to
+ * `/en-CA/biz/*`, because next-intl routes on the literal code (fixed
+ * 2026-07-15, same pass as `i18n/pathnames.ts` + `lib/seo/hreflang.ts`; this
+ * was the third independent copy of the same bug).
  */
 export function bizCanonicalUrl(slug: string, locale: string): string {
-  const prefix = locale === "en" ? "" : `/${locale.toLowerCase()}`;
-  return absoluteUrl(`${prefix}/biz/${slug}`);
+  return absoluteUrl(bizLocalizedPath(slug, locale));
 }
 
 /** Relative path version · used inside `alternates.languages`. */
 export function bizLocalizedPath(slug: string, locale: string): string {
-  const prefix = locale === "en" ? "" : `/${locale.toLowerCase()}`;
+  const prefix = locale === "en" ? "" : `/${locale}`;
   return `${prefix}/biz/${slug}`;
 }

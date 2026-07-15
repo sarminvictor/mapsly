@@ -4,7 +4,7 @@
  * What's tested:
  *   - Every routing locale maps to a unique BCP-47 region tag
  *   - URL slug map matches the `localePrefix: "as-needed"` convention
- *     (default locale has empty slug; en-CA is lowercased)
+ *     (default locale has empty slug; every other slug is the locale verbatim)
  *   - Translated paths from `routing.pathnames` are picked up correctly
  *   - `buildHreflang` includes every locale + `x-default`
  *   - `buildAlternates` produces an absolute canonical + relative hreflangs
@@ -56,12 +56,36 @@ describe("locale mapping tables", () => {
     expect(LOCALE_TO_URL_SLUG[routing.defaultLocale]).toBe("");
   });
 
-  test("non-default locales' URL slugs are lowercased + non-empty", () => {
+  // The old version of this test asserted `slug === slug.toLowerCase()` — it
+  // ENFORCED the bug it should have caught, keeping /en-ca green while every
+  // en-CA URL we emitted 307'd. next-intl routes on the literal code, so the
+  // only correct invariant is: the slug IS the locale.
+  test("non-default locales' URL slugs are the locale verbatim + non-empty", () => {
     for (const locale of routing.locales) {
       if (locale === routing.defaultLocale) continue;
       const slug = LOCALE_TO_URL_SLUG[locale];
       expect(slug).not.toBe("");
-      expect(slug).toBe(slug.toLowerCase());
+      expect(slug).toBe(locale);
+    }
+  });
+
+  // Cross-module guard. The lowercase-prefix bug existed in THREE independent
+  // copies (i18n/pathnames.ts, this file's slug map, modules/biz-profile/json-ld.ts).
+  // Any locale segment we emit must be a literal member of routing.locales —
+  // anything else is a URL that next-intl will 307, i.e. an SEO signal aimed at
+  // a redirect. This asserts the property, so a fourth copy cannot regress it.
+  test("every emitted locale segment is a literal routing locale (never 307s)", () => {
+    const valid = new Set<string>(routing.locales);
+    for (const path of ["/", "/for-agencies", "/privacy", "/refunds"]) {
+      for (const locale of routing.locales) {
+        const url = localizedPath(path, locale);
+        const seg = url.split("/")[1];
+        if (!seg) continue; // default locale, no prefix
+        // The first segment is either a locale prefix or a translated path.
+        if (locale === routing.defaultLocale) continue;
+        expect(valid.has(seg)).toBe(true);
+        expect(seg).toBe(locale);
+      }
     }
   });
 
@@ -106,28 +130,28 @@ describe("localizedPath", () => {
   test("homepage URLs per locale", () => {
     expect(localizedPath("/", "en")).toBe("/");
     expect(localizedPath("/", "es")).toBe("/es");
-    expect(localizedPath("/", "en-CA")).toBe("/en-ca");
+    expect(localizedPath("/", "en-CA")).toBe("/en-CA");
     expect(localizedPath("/", "fr")).toBe("/fr");
   });
 
   test("/for-agencies URLs per locale", () => {
     expect(localizedPath("/for-agencies", "en")).toBe("/for-agencies");
     expect(localizedPath("/for-agencies", "es")).toBe("/es/para-agencias");
-    expect(localizedPath("/for-agencies", "en-CA")).toBe("/en-ca/for-agencies");
+    expect(localizedPath("/for-agencies", "en-CA")).toBe("/en-CA/for-agencies");
     expect(localizedPath("/for-agencies", "fr")).toBe("/fr/pour-agences");
   });
 
   test("/privacy URLs per locale", () => {
     expect(localizedPath("/privacy", "en")).toBe("/privacy");
     expect(localizedPath("/privacy", "es")).toBe("/es/privacidad");
-    expect(localizedPath("/privacy", "en-CA")).toBe("/en-ca/privacy");
+    expect(localizedPath("/privacy", "en-CA")).toBe("/en-CA/privacy");
     expect(localizedPath("/privacy", "fr")).toBe("/fr/confidentialite");
   });
 
   test("/refunds URLs per locale", () => {
     expect(localizedPath("/refunds", "en")).toBe("/refunds");
     expect(localizedPath("/refunds", "es")).toBe("/es/reembolsos");
-    expect(localizedPath("/refunds", "en-CA")).toBe("/en-ca/refunds");
+    expect(localizedPath("/refunds", "en-CA")).toBe("/en-CA/refunds");
     expect(localizedPath("/refunds", "fr")).toBe("/fr/remboursements");
   });
 
@@ -144,7 +168,7 @@ describe("buildHreflang", () => {
     expect(langs).toEqual({
       "en-US": "/",
       "es-US": "/es",
-      "en-CA": "/en-ca",
+      "en-CA": "/en-CA",
       "fr-CA": "/fr",
       "x-default": "/",
     });
@@ -155,7 +179,7 @@ describe("buildHreflang", () => {
     expect(langs).toEqual({
       "en-US": "/for-agencies",
       "es-US": "/es/para-agencias",
-      "en-CA": "/en-ca/for-agencies",
+      "en-CA": "/en-CA/for-agencies",
       "fr-CA": "/fr/pour-agences",
       "x-default": "/for-agencies",
     });
