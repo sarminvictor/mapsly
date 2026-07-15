@@ -57,7 +57,30 @@ export function GtmContainer() {
     if (!SAFE_GTM.test(GTM_ID)) return;
     // Never load GTM on the internal tools / dev host.
     if (isInternal(window.location.pathname, window.location.hostname)) return;
-    loadGtm(GTM_ID);
+
+    // INC-2026-07-15-63: load GTM only after `load`, never at mount. React 19
+    // defers its streaming reveal (`$RV`) to ~300ms after first paint, and it is
+    // DESTRUCTIVE — it removes the placeholder nodes before inserting the real
+    // ones. A tag that mutates <body> inside that window (GTM injects the Meta
+    // Pixel + Smartlook as direct <body> children; Smartlook then instruments
+    // the DOM) leaves `$RV` inserting into a tree it no longer recognises. It
+    // throws HierarchyRequestError mid-reveal, having already deleted the
+    // content — a permanent white page, cold loads only. Waiting for `load`
+    // puts every GTM-managed tag strictly after the reveal has settled.
+    let cancelled = false;
+    const start = () => {
+      if (cancelled) return;
+      // One more frame past `load` so a reveal scheduled on this tick lands first.
+      requestAnimationFrame(() => !cancelled && loadGtm(GTM_ID));
+    };
+
+    if (document.readyState === "complete") start();
+    else window.addEventListener("load", start, { once: true });
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("load", start);
+    };
   }, []);
 
   return null;

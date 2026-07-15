@@ -9,8 +9,7 @@ import { AgFAQ } from "./AgFAQ";
 import { AgCTA } from "./AgCTA";
 
 import "./ag.css";
-
-const CANONICAL_ORIGIN = "https://mapsly.ai";
+import { CANONICAL_ORIGIN } from "@/lib/seo/canonical";
 
 /**
  * AgLanding · the agency landing composition, shared by the homepage (`/`)

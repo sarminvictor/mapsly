@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { ComparisonLayout } from "@/components/marketing/comparisons/ComparisonLayout";
 import { COMPARISONS } from "@/components/marketing/comparisons/comparison-data";
 import { getLocaleAlternates } from "@/i18n/pathnames";
+import { CANONICAL_ORIGIN } from "@/lib/seo/canonical";
 
 // WP6-7 · /compare/mapsly-vs-apollo — a static SEO comparison page in the
 // agency voice. The copy is a static spec (no DB reads, no translated strings —
@@ -12,7 +13,6 @@ import { getLocaleAlternates } from "@/i18n/pathnames";
 // WebPage JSON-LD; internal links to/from /for-agencies live in
 // ComparisonLayout.
 
-const CANONICAL_ORIGIN = "https://mapsly.ai";
 const SLUG = "mapsly-vs-apollo" as const;
 const PATH = `/compare/${SLUG}`;
 const spec = COMPARISONS[SLUG];

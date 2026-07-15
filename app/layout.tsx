@@ -2,12 +2,15 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 import { GtmContainer } from "@/modules/analytics/GtmContainer";
+import { CANONICAL_ORIGIN } from "@/lib/seo/canonical";
 
 export const metadata: Metadata = {
   title: "Mapsly — Local business intelligence",
   description:
     "Signal-driven intelligence for local businesses. Reviews, ads, search, competitors, website health — refreshed weekly.",
-  metadataBase: new URL("https://mapsly.ai"),
+  // Same origin as every canonical/hreflang/sitemap URL — must be the host that
+  // answers 200 (www), not the redirecting apex. See lib/seo/canonical.ts.
+  metadataBase: new URL(CANONICAL_ORIGIN),
 };
 
 export default function RootLayout({
@@ -24,24 +27,16 @@ export default function RootLayout({
           href="https://fonts.gstatic.com"
           crossOrigin=""
         />
-        {/* Preload the landing headline faces for faster LCP: Semibold (hero
-            H1, card titles) and Bold Italic (TopBar "Mapped." em + hero coral
-            emphasis — used above the fold but previously only font-display:
-            swap'd in late). */}
-        <link
-          rel="preload"
-          href="/fonts/freightbigpro-semibold.woff2"
-          as="font"
-          type="font/woff2"
-          crossOrigin="anonymous"
-        />
-        <link
-          rel="preload"
-          href="/fonts/freightbigpro-bolditalic.woff2"
-          as="font"
-          type="font/woff2"
-          crossOrigin="anonymous"
-        />
+        {/* No FreightBig Pro preloads here. They were added (917af9b, 2026-06-10)
+            when `/` WAS the SMB landing; 93cf515 flipped `/` and /for-agencies to
+            AgLanding, which renders Space Grotesk + Bricolage via next/font and
+            references FreightBig ZERO times. Being in the ROOT layout they still
+            fetched 50,292 B at high priority on every route — inverting the whole
+            preload budget, since the three faces that DO render text got none.
+            The @font-face rules stay in globals.css, so the real consumers
+            (/l/[token], /checkout/return) still load FreightBig on demand; they
+            are font-display:swap with metric-matched fallbacks, so the only cost
+            there is a brief FOUT. Re-add per-route if that ever matters. */}
         {/* Montserrat ships 400/600/700 only — 500 is referenced nowhere
             (Montserrat is consumed solely via --font-landing-body; the
             font-weight:500 rules in globals.css are Inter nav items). */}

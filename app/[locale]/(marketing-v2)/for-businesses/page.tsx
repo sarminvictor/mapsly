@@ -12,6 +12,7 @@ import { SmbFAQ } from "@/components/marketing/for-businesses/SmbFAQ";
 import { SmbCTA } from "@/components/marketing/for-businesses/SmbCTA";
 import type { Locale } from "@/i18n/routing";
 import { getLocaleAlternates, getLocalizedPath } from "@/i18n/pathnames";
+import { CANONICAL_ORIGIN } from "@/lib/seo/canonical";
 
 // For-Businesses marketing landing · mapsly.ai/for-businesses (and locale-
 // pathnamed equivalents: /es/para-empresas, /en-ca/for-businesses,
@@ -31,8 +32,6 @@ import { getLocaleAlternates, getLocalizedPath } from "@/i18n/pathnames";
 // + FAQPage JSON-LD (lives in <SmbFAQ>). Per `.claude/rules/seo.md` and
 // `.claude/rules/cache-components.md` Pattern 1 — no DB reads, all i18n
 // reads via next-intl getTranslations which is build-safe.
-
-const CANONICAL_ORIGIN = "https://mapsly.ai";
 
 export async function generateMetadata({
   params,

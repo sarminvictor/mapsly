@@ -7,6 +7,8 @@
  */
 import { describe, expect, test } from "vitest";
 
+import { CANONICAL_ORIGIN } from "@/lib/seo/canonical";
+
 import {
   bizCanonicalUrl,
   bizLocalizedPath,
@@ -165,18 +167,30 @@ describe("buildLocalBusinessSchema", () => {
 });
 
 describe("bizCanonicalUrl + bizLocalizedPath", () => {
+  // Derived from the SSOT, never a literal: these assertions previously
+  // hardcoded the apex and so stayed green while every biz-profile canonical
+  // pointed at a host that 307s (fixed 2026-07-15). Deriving means the origin
+  // can only be wrong in one place, and canonical.test.ts guards that place.
   test("default locale (en) has no prefix", () => {
-    expect(bizCanonicalUrl("foo", "en")).toBe("https://mapsly.ai/biz/foo");
+    expect(bizCanonicalUrl("foo", "en")).toBe(`${CANONICAL_ORIGIN}/biz/foo`);
     expect(bizLocalizedPath("foo", "en")).toBe("/biz/foo");
   });
 
   test("non-default locales prefix with lowercased code", () => {
-    expect(bizCanonicalUrl("foo", "es")).toBe("https://mapsly.ai/es/biz/foo");
-    expect(bizCanonicalUrl("foo", "fr")).toBe("https://mapsly.ai/fr/biz/foo");
+    expect(bizCanonicalUrl("foo", "es")).toBe(`${CANONICAL_ORIGIN}/es/biz/foo`);
+    expect(bizCanonicalUrl("foo", "fr")).toBe(`${CANONICAL_ORIGIN}/fr/biz/foo`);
     expect(bizCanonicalUrl("foo", "en-CA")).toBe(
-      "https://mapsly.ai/en-ca/biz/foo",
+      `${CANONICAL_ORIGIN}/en-ca/biz/foo`,
     );
     expect(bizLocalizedPath("foo", "es")).toBe("/es/biz/foo");
     expect(bizLocalizedPath("foo", "en-CA")).toBe("/en-ca/biz/foo");
+  });
+
+  test("every canonical it builds is on the non-redirecting host", () => {
+    for (const locale of ["en", "es", "fr", "en-CA"] as const) {
+      expect(new URL(bizCanonicalUrl("foo", locale)).hostname).toBe(
+        "www.mapsly.ai",
+      );
+    }
   });
 });

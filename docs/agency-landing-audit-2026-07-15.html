@@ -1,0 +1,881 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agency landing audit · 2026-07-15</title>
+    <style>
+      :root {
+        --bg: #f6f7fb;
+        --card: #fff;
+        --ink: #12131a;
+        --ink-70: #545a6b;
+        --ink-40: #8b90a3;
+        --line: #e3e6ef;
+        --indigo: #5b3df5;
+        --red: #c0392b;
+        --amber: #b7791f;
+        --green: #1f7a4c;
+        --mono:
+          ui-monospace, "JetBrains Mono", SFMono-Regular, Menlo, monospace;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0e0f14;
+          --card: #171923;
+          --ink: #eceef5;
+          --ink-70: #a4abc0;
+          --ink-40: #6f768c;
+          --line: #272a38;
+          --indigo: #8b74ff;
+          --red: #ff7a6b;
+          --amber: #e5a13a;
+          --green: #4dc98a;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          15px/1.65 Inter,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+      .wrap {
+        max-width: 940px;
+        margin: 0 auto;
+        padding: 40px 24px 80px;
+      }
+      h1 {
+        font-size: 30px;
+        line-height: 1.2;
+        margin: 0 0 6px;
+        letter-spacing: -0.02em;
+      }
+      h2 {
+        font-size: 19px;
+        margin: 44px 0 14px;
+        letter-spacing: -0.01em;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--line);
+      }
+      h3 {
+        font-size: 15px;
+        margin: 22px 0 8px;
+      }
+      .sub {
+        color: var(--ink-40);
+        font-size: 13px;
+        margin-bottom: 28px;
+        font-family: var(--mono);
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 18px 20px;
+        margin: 14px 0;
+      }
+      .verdict {
+        border-left: 4px solid var(--indigo);
+      }
+      .danger {
+        border-left: 4px solid var(--red);
+      }
+      .warn {
+        border-left: 4px solid var(--amber);
+      }
+      .ok {
+        border-left: 4px solid var(--green);
+      }
+      code,
+      .m {
+        font-family: var(--mono);
+        font-size: 12.5px;
+        background: color-mix(in srgb, var(--indigo) 8%, transparent);
+        padding: 1px 5px;
+        border-radius: 4px;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 13.5px;
+      }
+      .scroll {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 9px 10px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        color: var(--ink-40);
+        font-weight: 600;
+        font-size: 11.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        white-space: nowrap;
+      }
+      .score {
+        font-family: var(--mono);
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .s-bad {
+        color: var(--red);
+      }
+      .s-mid {
+        color: var(--amber);
+      }
+      .s-good {
+        color: var(--green);
+      }
+      .pill {
+        display: inline-block;
+        font-size: 10.5px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        padding: 2px 8px;
+        border-radius: 999px;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+      .p-violates {
+        background: color-mix(in srgb, var(--red) 15%, transparent);
+        color: var(--red);
+      }
+      .p-partial {
+        background: color-mix(in srgb, var(--amber) 18%, transparent);
+        color: var(--amber);
+      }
+      .p-meets {
+        background: color-mix(in srgb, var(--green) 15%, transparent);
+        color: var(--green);
+      }
+      .big {
+        font-family: var(--mono);
+        font-size: 44px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+      }
+      .muted {
+        color: var(--ink-70);
+      }
+      ul {
+        padding-left: 20px;
+      }
+      li {
+        margin: 5px 0;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 12px;
+      }
+      .kpi {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 14px 16px;
+      }
+      .kpi .n {
+        font-family: var(--mono);
+        font-size: 24px;
+        font-weight: 700;
+      }
+      .kpi .l {
+        font-size: 11.5px;
+        color: var(--ink-40);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .fix-n {
+        font-family: var(--mono);
+        color: var(--indigo);
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Agency landing · implementation audit</h1>
+      <div class="sub">
+        2026-07-15 · /for-agencies + / · 38 agents, 6 lenses, every finding
+        adversarially verified · HEAD 3c8c2b2
+      </div>
+
+      <div class="card verdict">
+        <h3 style="margin-top: 0">
+          Verdict on the premise: the redirect does not exist, and it never did
+        </h3>
+        <p class="muted" style="margin-bottom: 8px">
+          This is not "already fixed." There is nothing to remove. Both
+          <code>/</code> and <code>/for-agencies</code> already are full,
+          directly-rendered landings sharing <code>AgLanding.tsx</code>. The
+          requested change is already the state of the world.
+        </p>
+        <ul class="muted" style="margin-bottom: 0">
+          <li>
+            <code
+              >git log --all -S"redirect(" -- app/[locale]/(marketing-v2)/
+              app/[locale]/(marketing)/</code
+            >
+            → <strong>zero commits</strong>, across all branches back to root
+            commit 4b23b2f.
+          </li>
+          <li>
+            Both <code>/for-agencies</code> implementations ever written render
+            components directly. The deleted predecessor (added 94eb95c, removed
+            acb4147) has zero <code>redirect</code> hits.
+          </li>
+          <li>
+            No redirect at any layer: no <code>redirects()</code> in
+            next.config.ts, none in vercel.json, none in middleware.ts, zero
+            <code>'use client'</code> / <code>router.push</code> /
+            <code>window.location</code> / meta-refresh in the agency component
+            tree.
+          </li>
+          <li>
+            Production today:
+            <code>curl -L https://www.mapsly.ai/for-agencies</code> →
+            <strong>200, 0 redirect hops</strong>, 449 kB of server-rendered
+            HTML.
+          </li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top: 0">Where the belief most likely came from</h3>
+        <p class="muted" style="margin: 0">
+          <code>for-agencies/page.tsx:27</code> declares
+          <code>alternates.canonical</code> pointing at <code>/</code>. That is
+          an <strong>SEO dedupe instruction to Google</strong> — it tells the
+          crawler to consolidate ranking signals onto the homepage. It never
+          moves a browser. It is easy to misremember as "we redirected the
+          agency page to the main page."
+        </p>
+        <p class="muted" style="margin: 8px 0 0">
+          <strong>Keep it.</strong> Do not convert it to a 301:
+          <code>/for-agencies</code> is a live redirect target from
+          <code>post-signin/page.tsx:132</code> and owns registered localized
+          slugs (<code>/para-agencias</code>, <code>/pour-agences</code>). A 301
+          would break inbound backlinks and that signin flow. The canonical is
+          the right tool — its <em>target host</em> is what's broken (fix 1).
+        </p>
+      </div>
+
+      <h2>Scorecard</h2>
+      <div class="grid" style="margin-bottom: 18px">
+        <div class="kpi">
+          <div class="n s-mid">4.6</div>
+          <div class="l">Overall (weighted)</div>
+        </div>
+        <div class="kpi">
+          <div class="n">14</div>
+          <div class="l">Confirmed findings</div>
+        </div>
+        <div class="kpi">
+          <div class="n">9</div>
+          <div class="l">Refuted / downgraded</div>
+        </div>
+        <div class="kpi">
+          <div class="n">0</div>
+          <div class="l">Redirects found</div>
+        </div>
+      </div>
+
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>Score</th>
+              <th>Why</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Routing correctness</td>
+              <td class="score s-good">9/10</td>
+              <td>
+                No defects in routing itself. Zero redirects on / and
+                /for-agencies; <code>localeDetection:false</code> verified live.
+                Docked only for <code>/en-ca</code> → 307 → <code>/en-CA</code>.
+              </td>
+            </tr>
+            <tr>
+              <td>SEO / canonical hygiene</td>
+              <td class="score s-bad">3/10</td>
+              <td>
+                Three compounding defects, all curl-verified. Every canonical,
+                every hreflang, all 32 sitemap <code>&lt;loc&gt;</code>s,
+                robots.txt's Sitemap line and the Organization JSON-LD name a
+                host that 307s.
+              </td>
+            </tr>
+            <tr>
+              <td>Performance</td>
+              <td class="score s-mid">6/10</td>
+              <td>
+                Clean where suspected, dirty where not. 449 kB HTML is only
+                <strong>74 kB brotli</strong> on the wire; First Load JS is
+                <strong>170.4 kB gzip vs the 200 kB budget (15% under)</strong>.
+                Docked for one render-blocking third-party stylesheet.
+              </td>
+            </tr>
+            <tr>
+              <td>i18n correctness</td>
+              <td class="score s-mid">5/10</td>
+              <td>
+                Runtime sound (all 4 locales prerender, no throw on missing keys
+                — <code>request.ts</code> deep-merges <code>en</code>). But
+                hreflang advertises 4 languages for byte-identical English
+                pages.
+              </td>
+            </tr>
+            <tr>
+              <td>Resilience</td>
+              <td class="score s-mid">4/10</td>
+              <td>
+                Next 16's builtin global error boundary covers throws (build
+                emits <code>/_global-error</code>). Docked for the
+                render-blocking font dependency and the CSP flip instruction.
+              </td>
+            </tr>
+            <tr>
+              <td>Maintainability</td>
+              <td class="score s-mid">4/10</td>
+              <td>
+                The origin literal is declared in <strong>12 places</strong>;
+                the tested SSOT at <code>lib/seo/canonical.ts:19</code> is
+                imported by only robots.ts + sitemap.ts. Its own docstring
+                promises "one place to update when the domain changes." False.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>The white page</h2>
+
+      <div class="card warn">
+        <h3 style="margin-top: 0">
+          Status: unproven as a reproduced failure — one strong candidate
+        </h3>
+        <p class="muted">
+          No browser was run (per the manual-testing rule). The chain below is
+          established from production HTML byte layout and measured cache/timing
+          headers, not a live repro.
+        </p>
+        <h3>
+          Candidate: a render-blocking Google Fonts stylesheet for fonts the
+          page never uses
+        </h3>
+        <p class="muted">
+          <code>app/layout.tsx:50-51</code> emits a fully render-blocking
+          cross-origin stylesheet for Fraunces + Inter + JetBrains Mono +
+          Montserrat. It is the <strong>only</strong>
+          <code>rel="stylesheet"</code> in the document.
+        </p>
+        <ul class="muted">
+          <li>
+            The agency landing applies <strong>zero</strong> rules from those
+            families — counting font-family rules in the served 76,127-byte
+            inline <code>&lt;style&gt;</code>: Fraunces = 0, Montserrat = 0,
+            JetBrains Mono = 0. The tree is entirely
+            <code>.fb-scope</code> using self-hosted Space Grotesk / Bricolage
+            via <code>next/font</code>.
+          </li>
+          <li>
+            A pending stylesheet blocks first paint <em>and</em> defers
+            execution of subsequent scripts. The page's content ships inside
+            <code>&lt;div hidden id="S:1"&gt;</code>, revealed by an inline
+            <code>$RC("B:1","S:1")</code> call — so a stalled googleapis delays
+            both paint and reveal.
+          </li>
+          <li>
+            <code>cache-control: private, max-age=86400</code> on that CSS
+            explains <strong>"first load only."</strong> Third-party variance —
+            China blocks fonts.googleapis.com outright, plus corporate proxies,
+            Pi-hole/NextDNS, privacy extensions — explains
+            <strong>"some users."</strong>
+          </li>
+        </ul>
+        <p class="muted" style="margin-bottom: 0">
+          <strong>Why not called proven:</strong> stylesheets time out and error
+          rather than blocking forever, so this yields a long white
+          <em>interval</em>, not a permanent white page. Honest reading: a real,
+          unnecessary render-blocking third-party dependency on the two
+          highest-traffic routes, plausibly long enough to be reported as a
+          white page.
+        </p>
+      </div>
+
+      <div class="card danger">
+        <h3 style="margin-top: 0">
+          Confirmed latent bomb — do not flip the CSP to enforcing
+        </h3>
+        <p class="muted">
+          <code>middleware.ts:12-15</code> currently instructs a future
+          maintainer:
+          <em
+            >"FLIP TO ENFORCING after a browser pass confirms no legitimate
+            resource is reported."</em
+          >
+          Following that instruction would white-page
+          <strong>100% of users on every route.</strong>
+        </p>
+        <ul class="muted" style="margin-bottom: 0">
+          <li>
+            Policy is
+            <code
+              >script-src 'self' 'nonce-&lt;uuid&gt;'
+              https://js.stripe.com</code
+            >
+            with no <code>'unsafe-inline'</code>.
+          </li>
+          <li>
+            In production HTML,
+            <strong>82 script tags exist but only 63 carry a nonce.</strong> The
+            un-nonced ones include React's streaming runtime — including the
+            <code>$RC("B:1","S:1")</code> call that reveals the page.
+          </li>
+          <li>
+            <code>www.googletagmanager.com</code> is absent from
+            <code>script-src</code>, so GA4 / Pixel / Smartlook would die
+            silently.
+          </li>
+          <li>
+            There is <strong>no report-uri/report-to directive</strong> — so the
+            "browser pass" gate the comment depends on has zero telemetry behind
+            it. Report-Only is reporting to nothing.
+          </li>
+        </ul>
+      </div>
+
+      <div class="card ok">
+        <h3 style="margin-top: 0">
+          Ruled out with evidence — do not re-litigate
+        </h3>
+        <ul class="muted" style="margin-bottom: 0">
+          <li>
+            <strong>Routing / redirect</strong> — prod is 200 / 0-hop, fully
+            server-rendered.
+          </li>
+          <li>
+            <strong>Accept-Language locale bounce</strong> —
+            <code>localeDetection: false</code>
+            (<code>i18n/routing.ts:10</code>). es-ES, fr-CA and a
+            <code>NEXT_LOCALE=es</code> cookie all return 200 / 0 hops.
+          </li>
+          <li>
+            <strong
+              >Missing <code>for_agencies</code> namespace in
+              es/fr/en-CA</strong
+            >
+            — <code>i18n/request.ts:15-26</code> deep-merges <code>en</code> as
+            base, so keys always resolve. All four locales serve ~448–458 kB
+            with a real <code>&lt;h1&gt;</code>.
+          </li>
+          <li>
+            <strong>Stale nonce vs cached HTML</strong> — 60/60 paired requests
+            matched header nonce to body nonce. The HTML carries no
+            etag/last-modified and never 304s, so no cache can pair a stale body
+            with a fresh header.
+          </li>
+          <li>
+            <strong>Hydration crash</strong> — AgLanding is 100% server
+            components (zero <code>'use client'</code> in the agency tree).
+          </li>
+          <li>
+            <strong>Missing error.tsx</strong> — Next 16 always wires a builtin
+            global error boundary; the build at HEAD emits
+            <code>/_global-error</code> (9,361 B) with a working Reload button.
+          </li>
+        </ul>
+      </div>
+
+      <h3>
+        To instrument (~10 min in DevTools — Viktor's call per the
+        manual-testing rule)
+      </h3>
+      <ol class="muted">
+        <li>
+          Load <code>/for-agencies</code> with
+          <strong>fonts.googleapis.com blocked</strong> (DevTools → Network →
+          request blocking) + hard reload. If it stays white past the CSS
+          timeout, the candidate is confirmed.
+        </li>
+        <li>
+          Same URL with <strong>JS disabled</strong> — confirms how much of the
+          page is <code>$RC</code>-gated.
+        </li>
+        <li>
+          <strong>Slow 3G, cold cache</strong> — record time-to-first-paint
+          delta with and without the fonts link.
+        </li>
+        <li>
+          Before any CSP work: add a <strong>report-to endpoint</strong> and
+          keep Report-Only, so the flip has evidence behind it.
+        </li>
+      </ol>
+
+      <h2>Against best practice</h2>
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Practice</th>
+              <th>Verdict</th>
+              <th>Current state</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                Canonical is self-referential + points at a non-redirecting URL
+                <span class="muted">(Google Search Central)</span>
+              </td>
+              <td><span class="pill p-violates">Violates</span></td>
+              <td>
+                Both counts. Every page declares
+                <code>canonical=https://mapsly.ai</code>, which 307s to www. And
+                /es, /fr, /en-CA all declare the <em>English root</em> as
+                canonical rather than themselves.
+              </td>
+            </tr>
+            <tr>
+              <td>One page = one URL</td>
+              <td><span class="pill p-partial">Partial</span></td>
+              <td>
+                / and /for-agencies serve byte-identical content. Deliberate and
+                defensible — /for-agencies is a live post-signin redirect target
+                and owns localized slugs.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                301 when a URL should die; rel=canonical when it must stay live
+              </td>
+              <td><span class="pill p-meets">Meets</span></td>
+              <td>
+                Correct as chosen. A 301 would break /para-agencias,
+                /pour-agences, backlinks, and post-signin.
+              </td>
+            </tr>
+            <tr>
+              <td>Static-first landings (Next 16 + cacheComponents)</td>
+              <td><span class="pill p-meets">Meets</span></td>
+              <td>
+                <code>x-nextjs-prerender: 1</code> with real body bytes on all
+                three landings; <code>generateStaticParams</code> enumerates all
+                4 locales.
+              </td>
+            </tr>
+            <tr>
+              <td>CDN-cacheable HTML</td>
+              <td><span class="pill p-meets">Meets</span></td>
+              <td>
+                <code>x-vercel-cache: HIT</code>, age observed to 3.5 days on /.
+                The per-request-nonce concern was measured and cleared.
+              </td>
+            </tr>
+            <tr>
+              <td>Error boundaries on public routes</td>
+              <td><span class="pill p-partial">Partial</span></td>
+              <td>
+                Zero user <code>error.tsx</code> against the repo's own rule,
+                but Next 16's builtin boundary covers the failure. Residual:
+                unbranded error UI.
+              </td>
+            </tr>
+            <tr>
+              <td>hreflang reciprocity + language accuracy</td>
+              <td><span class="pill p-violates">Violates</span></td>
+              <td>
+                Both. Reciprocity is void because each localized page canonicals
+                to a different page — Google discards hreflang on
+                non-self-canonical pages.
+              </td>
+            </tr>
+            <tr>
+              <td>CSP nonce vs static caching</td>
+              <td><span class="pill p-partial">Partial</span></td>
+              <td>
+                Benign today and measured clean (60/60 nonce pairs matched). The
+                latent flip instruction is the risk.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>Fixes, ranked by impact ÷ effort</h2>
+
+      <div class="card">
+        <p>
+          <span class="fix-n">1.</span>
+          <strong
+            >Point CANONICAL_ORIGIN at the host that actually serves
+            200.</strong
+          >
+          <span class="muted">effort: low</span>
+        </p>
+        <p class="muted">
+          Set <code>lib/seo/canonical.ts:19</code> to
+          <code
+            >process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.mapsly.ai"</code
+          >, delete the 11 local redeclarations in favour of importing it, point
+          <code>app/layout.tsx:10</code> <code>metadataBase</code> at the same
+          constant, and add a guardrails.json grep banning the literal
+          <code>"https://mapsly.ai"</code> outside that file.
+        </p>
+        <p class="muted">
+          <strong>Why:</strong> every canonical, every hreflang, all 32 sitemap
+          URLs, robots.txt's Sitemap line and the Organization JSON-LD name a
+          host that 307s. The repo already knows www is the real host —
+          <code>lib/url/mapsly-public-url.ts:26</code> force-rewrites apex→www
+          for exactly this reason.
+          <em>Requires one decision: www vs apex as primary (see below).</em>
+        </p>
+      </div>
+
+      <div class="card">
+        <p>
+          <span class="fix-n">2.</span>
+          <strong>Move the Google Fonts link out of the root layout.</strong>
+          <span class="muted"
+            >effort: low — ~20 lines between two layouts, no component
+            changes</span
+          >
+        </p>
+        <p class="muted">
+          Move the fonts
+          <code>&lt;link&gt;</code> (<code>app/layout.tsx:50-51</code>), its two
+          preconnects (<code>:21-27</code>) and the two FreightBigPro preloads
+          (<code>:31-45</code>) into the legacy <code>(marketing)</code> layout
+          that actually consumes globals.css tokens. Add a
+          <code>next.config.ts</code> headers() rule giving
+          <code>/fonts/:path*</code>
+          <code>public, max-age=31536000, immutable</code>.
+        </p>
+        <p class="muted">
+          <strong>Why:</strong> removes the only render-blocking resource — and
+          the leading white-page candidate — from / and /for-agencies, plus
+          50,292 B of high-priority preload and 2 revalidation RTTs, for fonts
+          with <strong>zero applied CSS rules</strong> on those pages.
+        </p>
+      </div>
+
+      <div class="card danger">
+        <p>
+          <span class="fix-n">3.</span>
+          <strong
+            >Do NOT flip the CSP to enforcing. Rewrite the instruction
+            comment.</strong
+          >
+          <span class="muted">effort: low for the guard + report endpoint</span>
+        </p>
+        <p class="muted">
+          Add a report-uri/report-to endpoint so Report-Only produces evidence,
+          add <code>www.googletagmanager.com</code> to script-src, verify every
+          inline script carries the nonce, and update
+          <code>middleware.ts:12</code> to record these preconditions.
+        </p>
+      </div>
+
+      <div class="card">
+        <p>
+          <span class="fix-n">4.</span>
+          <strong>Stop advertising locales that don't exist.</strong>
+          <span class="muted">effort: low</span>
+        </p>
+        <p class="muted">
+          Remove the <code>alternates.languages</code> block from
+          <code>page.tsx:31</code> and <code>for-agencies/page.tsx:28</code>,
+          and remove the three locale variants of "/" from
+          <code>app/sitemap.ts</code>, while es/fr/en-CA carry no translated
+          <code>for_agencies</code> copy. Gate re-enablement on a single
+          <code>TRANSLATIONS_LIVE</code> flag so hreflang and content cannot
+          drift apart again.
+        </p>
+        <p class="muted">
+          <strong>Why:</strong> hreflang declares four language variants of
+          byte-identical English pages served under
+          <code>&lt;html lang="en"&gt;</code>. Google discards mis-annotated
+          clusters, so the tags are dead weight, and the sitemap submits three
+          URLs that canonical away.
+        </p>
+      </div>
+
+      <div class="card">
+        <p>
+          <span class="fix-n">5.</span>
+          <strong
+            >Fix the <code>/en-ca</code> → <code>/en-CA</code> 307.</strong
+          >
+          <span class="muted">effort: low</span>
+        </p>
+        <p class="muted">
+          Drop the <code>.toLowerCase()</code> at
+          <code>i18n/pathnames.ts:81</code>, mirror at
+          <code>lib/seo/hreflang.ts:56</code>, flip the two test expectations at
+          <code>translated-pathnames.test.ts:126,133</code>. A green test
+          currently asserts the broken lowercase path. Worth the test flip
+          regardless of fix 4.
+        </p>
+      </div>
+
+      <div class="card">
+        <p>
+          <span class="fix-n">6.</span>
+          <strong>Decide the post-signin blocked-signup flow.</strong>
+          <span class="muted">effort: medium — or low if deleted</span>
+        </p>
+        <p class="muted">
+          A user blocked by the disposable-email filter is redirected to
+          <code>/for-agencies?signup=business_email_required</code> and
+          <strong>told nothing</strong> — repo-wide grep finds no reader for
+          that param. Either render the note (Suspense-wrapped searchParams per
+          cache-components.md Pattern 3) or delete the dead param at
+          <code>post-signin/page.tsx:132</code>.
+        </p>
+      </div>
+
+      <div class="card">
+        <p>
+          <span class="fix-n">7.</span>
+          <strong>Delete the dead two-landing scaffolding.</strong>
+          <span class="muted">effort: low</span>
+        </p>
+        <p class="muted">
+          Delete
+          <code>components/marketing/{Hero,AudienceSplit,FinalCTA}.tsx</code>
+          (zero importers each — they still hardcode the superseded IA and
+          <em>actively misled this audit</em>). Remove the unused
+          <code>usePathname()</code> at <code>V2NavLinks.tsx:39</code> and, with
+          no hook left, its <code>'use client'</code> — it ships client JS and
+          hydration on the highest-traffic page for a nav highlight that no
+          longer exists. Add <code>/for-businesses</code> to sitemap
+          PUBLIC_PATHS and comment why /for-agencies is deliberately excluded.
+        </p>
+      </div>
+
+      <h2>The one decision needed: www or apex?</h2>
+      <div class="card">
+        <p class="muted">
+          Fix 1 needs a direction. Today the code says apex
+          (<code>https://mapsly.ai</code>, 12 places) and the network says www
+          (apex 307s → www serves 200).
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Option</th>
+              <th>Change</th>
+              <th>Trade-off</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <strong>www primary</strong>
+                <span class="muted">(recommended)</span>
+              </td>
+              <td>One constant + 11 import swaps.</td>
+              <td>
+                Matches what production already serves and what
+                <code>lib/url/mapsly-public-url.ts:26</code> already
+                force-rewrites to. No DNS/Vercel change, no risk to live links.
+              </td>
+            </tr>
+            <tr>
+              <td>Apex primary</td>
+              <td>Flip Vercel's primary domain, redirect www→apex.</td>
+              <td>
+                Keeps all 12 literals correct as-is, shorter URLs — but changes
+                live redirect direction for every existing inbound link and
+                contradicts the runtime rewrite layer.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>Honesty log — 9 claims refuted under adversarial verification</h2>
+      <div class="card">
+        <p class="muted">
+          Reported because several were initially the most alarming findings,
+          and two carried recommendations that would have made things worse.
+        </p>
+        <ul class="muted" style="margin-bottom: 0">
+          <li>
+            <strong
+              >"<code>&lt;Suspense fallback={null}&gt;</code> is the white-page
+              root cause"</strong
+            >
+            — refuted. The hidden-div/<code>$RC</code> structure is produced by
+            <em>any</em> suspended React 19 boundary: boundary B:0 has a
+            non-null fallback and ships the identical shape. "448 kB of
+            invisible content" was fabricated — the hidden segment is 40,614 B;
+            69% is RSC flight that is never visible content under any
+            architecture. The shape is prescribed by the repo's own
+            <code>cache-components.md:62</code> Pattern 2.
+            <em>Residual truth:</em> a null fallback means the PPR static shell
+            contains no content, so first paint waits on the dynamic render — a
+            real LCP nit, not a white-page cause.
+          </li>
+          <li>
+            <strong
+              >"No error boundary exists; every failure degrades to
+              blank"</strong
+            >
+            — refuted. Next 16 always wires a builtin global error boundary. The
+            recommended <code>Sentry.captureException</code> fix
+            <em>would not compile</em> — Sentry isn't installed.
+          </li>
+          <li>
+            <strong>"First Load JS is 205.3 kB — over budget"</strong> —
+            refuted, and inverted: the route is <strong>~15% under</strong> at
+            170.4 kB gzip.
+          </li>
+          <li>
+            <strong>"The per-request nonce defeats CDN caching"</strong> —
+            refuted by measurement: <code>x-vercel-cache: HIT</code>, 60/60
+            nonce pairs matched.
+          </li>
+          <li>
+            <strong>"globals.css is serialized three times"</strong> — surface
+            observation true, mechanism/numbers/impact all wrong; the blamed
+            file has no defect.
+          </li>
+          <li>
+            <strong
+              >"mapsly.ai is not registered in Google Search Console"</strong
+            >
+            — factually verified (GSC lists only
+            <code>sc-domain:boxly.ca</code>) but refuted as a
+            <em>code</em> finding. Real process gap, wrong artifact.
+          </li>
+        </ul>
+      </div>
+
+      <p class="sub" style="margin-top: 40px">
+        Method: 6 independent investigation lenses → every finding independently
+        refuted by a separate adversarial agent → survivors synthesized. 38
+        agents, 586 tool calls, ~5.0M tokens. Nothing implemented; no commits.
+        All curl evidence gathered 2026-07-15 against live production.
+      </p>
+    </div>
+  </body>
+</html>

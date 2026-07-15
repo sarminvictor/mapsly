@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { setRequestLocale, getTranslations } from "next-intl/server";
+import { CANONICAL_ORIGIN } from "@/lib/seo/canonical";
 
 // Cookies Policy · public marketing page.
-
-const CANONICAL_ORIGIN = "https://mapsly.ai";
 
 export async function generateMetadata({
   params,

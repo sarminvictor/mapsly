@@ -15,8 +15,20 @@
  * client component or a dynamic source like `cookies()` / `headers()`.
  */
 
-/** Production origin · used in canonical URLs + structured data. */
-export const CANONICAL_ORIGIN = "https://mapsly.ai";
+/**
+ * Production origin · used in canonical URLs + structured data.
+ *
+ * MUST be the host that actually answers 200. Production serves `www`; the
+ * apex 307s to it (`curl -sI https://mapsly.ai/` → 307 → https://www.mapsly.ai/),
+ * and `lib/url/mapsly-public-url.ts` already force-rewrites apex→www for the
+ * same reason. Pointing canonicals/hreflang/sitemap at the apex aimed every
+ * SEO signal we emit at a redirecting URL — Google Search Central requires the
+ * canonical to be the final, non-redirecting URL. Fixed 2026-07-15.
+ *
+ * Override per-environment with NEXT_PUBLIC_SITE_URL (no trailing slash).
+ */
+export const CANONICAL_ORIGIN =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.mapsly.ai";
 
 /**
  * Frozen ISO timestamp used as `lastModified` in `app/sitemap.ts` and as

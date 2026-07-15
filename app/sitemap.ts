@@ -54,6 +54,11 @@ interface PublicPath {
  */
 const PUBLIC_PATHS: readonly PublicPath[] = [
   { path: "/", priority: 1.0, changeFrequency: "weekly" },
+  // The SMB landing: indexable and unlinked from nav + footer, so the sitemap
+  // is the ONLY way Google discovers it. `/for-agencies` is deliberately absent
+  // — it is byte-identical to `/` and canonicalises there, so submitting it
+  // would just ask Google to crawl a URL we tell it to ignore.
+  { path: "/for-businesses", priority: 0.8, changeFrequency: "weekly" },
   // WP6-7 · comparison pages (high-intent evaluator SEO surface).
   {
     path: "/compare/mapsly-vs-apollo",

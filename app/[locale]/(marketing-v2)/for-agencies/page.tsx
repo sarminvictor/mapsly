@@ -3,13 +3,12 @@ import { setRequestLocale, getTranslations } from "next-intl/server";
 
 import { AgLanding } from "@/components/marketing/for-agencies-v2/AgLanding";
 import { getLocaleAlternates } from "@/i18n/pathnames";
+import { CANONICAL_ORIGIN } from "@/lib/seo/canonical";
 
 // /for-agencies · the same agency landing as the homepage, kept as a stable
 // URL for inbound links + the localized pathnames (/para-agencias,
 // /pour-agences). Canonicalises to `/` so search engines consolidate on the
 // homepage. Renders the shared <AgLanding> (no redirect → no flash).
-
-const CANONICAL_ORIGIN = "https://mapsly.ai";
 
 export async function generateMetadata({
   params,

@@ -11,8 +11,16 @@ import {
 
 describe("CANONICAL_ORIGIN", () => {
   test("is the production origin with HTTPS + no trailing slash", () => {
-    expect(CANONICAL_ORIGIN).toBe("https://mapsly.ai");
+    expect(CANONICAL_ORIGIN).toBe("https://www.mapsly.ai");
     expect(CANONICAL_ORIGIN.endsWith("/")).toBe(false);
+  });
+
+  // The invariant that actually matters: production serves `www` and the apex
+  // 307s to it, so an apex origin aims every canonical/hreflang/sitemap URL we
+  // emit at a redirect. Google requires the canonical to be the final URL.
+  test("is the host that answers 200 — never the redirecting apex", () => {
+    expect(CANONICAL_ORIGIN).not.toBe("https://mapsly.ai");
+    expect(new URL(CANONICAL_ORIGIN).hostname).toBe("www.mapsly.ai");
   });
 });
 

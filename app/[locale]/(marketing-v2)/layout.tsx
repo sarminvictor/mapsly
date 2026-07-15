@@ -88,12 +88,11 @@ async function V2Header({ params }: { params: Promise<LayoutParams> }) {
           {/* 140px wide per design (SVG is 141×40 → height 40 ≈ width 140) */}
           <FbLogo height={40} />
         </Link>
-        {/* Active page derived client-side from the route — both
-            /for-businesses and /for-agencies now live in this group. */}
+        {/* Server-rendered: no link here is route-dependent, so the nav ships
+            no client JS. The for_businesses/for_agencies entries this header
+            once carried are gone — /for-businesses is deliberately unlinked. */}
         <V2NavLinks
           labels={{
-            forBusinesses: t("for_businesses"),
-            forAgencies: t("for_agencies"),
             price: t("price"),
             signin: t("signin"),
             navAria: t("nav_aria"),

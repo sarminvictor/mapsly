@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import { setRequestLocale, getTranslations } from "next-intl/server";
+import { CANONICAL_ORIGIN } from "@/lib/seo/canonical";
 
 // Privacy Policy · public marketing page.
 // Long-form static content. Cached aggressively under cacheComponents PPR
 // since the content only changes when we update the legal doc itself.
-
-const CANONICAL_ORIGIN = "https://mapsly.ai";
 
 export async function generateMetadata({
   params,

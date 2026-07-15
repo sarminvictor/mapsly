@@ -5,12 +5,29 @@ import { routing } from "./i18n/routing";
 const intlMiddleware = createMiddleware(routing);
 
 // WP8-4 · Content Security Policy (nonce-based, allowlisted, no unsafe-eval).
-// Directives mirror `.claude/rules/security.md` §CSP verbatim. Rolled out in
-// Report-Only mode first (zero breakage risk): the header is present and
-// correctly configured, violations are reported, and nothing is blocked.
-// FLIP TO ENFORCING after a browser pass confirms no legitimate resource is
-// reported — change CSP_HEADER_NAME to "Content-Security-Policy". Tracked in
-// docs/mvp-10of10-tracker.md WP8-4.
+// Directives mirror `.claude/rules/security.md` §CSP. Report-Only: the header
+// is present, violations are reported, nothing is blocked.
+//
+// ⚠ DO NOT FLIP THIS TO ENFORCING YET. The previous comment here said to flip
+// after "a browser pass confirms no legitimate resource is reported"; that gate
+// is not reachable today and following it would take the whole site down:
+//
+//   1. React's streaming runtime is NOT nonced. Measured on production
+//      2026-07-15: 82 <script> tags, only 63 carry the nonce. The un-nonced set
+//      includes the inline `$RC`/`$RV` bootstrap — the code that reveals the
+//      page. Enforcing = permanent white page for 100% of users on every route
+//      (cf. INC-2026-07-15-63, where that same reveal failing on SOME loads was
+//      already a hard white page).
+//   2. There is no report-uri/report-to directive, so Report-Only currently
+//      reports to nothing. The "browser pass" gate has zero telemetry behind it.
+//   3. www.googletagmanager.com / connect.facebook.net / web-sdk.smartlook.com
+//      are absent from script-src + connect-src + img-src, so GA4, the Meta
+//      Pixel and Smartlook would all die silently.
+//
+// Preconditions to flip, in order: (a) add a report endpoint and collect real
+// violations for a week; (b) allowlist the GTM-managed hosts below; (c) get
+// every inline script nonced or hashed. Tracked in docs/mvp-10of10-tracker.md
+// WP8-4 + docs/agency-landing-audit-2026-07-15.html.
 const CSP_HEADER_NAME = "Content-Security-Policy-Report-Only";
 
 function buildCsp(nonce: string): string {

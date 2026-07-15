@@ -1,22 +1,22 @@
-"use client";
-
 /**
- * Marketing-v2 header nav links. A tiny client island so the active page
- * gets `aria-current="page"` (the yellow underline) derived from the
- * current route — not pinned to one page. next-intl's `usePathname` returns
- * the de-localized internal pathname (e.g. "/for-agencies" on
- * /es/para-agencias), so the comparison holds across all locales.
+ * Marketing-v2 header nav links.
+ *
+ * A SERVER component. It used to be a client island so the active page could
+ * get `aria-current="page"` (the yellow underline) from `usePathname`, but the
+ * for-businesses/for-agencies nav entries that feature highlighted are long
+ * gone — the nav now renders only the #pricing anchor and the portal/sign-in
+ * CTA, neither of which is route-dependent. The hook stayed behind and kept
+ * shipping JS + a hydration root on the highest-traffic page for nothing.
+ * Re-add `"use client"` only if a link here becomes route-aware again.
  *
  * Labels are resolved on the server and passed in as plain strings — no
  * function prop crosses the boundary (`.claude/rules/cache-components.md`
  * Pattern 4b).
  */
-import { Link, usePathname } from "@/i18n/navigation";
+import { Link } from "@/i18n/navigation";
 import type { PortalDestinationHref } from "@/lib/portal-destination";
 
 export interface V2NavLabels {
-  forBusinesses: string;
-  forAgencies: string;
   price: string;
   signin: string;
   navAria: string;
@@ -36,8 +36,6 @@ export function V2NavLinks({
   portalLabel?: string;
   portalExternal?: boolean;
 }) {
-  const pathname = usePathname();
-
   return (
     <nav aria-label={labels.navAria} className="fb-nav">
       {/* In-page anchor to the pricing band — plain <a>, not a route. */}

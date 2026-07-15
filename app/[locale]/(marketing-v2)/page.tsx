@@ -3,6 +3,7 @@ import { setRequestLocale, getTranslations } from "next-intl/server";
 
 import { AgLanding } from "@/components/marketing/for-agencies-v2/AgLanding";
 import { getLocaleAlternates } from "@/i18n/pathnames";
+import { CANONICAL_ORIGIN } from "@/lib/seo/canonical";
 
 // Homepage · mapsly.ai/ — the agency landing IS the homepage (agencies are
 // the primary channel, 2026-06). Rendered directly (no redirect) so there's
@@ -12,8 +13,6 @@ import { getLocaleAlternates } from "@/i18n/pathnames";
 //
 // Lives in (marketing-v2) so it gets the new dark chrome + fonts. The legacy
 // (marketing) group keeps the cream chrome for /privacy, /terms, etc.
-
-const CANONICAL_ORIGIN = "https://mapsly.ai";
 
 export async function generateMetadata({
   params,
