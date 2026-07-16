@@ -103,6 +103,33 @@ export const LEAD_EMAIL_LIMIT: LimitProfile = {
   prefix: "rl:lead-email",
 };
 
+/**
+ * Magic-link sign-in requests — 5 per hour PER MAILBOX (key on the CANONICAL
+ * email so `tom+1@` / `t.o.m@` share one bucket). Mandated by
+ * `.claude/rules/security.md` §Auth Failures ("magic-link rate limited, max
+ * 5/hour/email"). Bounds inbox-bombing of one victim AND our Resend send cost.
+ */
+export const MAGIC_LINK_EMAIL_LIMIT: LimitProfile = {
+  name: "magic-link-email",
+  limit: 5,
+  window: "1 h",
+  prefix: "rl:magic-email",
+};
+
+/**
+ * Magic-link sign-in requests — 20 per hour PER IP, layered under the per-email
+ * cap above. The email cap can't stop an attacker rotating target addresses
+ * from one source (each new address is a fresh email bucket); this bounds that
+ * flood independently. Generous enough for a shared office where several people
+ * legitimately request links in the same window.
+ */
+export const MAGIC_LINK_IP_LIMIT: LimitProfile = {
+  name: "magic-link-ip",
+  limit: 20,
+  window: "1 h",
+  prefix: "rl:magic-ip",
+};
+
 // Lazy limiter cache. Keyed by prefix so two profiles with the same prefix
 // would share an instance (which is fine — they'd be misconfigured anyway).
 const limiterCache = new Map<string, Ratelimit>();

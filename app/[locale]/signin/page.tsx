@@ -5,6 +5,8 @@ import { auth } from "@/lib/auth";
 import { redirect } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { SignInForm } from "./SignInForm";
+import { SignInShell } from "./SignInShell";
+import { GoogleSignInButton } from "./GoogleSignInButton";
 
 export async function generateMetadata({
   params,
@@ -38,6 +40,20 @@ export default async function SignInPage({
   const intent = typeof sp.intent === "string" ? sp.intent : undefined;
   const landing = typeof sp.landing === "string" ? sp.landing : undefined;
   const audience = sp.audience === "agency" ? "agency" : undefined;
+  // Auth.js redirects OAuth failures back here as `?error=<code>`; our own
+  // flows add `verify_email` (google-link gate) and `rate_limited`. Without
+  // this mapping a failed Google sign-in lands on a pristine form with zero
+  // feedback. `checkout` (stripe fallback) keeps its silent behavior — the
+  // magic-link form IS its recovery path. Unknown codes show the generic line.
+  const errorParam = typeof sp.error === "string" ? sp.error : undefined;
+  const errorMsg =
+    errorParam === "verify_email"
+      ? t("error_verify_email")
+      : errorParam === "rate_limited"
+        ? t("error_rate_limited")
+        : errorParam && errorParam !== "checkout"
+          ? t("error_google_generic")
+          : undefined;
   // WP5-8 · seat-invite token from the team email (format-validated; rides
   // the magic-link round-trip so /post-signin can seat the invitee).
   const invite =
@@ -64,98 +80,46 @@ export default async function SignInPage({
     });
   }
 
+  // The homepage hero's free-leads capsule, echoed above the card so the
+  // offer follows the visitor into sign-in (en fallback covers all locales).
+  // Hidden for SMB checkout arrivals (?intent=smb) — the agency free-leads
+  // offer is off-voice for Maria's paid flow (two-audience rule).
+  const tAg = await getTranslations("for_agencies");
+
   return (
-    <main
-      style={{
-        background: "var(--color-bg)",
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 24,
-        fontFamily: "var(--font-sans)",
-      }}
+    <SignInShell
+      badge={intent === "smb" ? undefined : tAg("hero.pill")}
+      homeLabel={t("logo_home")}
     >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 420,
-          background: "var(--color-bg-2)",
-          border: "1px solid var(--color-border)",
-          borderRadius: 16,
-          padding: "32px 28px",
-          boxShadow:
-            "0 1px 2px rgba(28,25,22,.04), 0 8px 24px rgba(28,25,22,.05)",
-        }}
-      >
-        <div
-          aria-hidden
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            fontFamily: "var(--font-serif)",
-            fontSize: 22,
-            fontWeight: 700,
-            color: "var(--color-text)",
-            letterSpacing: "-0.02em",
-            marginBottom: 24,
-          }}
-        >
-          <span
-            style={{
-              width: 12,
-              height: 12,
-              borderRadius: "50%",
-              background: "var(--color-coral)",
-              boxShadow: "0 0 12px rgba(195,85,58,.5)",
-            }}
-          />
-          mapsly
-        </div>
+      <h1 className="si-h1">{t("title")}</h1>
 
-        <h1
-          style={{
-            fontFamily: "var(--font-serif)",
-            fontSize: 28,
-            lineHeight: 1.15,
-            letterSpacing: "-0.02em",
-            color: "var(--color-text)",
-            margin: 0,
-          }}
-        >
-          {t("title")}
-        </h1>
+      <p className="si-sub">{t("subtitle")}</p>
 
-        <p
-          style={{
-            margin: "10px 0 24px",
-            color: "var(--color-text-2)",
-            fontSize: 15,
-            lineHeight: 1.5,
-          }}
-        >
-          {t("subtitle")}
+      {errorMsg ? (
+        <p role="alert" className="si-alert">
+          {errorMsg}
         </p>
+      ) : null}
 
-        <SignInForm
-          intent={intent}
-          landing={landing}
-          audience={audience}
-          invite={invite}
-        />
+      <GoogleSignInButton label={t("google_cta")} invite={invite} />
 
-        <p
-          style={{
-            marginTop: 18,
-            color: "var(--color-text-3)",
-            fontSize: 12,
-            lineHeight: 1.45,
-          }}
-        >
-          {t("legal")}
-        </p>
+      {/* Purely visual divider — aria-hidden (no role: a separator role
+          inside aria-hidden is never exposed, and announcing "or" between
+          the Google button and the email field adds nothing). */}
+      <div aria-hidden className="si-divider">
+        <span />
+        {t("or")}
+        <span />
       </div>
-    </main>
+
+      <SignInForm
+        intent={intent}
+        landing={landing}
+        audience={audience}
+        invite={invite}
+      />
+
+      <p className="si-legal">{t("legal")}</p>
+    </SignInShell>
   );
 }

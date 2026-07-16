@@ -1,6 +1,6 @@
 {
   "name": "mapsly",
-  "version": "0.19.38",
+  "version": "0.19.39",
   "private": true,
   "scripts": {
     "dev": "next dev --turbo",
@@ -13,7 +13,7 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
-    "db:status": "prisma migrate status",
+    "db:status": "dotenv -e .env.local -- prisma migrate status",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "test": "vitest",

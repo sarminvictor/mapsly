@@ -1,8 +1,10 @@
 import NextAuth from "next-auth";
 import Resend from "next-auth/providers/resend";
+import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import prisma from "@/lib/prisma";
+import { googleLinkDecision } from "@/lib/google-link-gate";
 import stripeClient from "@/lib/stripe";
 import {
   provisionSmbFromCheckout,
@@ -22,6 +24,14 @@ const STRIPE_LOGIN_MAX_AGE_MS = 15 * 60 * 1000; // 15m — a real redirect lands
 const RESEND_API_KEY =
   process.env.AUTH_RESEND_KEY ?? process.env.RESEND_API_KEY;
 
+// Google OAuth ("Continue with Google"). Auth.js v5 auto-reads AUTH_GOOGLE_ID /
+// AUTH_GOOGLE_SECRET, but we pass them explicitly for parity with the Resend
+// wiring above and so a missing binding is visible here rather than magic. When
+// unset (local dev / preview without creds) the provider is simply inert — the
+// button 500s at the Google redirect but magic-link keeps working.
+const GOOGLE_CLIENT_ID = process.env.AUTH_GOOGLE_ID;
+const GOOGLE_CLIENT_SECRET = process.env.AUTH_GOOGLE_SECRET;
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
@@ -29,6 +39,26 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     Resend({
       apiKey: RESEND_API_KEY,
       from: process.env.RESEND_FROM_EMAIL ?? "login@mapsly.ai",
+    }),
+    // "Continue with Google" — a one-click alternative to the magic link. It's
+    // provider-agnostic downstream: like the magic link it lands the user on
+    // `/post-signin`, which does all provisioning (agency + wallet + the 50
+    // free credits via grantFreeTierIfNew) off the `?audience=agency` marker,
+    // NOT off which provider signed them in. So no bespoke Google provisioning.
+    //
+    // allowDangerousEmailAccountLinking: someone who first signed up via magic
+    // link (User row, no OAuth Account) and later clicks Google with the SAME
+    // address gets linked to that one account instead of hitting Auth.js's
+    // default OAuthAccountNotLinked error. Safe for the magic-link↔Google pair
+    // (both prove ownership of the mailbox: Google asserts email_verified, the
+    // magic link is a click in that inbox) — but NOT for a User minted by the
+    // stripe-checkout provider from a payer-TYPED email (emailVerified null).
+    // The `signIn` callback below closes that gap: it refuses the silent link
+    // onto any pre-existing user who never verified their email.
+    Google({
+      clientId: GOOGLE_CLIENT_ID,
+      clientSecret: GOOGLE_CLIENT_SECRET,
+      allowDangerousEmailAccountLinking: true,
     }),
     // Post-payment auto-login for the direct-from-landing flow. The ONLY
     // credential is a Stripe Checkout Session id, which is re-validated against
@@ -127,6 +157,46 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     verifyRequest: "/signin/check-email",
   },
   callbacks: {
+    /**
+     * Gate for `allowDangerousEmailAccountLinking` (see lib/google-link-gate).
+     * Runs BEFORE Auth.js persists the link, so returning false / a redirect
+     * here prevents the merge entirely. Only the google provider is gated —
+     * magic-link and stripe-checkout keep their existing behavior.
+     */
+    async signIn({ account, profile }) {
+      if (account?.provider !== "google") return true;
+      const email =
+        typeof profile?.email === "string"
+          ? profile.email.trim().toLowerCase()
+          : null;
+      if (!email) return false;
+      const existing = await prisma.user.findUnique({
+        where: { email },
+        select: {
+          emailVerified: true,
+          accounts: {
+            where: { provider: "google" },
+            select: { id: true },
+            take: 1,
+          },
+        },
+      });
+      const decision = googleLinkDecision(
+        profile?.email_verified === true,
+        existing
+          ? {
+              emailVerified: existing.emailVerified,
+              hasGoogleAccount: existing.accounts.length > 0,
+            }
+          : null,
+      );
+      if (decision === "allow") return true;
+      if (decision === "verify_email_first") {
+        // The signin page maps this to a "use the email link first" message.
+        return "/signin?error=verify_email";
+      }
+      return false;
+    },
     /**
      * JWT callback enriches the token with `role` so downstream
      * `auth()` calls (and middleware-equivalent checks) see the user's

@@ -1047,13 +1047,19 @@
     "signin": {
       "title": "Sign in to Mapsly",
       "subtitle": "We'll email you a link. No passwords.",
+      "google_cta": "Continue with Google",
+      "or": "or",
       "email_label": "Work email",
       "email_placeholder": "you@yourbusiness.com",
       "submit": "Send sign-in link",
       "submitting": "Sending…",
       "legal": "By continuing, you agree to our Terms and Privacy Policy.",
       "error_invalid_email": "That doesn't look like an email. Try again.",
-      "error_send_failed": "We couldn't send the link. Try again in a moment."
+      "error_send_failed": "We couldn't send the link. Try again in a moment.",
+      "error_rate_limited": "Too many attempts. Try again in a little while.",
+      "error_verify_email": "This email already has an account. Sign in with the email link first — Google will connect to it after that.",
+      "error_google_generic": "We couldn't sign you in with Google. Use the email link instead.",
+      "logo_home": "Mapsly — home"
     },
     "check_email": {
       "title": "Check your email",

@@ -1,0 +1,340 @@
+/* ============================================================
+ * /signin + /signin/check-email · marketing-v2 skin
+ *
+ * The auth pages render inside `.fb-scope` (imported fb.css) so they
+ * inherit the 2026-06 redesign tokens, fonts and button system used by
+ * the homepage. This sheet adds ONLY the auth-specific rules, prefixed
+ * `si-`. Two recipes are duplicated from ag.css (hero gradient, glass
+ * pill) because that sheet is scoped to the (marketing-v2) route group
+ * and importing it here would drag ~700 landing-only rules along:
+ *   components/marketing/for-agencies-v2/ag.css · .fb-hero--ag / .fb-ag-pill
+ *
+ * CONTRAST CONTRACT (WCAG 1.4.3/1.4.11 · a11y review 2026-07-15):
+ *   muted text on the white card = #5f6a72 (5.54:1) — NOT --fb-ink-70,
+ *   which is #909ba2 (2.84:1, fails). Input/button boundaries on white
+ *   = #747775 (4.53:1 ≥ 3:1).
+ * ============================================================ */
+
+/* Full-bleed variant of .fb-hero--ag — same three radials + base linear,
+ * minus the fade-to-white overlay (nothing scrolls below the card). */
+.fb-scope.si-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(
+      155% 145% at 0% 0%,
+      #b6d8e7 0%,
+      rgba(182, 216, 231, 0.55) 38%,
+      rgba(182, 216, 231, 0) 80%
+    ),
+    radial-gradient(120% 110% at 100% 0%, #5b3df5 0%, rgba(91, 61, 245, 0) 58%),
+    radial-gradient(
+      circle 1020px at 50% 100%,
+      #f04361 0%,
+      #f04361 36%,
+      rgba(240, 67, 97, 0) 78%
+    ),
+    linear-gradient(165deg, #b7c0ee 0%, #6a57df 48%, #c4b6e8 100%);
+}
+/* 90×90 white grid over the gradient, center-weighted mask — same recipe
+ * as .fb-hero::before (fb.css). Lightning CSS adds the -webkit- prefix. */
+.fb-scope.si-page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.2) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.2) 1px, transparent 1px);
+  background-size: 90px 90px;
+  mask-image: radial-gradient(ellipse at center, #000 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ------------------------------------------------ chrome */
+
+.si-top {
+  position: absolute;
+  top: 26px;
+  left: 28px;
+  z-index: 2;
+}
+.si-top a {
+  display: inline-block;
+  border-radius: 8px;
+  /* Grow the hit area to ≥44px without moving the logo. */
+  padding: 9px;
+  margin: -9px;
+}
+/* Dual-tone ring: the logo sits on the LIGHT-BLUE corner of the gradient
+ * (#b6d8e7), where a white ring is 1.54:1 — ink reads there (9.9:1) and
+ * the white halo covers any darker gradient region (a11y review 2026-07-16). */
+.si-top a:focus-visible {
+  outline: 2px solid var(--fb-ink);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+}
+
+.si-main {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 96px 20px 48px;
+}
+.si-wrap {
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Glass capsule above the card — same Figma spec as .fb-ag-pill (ag.css),
+ * sized down for the auth page. */
+.si-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin: 0 0 18px;
+  padding: 0 22px;
+  border-radius: 999px;
+  background: rgba(225, 230, 249, 0.1);
+  box-shadow:
+    inset -4.82px -4.82px 24.12px 0 #b6d8e7,
+    inset 19.3px 19.3px 72.37px 0 rgba(199, 207, 240, 0.2);
+  backdrop-filter: blur(30px);
+  /* Ink, not white: the capsule composites to a LIGHT surface here (the
+   * light-blue radial reaches this position) — white text is 2.12:1,
+   * ink is 7.2:1 (a11y review 2026-07-16). */
+  color: var(--fb-ink);
+  font-size: 14px;
+  font-weight: 500;
+}
+.si-pill-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--fb-yellow);
+  flex: none;
+  animation: si-pill-pulse 1.8s ease-in-out infinite;
+}
+@keyframes si-pill-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.45);
+  }
+}
+
+/* ------------------------------------------------ card */
+
+.si-card {
+  width: 100%;
+  background: #fff;
+  border-radius: 28px;
+  padding: 36px 32px;
+  box-shadow:
+    0 2px 6px rgba(34, 39, 28, 0.08),
+    0 24px 80px rgba(34, 39, 28, 0.28);
+  color: var(--fb-ink);
+}
+.si-card--center {
+  text-align: center;
+}
+
+.si-h1 {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--fb-ink);
+}
+.si-sub {
+  margin: 10px 0 24px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #5f6a72;
+}
+
+.si-alert {
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--color-alert);
+  background: rgba(181, 61, 71, 0.06);
+  color: var(--color-alert);
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: left;
+}
+
+/* ------------------------------------------------ buttons + form */
+
+/* "Continue with Google" — white pill. Border #747775 (Google's own button
+ * spec): white-on-white against the card, the border is its only boundary. */
+.si-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 52px;
+  border-radius: 999px;
+  border: 1px solid #747775;
+  background: #fff;
+  color: #1f1f1f;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.si-google:hover {
+  background: #f6f6f6;
+}
+
+/* Size modifier for .fb-btn (yellow pill) inside the card. Compound selector
+ * (.fb-btn.si-btn) so it beats fb.css's .fb-btn regardless of CSS chunk
+ * order — the two sheets have equal specificity otherwise. */
+.fb-btn.si-btn {
+  min-height: 52px;
+  width: 100%;
+  margin-top: 14px;
+  padding: 0 24px;
+  font-size: 16px;
+}
+.fb-btn.si-btn[disabled] {
+  opacity: 0.65;
+  cursor: default;
+}
+
+/* Dual-tone focus ring (fb.css spec): ink outline + yellow halo. Redeclares
+ * border-radius because the global `button:focus-visible` rule (globals.css)
+ * sets 6px, which would deform the pills on keyboard focus. */
+.si-google:focus-visible,
+.fb-btn.si-btn:focus-visible {
+  outline: 2px solid var(--fb-ink);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px var(--fb-yellow);
+  border-radius: 999px;
+}
+
+.si-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  color: #5f6a72;
+  font-size: 12px;
+}
+.si-divider span {
+  flex: 1;
+  height: 1px;
+  background: #d5d8de;
+}
+
+.si-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fb-ink);
+  text-align: left;
+}
+.si-input {
+  width: 100%;
+  height: 52px;
+  border-radius: 999px;
+  padding: 0 20px;
+  border: 1px solid #747775;
+  background: #fff;
+  color: var(--fb-ink);
+  font-family: inherit;
+  font-size: 15px;
+  letter-spacing: inherit;
+}
+.si-input::placeholder {
+  color: #6b7280;
+}
+.si-input:focus {
+  outline: 2px solid var(--fb-ink);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px var(--fb-yellow);
+}
+.si-input[aria-invalid="true"] {
+  border-color: var(--color-alert);
+  box-shadow: 0 0 0 3px rgba(181, 61, 71, 0.12);
+}
+
+.si-error {
+  margin: 8px 0 0;
+  color: var(--color-alert);
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.si-legal {
+  margin: 18px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #5f6a72;
+  text-align: left;
+}
+
+/* In-card links (check-email "try again"). #5b3df5 = the hero indigo,
+ * 6.1:1 on white. Focus keeps the global coral ring shape but recolors
+ * to ink so it reads on the white card. */
+.si-link {
+  color: #5b3df5;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.si-link:focus-visible {
+  outline: 2px solid var(--fb-ink);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* check-email mail glyph — yellow tint disc, ink stroke. */
+.si-mail {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 18px;
+  border-radius: 50%;
+  background: rgba(255, 253, 84, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ------------------------------------------------ mobile */
+
+@media (max-width: 560px) {
+  .si-top {
+    top: 18px;
+    left: 18px;
+  }
+  .si-main {
+    padding: 84px 16px 40px;
+  }
+  .si-card {
+    padding: 28px 20px;
+    border-radius: 22px;
+  }
+  .si-h1 {
+    font-size: 26px;
+  }
+}

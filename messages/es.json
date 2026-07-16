@@ -595,13 +595,19 @@
     "signin": {
       "title": "Inicia sesión en Mapsly",
       "subtitle": "Te enviaremos un enlace por correo. Sin contraseñas.",
+      "google_cta": "Continuar con Google",
+      "or": "o",
       "email_label": "Correo de trabajo",
       "email_placeholder": "tu@tunegocio.com",
       "submit": "Enviar enlace de acceso",
       "submitting": "Enviando…",
       "legal": "Al continuar, aceptas nuestros Términos y Política de Privacidad.",
       "error_invalid_email": "Eso no parece un correo. Intenta de nuevo.",
-      "error_send_failed": "No pudimos enviar el enlace. Intenta de nuevo en un momento."
+      "error_send_failed": "No pudimos enviar el enlace. Intenta de nuevo en un momento.",
+      "error_rate_limited": "Demasiados intentos. Inténtalo de nuevo en un rato.",
+      "error_verify_email": "Este correo ya tiene una cuenta. Inicia sesión primero con el enlace por correo; después Google se conectará a ella.",
+      "error_google_generic": "No pudimos iniciar tu sesión con Google. Usa el enlace por correo.",
+      "logo_home": "Mapsly — inicio"
     },
     "check_email": {
       "title": "Revisa tu correo",

@@ -595,13 +595,19 @@
     "signin": {
       "title": "Connectez-vous à Mapsly",
       "subtitle": "Nous vous enverrons un lien par courriel. Aucun mot de passe.",
+      "google_cta": "Continuer avec Google",
+      "or": "ou",
       "email_label": "Courriel professionnel",
       "email_placeholder": "vous@votreentreprise.com",
       "submit": "Envoyer le lien de connexion",
       "submitting": "Envoi en cours…",
       "legal": "En continuant, vous acceptez nos Conditions et notre Politique de confidentialité.",
       "error_invalid_email": "Cela ne ressemble pas à un courriel. Réessayez.",
-      "error_send_failed": "Nous n'avons pas pu envoyer le lien. Réessayez dans un instant."
+      "error_send_failed": "Nous n'avons pas pu envoyer le lien. Réessayez dans un instant.",
+      "error_rate_limited": "Trop de tentatives. Réessayez dans un moment.",
+      "error_verify_email": "Ce courriel a déjà un compte. Connectez-vous d'abord avec le lien par courriel; Google s'y connectera ensuite.",
+      "error_google_generic": "Nous n'avons pas pu vous connecter avec Google. Utilisez le lien par courriel.",
+      "logo_home": "Mapsly — accueil"
     },
     "check_email": {
       "title": "Vérifiez vos courriels",
