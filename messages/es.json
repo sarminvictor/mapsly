@@ -607,7 +607,12 @@
       "error_rate_limited": "Demasiados intentos. Inténtalo de nuevo en un rato.",
       "error_verify_email": "Este correo ya tiene una cuenta. Inicia sesión primero con el enlace por correo; después Google se conectará a ella.",
       "error_google_generic": "No pudimos iniciar tu sesión con Google. Usa el enlace por correo.",
-      "logo_home": "Mapsly — inicio"
+      "logo_home": "Mapsly — inicio",
+      "webview_notice": "El inicio de sesión con Google no está disponible dentro de la app de {app}.",
+      "webview_sub": "Usa tu correo abajo, o abre esta página en tu navegador para continuar con Google.",
+      "webview_open_safari": "Abrir en Safari",
+      "webview_copy": "Copiar enlace",
+      "webview_copied_hint": "Enlace copiado — ábrelo en tu navegador."
     },
     "check_email": {
       "title": "Revisa tu correo",

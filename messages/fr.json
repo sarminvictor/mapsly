@@ -607,7 +607,12 @@
       "error_rate_limited": "Trop de tentatives. Réessayez dans un moment.",
       "error_verify_email": "Ce courriel a déjà un compte. Connectez-vous d'abord avec le lien par courriel; Google s'y connectera ensuite.",
       "error_google_generic": "Nous n'avons pas pu vous connecter avec Google. Utilisez le lien par courriel.",
-      "logo_home": "Mapsly — accueil"
+      "logo_home": "Mapsly — accueil",
+      "webview_notice": "La connexion Google n'est pas disponible dans l'application {app}.",
+      "webview_sub": "Utilisez votre courriel ci-dessous, ou ouvrez cette page dans votre navigateur pour continuer avec Google.",
+      "webview_open_safari": "Ouvrir dans Safari",
+      "webview_copy": "Copier le lien",
+      "webview_copied_hint": "Lien copié — ouvrez-le dans votre navigateur."
     },
     "check_email": {
       "title": "Vérifiez vos courriels",

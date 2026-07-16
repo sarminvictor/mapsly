@@ -7,6 +7,7 @@ import type { Locale } from "@/i18n/routing";
 import { SignInForm } from "./SignInForm";
 import { SignInShell } from "./SignInShell";
 import { GoogleSignInButton } from "./GoogleSignInButton";
+import { WebviewGoogleGate } from "./WebviewGoogleGate";
 
 export async function generateMetadata({
   params,
@@ -101,7 +102,13 @@ export default async function SignInPage({
         </p>
       ) : null}
 
-      <GoogleSignInButton label={t("google_cta")} invite={invite} />
+      {/* Google OAuth 403s inside in-app browsers (LinkedIn/Facebook/…). The
+          gate is a client island: it renders this exact button on SSR + real
+          browsers unchanged, and only swaps to a steer-to-email notice after
+          a high-confidence in-app UA is detected post-mount. */}
+      <WebviewGoogleGate>
+        <GoogleSignInButton label={t("google_cta")} invite={invite} />
+      </WebviewGoogleGate>
 
       {/* Purely visual divider — aria-hidden (no role: a separator role
           inside aria-hidden is never exposed, and announcing "or" between

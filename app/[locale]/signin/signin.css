@@ -231,6 +231,70 @@
   border-radius: 999px;
 }
 
+/* In-app-browser steer (WebviewGoogleGate) — replaces the Google button when
+ * Google would 403. Faint indigo info block, NOT the coral error tone. */
+.si-webview {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #f4f2ff;
+  border: 1px solid #d9d2f7;
+  text-align: left;
+}
+.si-webview-title {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fb-ink);
+}
+.si-webview-sub {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #5f6a72; /* 5.01:1 on #f4f2ff ≥ 4.5:1 */
+}
+/* Secondary white pill (escape / copy). Same #747775 boundary as .si-google
+ * so it clears 3:1 on the block, plus the shared ink+yellow focus ring. */
+.si-webview-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 46px;
+  border-radius: 999px;
+  border: 1px solid #747775;
+  background: #fff;
+  color: var(--fb-ink);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.si-webview-btn:hover {
+  background: #f6f6f6;
+}
+.si-webview-btn:focus-visible {
+  outline: 2px solid var(--fb-ink);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px var(--fb-yellow);
+  border-radius: 999px;
+}
+/* Copy-confirmation + next-step (role="status"). Empty until copy — collapse
+ * its margin then so it adds no gap, but stays in the a11y tree (never
+ * display:none, which would silence the live region). */
+.si-webview-status {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #5f6a72; /* 5.01:1 on the white card behind the block edge; block bg is #f4f2ff → 5.01:1 */
+  text-align: left;
+}
+.si-webview-status:empty {
+  margin: 0;
+}
+
 .si-divider {
   display: flex;
   align-items: center;

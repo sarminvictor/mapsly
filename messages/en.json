@@ -1059,7 +1059,12 @@
       "error_rate_limited": "Too many attempts. Try again in a little while.",
       "error_verify_email": "This email already has an account. Sign in with the email link first — Google will connect to it after that.",
       "error_google_generic": "We couldn't sign you in with Google. Use the email link instead.",
-      "logo_home": "Mapsly — home"
+      "logo_home": "Mapsly — home",
+      "webview_notice": "Google sign-in isn't available inside the {app} app.",
+      "webview_sub": "Use your email below, or open this page in your browser to continue with Google.",
+      "webview_open_safari": "Open in Safari",
+      "webview_copy": "Copy link",
+      "webview_copied_hint": "Link copied — open it in your browser."
     },
     "check_email": {
       "title": "Check your email",
