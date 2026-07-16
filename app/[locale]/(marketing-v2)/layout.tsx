@@ -22,8 +22,6 @@ import { Space_Grotesk, Bricolage_Grotesque } from "next/font/google";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 
 import { Link } from "@/i18n/navigation";
-import { auth } from "@/lib/auth";
-import { getPortalDestination } from "@/lib/portal-destination";
 import { FbLogo } from "@/components/marketing/for-businesses/FbLogo";
 import { StickyHeader } from "@/components/marketing/for-businesses/StickyHeader";
 import { V2NavLinks } from "@/components/marketing/for-businesses/V2NavLinks";
@@ -72,14 +70,22 @@ async function V2Header({ params }: { params: Promise<LayoutParams> }) {
   setRequestLocale(locale);
   const t = await getTranslations("marketing_v2.header");
 
-  // C3 · signed-in visitors see a role-aware "Open your workspace" CTA, not
-  // "Sign in". Resolved server-side (getPortalDestination build-phase-guards to
-  // null, and V2Header is already Suspense-wrapped, so PPR/cacheComponents
-  // holds). Only plain strings/bool cross into V2NavLinks (Pattern 4b).
-  const session = await auth();
-  const portal = session?.user?.id
-    ? await getPortalDestination(session.user.id)
-    : null;
+  // INC-2026-07-15-64 · This header MUST NOT read cookies/session (no `auth()`).
+  // Under cacheComponents/PPR, a per-request read here makes the header Suspense
+  // boundary postpone, so the document ships as TWO concatenated Fizz renders
+  // (build shell + per-request resume). The resume restarts React's segment-id
+  // counter from a stale snapshot and re-emits `id="S:1"`/`"S:2"`, colliding
+  // with the shell's ids — `$RS`/`$RV` then move the page into the logo <svg>
+  // and throw HierarchyRequestError → permanent white page (a race, so
+  // intermittent). Removing `auth()` makes all 24 marketing routes a SINGLE
+  // static render, so the collision is structurally impossible.
+  //
+  // The signed-in "Open your workspace" swap was dropped from the CTA: it is
+  // not worth a per-request dynamic render on the highest-traffic routes, and
+  // `/signin` already redirects an authenticated visitor straight to their
+  // portal (app/[locale]/signin/page.tsx) — so the static CTA still lands them
+  // in one click; only its label differs. Restore later ONLY via a client
+  // island that reads session AFTER hydration, never a server read here.
 
   return (
     <StickyHeader>
@@ -88,18 +94,14 @@ async function V2Header({ params }: { params: Promise<LayoutParams> }) {
           {/* 140px wide per design (SVG is 141×40 → height 40 ≈ width 140) */}
           <FbLogo height={40} />
         </Link>
-        {/* Server-rendered: no link here is route-dependent, so the nav ships
-            no client JS. The for_businesses/for_agencies entries this header
-            once carried are gone — /for-businesses is deliberately unlinked. */}
+        {/* Server-rendered + fully static: no cookie/session read, no client
+            JS, no route-dependent link. Keeps the boundary build-resolvable. */}
         <V2NavLinks
           labels={{
             price: t("price"),
             signin: t("signin"),
             navAria: t("nav_aria"),
           }}
-          portalHref={portal?.href}
-          portalLabel={portal ? t(`portal_${portal.labelKey}`) : undefined}
-          portalExternal={portal?.external}
         />
       </div>
     </StickyHeader>
