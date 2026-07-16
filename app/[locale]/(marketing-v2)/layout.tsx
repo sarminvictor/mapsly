@@ -77,15 +77,13 @@ async function V2Header({ params }: { params: Promise<LayoutParams> }) {
   // counter from a stale snapshot and re-emits `id="S:1"`/`"S:2"`, colliding
   // with the shell's ids — `$RS`/`$RV` then move the page into the logo <svg>
   // and throw HierarchyRequestError → permanent white page (a race, so
-  // intermittent). Removing `auth()` makes all 24 marketing routes a SINGLE
-  // static render, so the collision is structurally impossible.
+  // intermittent). Keeping the header session-free makes all 24 marketing
+  // routes a SINGLE static render, so the collision is structurally impossible.
   //
-  // The signed-in "Open your workspace" swap was dropped from the CTA: it is
-  // not worth a per-request dynamic render on the highest-traffic routes, and
-  // `/signin` already redirects an authenticated visitor straight to their
-  // portal (app/[locale]/signin/page.tsx) — so the static CTA still lands them
-  // in one click; only its label differs. Restore later ONLY via a client
-  // island that reads session AFTER hydration, never a server read here.
+  // The signed-in "Open your workspace" swap lives in <PortalCta> (inside
+  // V2NavLinks): a client island that fetches /api/marketing/portal-destination
+  // AFTER hydration. All labels are pre-resolved here as plain strings
+  // (Pattern 4b) so the boundary stays serializable.
 
   return (
     <StickyHeader>
@@ -94,13 +92,18 @@ async function V2Header({ params }: { params: Promise<LayoutParams> }) {
           {/* 140px wide per design (SVG is 141×40 → height 40 ≈ width 140) */}
           <FbLogo height={40} />
         </Link>
-        {/* Server-rendered + fully static: no cookie/session read, no client
-            JS, no route-dependent link. Keeps the boundary build-resolvable. */}
         <V2NavLinks
           labels={{
             price: t("price"),
-            signin: t("signin"),
             navAria: t("nav_aria"),
+            cta: {
+              signin: t("signin"),
+              portal: {
+                open_dashboard: t("portal_open_dashboard"),
+                open_workspace: t("portal_open_workspace"),
+                open_admin: t("portal_open_admin"),
+              },
+            },
           }}
         />
       </div>

@@ -13,19 +13,20 @@
  * function prop crosses the boundary (`.claude/rules/cache-components.md`
  * Pattern 4b).
  *
- * Fully STATIC: it reads no cookies/session and takes no per-request data, so
- * the header Suspense boundary stays build-resolvable. The portal-aware CTA was
- * removed (INC-2026-07-15-64) — a session read in this header forced a
- * per-request PPR resume whose segment ids collided with the prerendered shell
- * and white-paged the page. `/signin` already redirects a signed-in visitor to
- * their portal, so the static CTA still lands them there in one click.
+ * Fully STATIC on the server: it reads no cookies/session and takes no
+ * per-request data, so the header Suspense boundary stays build-resolvable
+ * (INC-2026-07-15-64 — a session read here forced a per-request PPR resume
+ * whose segment ids collided with the prerendered shell and white-paged the
+ * page). The signed-in "Open your workspace" swap lives in <PortalCta>, a
+ * client island that fetches the session AFTER hydration — never move that
+ * resolution back into a server component in this tree.
  */
-import { Link } from "@/i18n/navigation";
+import { PortalCta, type PortalCtaLabels } from "./PortalCta";
 
 export interface V2NavLabels {
   price: string;
-  signin: string;
   navAria: string;
+  cta: PortalCtaLabels;
 }
 
 export function V2NavLinks({ labels }: { labels: V2NavLabels }) {
@@ -35,13 +36,7 @@ export function V2NavLinks({ labels }: { labels: V2NavLabels }) {
       <a href="#pricing" className="fb-navlink">
         {labels.price}
       </a>
-      <Link
-        href="/signin"
-        className="fb-btn fb-btn--nav"
-        data-testid="marketing-signin-cta"
-      >
-        {labels.signin}
-      </Link>
+      <PortalCta labels={labels.cta} />
     </nav>
   );
 }
