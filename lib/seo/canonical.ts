@@ -31,7 +31,8 @@ export const CANONICAL_ORIGIN =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.mapsly.ai";
 
 /**
- * Frozen ISO timestamp used as `lastModified` in `app/sitemap.ts` and as
+ * Frozen ISO timestamp used as `lastmod` in `lib/seo/sitemap-xml.ts` (the
+ * static-entry builder behind `app/sitemap.xml/route.ts`) and as
  * `datePublished` / `dateModified` in structured data where a stable, static
  * date is acceptable.
  *

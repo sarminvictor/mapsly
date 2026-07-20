@@ -42,8 +42,18 @@ export interface BizProfileData {
   photosCount: number | null;
   isClaimed: boolean;
 
+  /** Visibility flags · read by the SEO index gate (`seo-gate.ts`) so a
+   *  suppressed (do-not-sell), hidden, or permanently-closed business can
+   *  never render `index` regardless of data richness. */
+  isHidden: boolean;
+  permanentlyClosed: boolean;
+  suppressedAt: Date | null;
+
   /** Latest snapshot, denormalised. All fields nullable. */
   mapslyScore: number | null;
+  /** v2 pillar roll-up (0–10) · coexists with legacy `mapslyScore`; the SEO
+   *  index gate accepts either (see `seo-gate.ts`). */
+  pillarScore: number | null;
   msiRank: number | null;
   msiTotal: number | null;
   replyRate: number | null;
@@ -77,7 +87,11 @@ export const EMPTY_BIZ_PROFILE: BizProfileData = {
   reviewCount: null,
   photosCount: null,
   isClaimed: false,
+  isHidden: false,
+  permanentlyClosed: false,
+  suppressedAt: null,
   mapslyScore: null,
+  pillarScore: null,
   msiRank: null,
   msiTotal: null,
   replyRate: null,

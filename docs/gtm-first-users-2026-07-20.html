@@ -1,0 +1,1189 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mapsly · GTM strategy — first 10–100 users · 2026-07-20</title>
+    <style>
+      :root {
+        --ink: #1a1d27;
+        --muted: #5b6172;
+        --bg: #f6f7fb;
+        --card: #ffffff;
+        --line: #e4e6ef;
+        --indigo: #5b3df5;
+        --indigo-soft: #efeaff;
+        --green: #0f7b4d;
+        --green-soft: #e3f4ec;
+        --red: #b3261e;
+        --red-soft: #fbe9e7;
+        --amber: #8a5a00;
+        --amber-soft: #fff3d6;
+        --mono:
+          "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          16px/1.6 Inter,
+          system-ui,
+          -apple-system,
+          sans-serif;
+        padding: 0 0 80px;
+      }
+      .wrap {
+        max-width: 1060px;
+        margin: 0 auto;
+        padding: 0 28px;
+      }
+      header {
+        background: linear-gradient(135deg, #1a1d27 0%, #2b2350 100%);
+        color: #fff;
+        padding: 48px 0 40px;
+        margin-bottom: 36px;
+      }
+      header .wrap {
+        max-width: 1060px;
+      }
+      h1 {
+        font-size: 30px;
+        line-height: 1.25;
+        margin: 0 0 10px;
+      }
+      .sub {
+        color: #c9c4ea;
+        font-size: 15px;
+        max-width: 820px;
+      }
+      .pill {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border-radius: 999px;
+        padding: 2px 12px;
+        font-size: 12.5px;
+        margin-right: 8px;
+        font-family: var(--mono);
+      }
+      h2 {
+        font-size: 22px;
+        margin: 44px 0 6px;
+        padding-top: 8px;
+      }
+      h2 .n {
+        color: var(--indigo);
+        font-family: var(--mono);
+        font-size: 16px;
+        margin-right: 8px;
+      }
+      h3 {
+        font-size: 16.5px;
+        margin: 26px 0 8px;
+      }
+      p {
+        margin: 10px 0;
+      }
+      .lede {
+        color: var(--muted);
+        margin: 0 0 18px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 20px 22px;
+        margin: 14px 0;
+      }
+      .grid2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      @media (max-width: 760px) {
+        .grid2 {
+          grid-template-columns: 1fr;
+        }
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+        background: var(--card);
+      }
+      .tblwrap {
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        margin: 14px 0;
+      }
+      th {
+        background: #f0f1f7;
+        text-align: left;
+        padding: 10px 12px;
+        font-size: 12.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      td {
+        padding: 10px 12px;
+        border-top: 1px solid var(--line);
+        vertical-align: top;
+      }
+      tr.hl td {
+        background: var(--indigo-soft);
+      }
+      .score {
+        font-family: var(--mono);
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .s-hi {
+        color: var(--green);
+      }
+      .s-mid {
+        color: var(--amber);
+      }
+      .s-lo {
+        color: var(--red);
+      }
+      .tag {
+        display: inline-block;
+        border-radius: 6px;
+        padding: 1px 8px;
+        font-size: 12px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .t-do {
+        background: var(--green-soft);
+        color: var(--green);
+      }
+      .t-bg {
+        background: var(--indigo-soft);
+        color: var(--indigo);
+      }
+      .t-later {
+        background: var(--amber-soft);
+        color: var(--amber);
+      }
+      .t-no {
+        background: var(--red-soft);
+        color: var(--red);
+      }
+      .verdict {
+        background: var(--indigo-soft);
+        border: 1px solid #d5c9ff;
+        border-radius: 12px;
+        padding: 20px 24px;
+        margin: 18px 0;
+      }
+      .verdict b {
+        color: var(--indigo);
+      }
+      .warn {
+        background: var(--red-soft);
+        border: 1px solid #f3c3bd;
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin: 14px 0;
+      }
+      .good {
+        background: var(--green-soft);
+        border: 1px solid #bfe3d1;
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin: 14px 0;
+      }
+      .num {
+        font-family: var(--mono);
+      }
+      .big {
+        font-size: 34px;
+        font-weight: 800;
+        font-family: var(--mono);
+        line-height: 1.1;
+      }
+      .kpi {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        margin: 16px 0;
+      }
+      .kpi .card {
+        margin: 0;
+        padding: 16px 18px;
+      }
+      .kpi .lbl {
+        font-size: 12.5px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-top: 4px;
+      }
+      .email {
+        background: #fbfaf6;
+        border: 1px solid #e8e2cf;
+        border-radius: 10px;
+        padding: 16px 20px;
+        font-family: var(--mono);
+        font-size: 13.5px;
+        white-space: pre-wrap;
+        margin: 12px 0;
+      }
+      .email .hdr {
+        color: var(--muted);
+      }
+      ul {
+        margin: 8px 0;
+        padding-left: 22px;
+      }
+      li {
+        margin: 5px 0;
+      }
+      .src {
+        color: var(--muted);
+        font-size: 12.5px;
+      }
+      .foot {
+        color: var(--muted);
+        font-size: 13px;
+        margin-top: 48px;
+        border-top: 1px solid var(--line);
+        padding-top: 16px;
+      }
+      code {
+        font-family: var(--mono);
+        font-size: 0.9em;
+        background: #eef0f6;
+        border-radius: 4px;
+        padding: 1px 5px;
+      }
+      .gate {
+        border-left: 4px solid var(--indigo);
+        padding: 10px 16px;
+        background: var(--card);
+        border-radius: 0 10px 10px 0;
+        margin: 10px 0;
+        border-top: 1px solid var(--line);
+        border-right: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+      }
+      .gate b {
+        font-family: var(--mono);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap">
+        <div style="margin-bottom: 12px">
+          <span class="pill">GTM STRATEGY</span
+          ><span class="pill">2026-07-20</span><span class="pill">v0.19.40</span
+          ><span class="pill">10-agent recon + research + red team</span>
+        </div>
+        <h1>First 10–100 users — the seeded-market wedge</h1>
+        <div class="sub">
+          Everything below is built from what's actually in the code, the live
+          database, and 2025–26 market data — not from what the docs claim.
+          Constraints honored: no ads, no calls, automated-first, ~2–3
+          founder-hours/week, Claude does the heavy lifting.
+        </div>
+      </div>
+    </header>
+
+    <div class="wrap">
+      <!-- ============ TLDR ============ -->
+      <div class="verdict">
+        <p style="margin-top: 0">
+          <b>The verdict in one paragraph.</b> The problem isn't finding a
+          channel — it's that every channel currently dumps visitors into a
+          funnel that breaks at the wow moment. Free users can only search our
+          existing index, and the index holds
+          <span class="num">6,630</span> businesses (not 2.1M), mostly Canadian
+          dentists and beauty salons — a US agency's first search likely returns
+          nothing. The fix:
+          <b
+            >seed 10 US metro×vertical markets first, then cold-email only
+            agencies whose market we've already analyzed</b
+          >
+          — "we already ran your market, here's the proof" — using our own
+          cold-email engine (which is genuinely good infrastructure that ran
+          exactly one campaign, at SMBs, with the wrong copy). Free tool +
+          programmatic SEO + community run in the background as compounding
+          layers. Example: seed Denver dentists → email 45 Denver agencies "12
+          of 40 Denver dental practices load in 6+ seconds and never answer
+          reviews — want the three worst, with contacts?" → reply gets a Proof
+          Pack link + free account that is <i>guaranteed non-empty</i>. Simple
+          numbers: ~250 fresh contacts/week ceiling, 1–4 signups/week expected
+          once running →
+          <b
+            >10 external users by week 6–10, 100 total users around month 5–6</b
+          >
+          (cold email alone cannot produce 100 — the compounding layers must).
+        </p>
+      </div>
+
+      <div class="kpi">
+        <div class="card">
+          <div class="big">≈1</div>
+          <div class="lbl">genuinely external user today</div>
+        </div>
+        <div class="card">
+          <div class="big">0</div>
+          <div class="lbl">paying customers (non-founder)</div>
+        </div>
+        <div class="card">
+          <div class="big">6,630</div>
+          <div class="lbl">businesses in index (claim: 2.1M)</div>
+        </div>
+        <div class="card">
+          <div class="big">612 → 1</div>
+          <div class="lbl">cold sends → replies (Miami, June)</div>
+        </div>
+        <div class="card">
+          <div class="big">~0</div>
+          <div class="lbl">measurable inbound (GSC/GA4 both broken)</div>
+        </div>
+        <div class="card">
+          <div class="big">750/wk</div>
+          <div class="lbl">cold send ceiling (5 inboxes, idle 30d)</div>
+        </div>
+      </div>
+
+      <!-- ============ 1. WHERE WE ARE ============ -->
+      <h2><span class="n">1</span>Current product level — scored</h2>
+      <p class="lede">
+        Code-verified, DB-verified. This is the launchpad we actually have, not
+        the one the marketing copy describes.
+      </p>
+
+      <div class="tblwrap">
+        <table>
+          <tr>
+            <th>Dimension</th>
+            <th>Score</th>
+            <th>Evidence</th>
+          </tr>
+          <tr>
+            <td><b>Self-serve funnel mechanics</b></td>
+            <td class="score s-hi">8/10</td>
+            <td>
+              Land → Google OAuth → auto-provisioned agency → 50 free credits →
+              leads with verified contacts in ~2–5 min, ~6 clicks. Genuinely
+              no-touch. This is rare at MVP stage and it's our biggest asset.
+            </td>
+          </tr>
+          <tr>
+            <td><b>Wow-moment reliability</b></td>
+            <td class="score s-lo">4/10</td>
+            <td>
+              Free = "Search everywhere" over the existing index only (Target
+              mode is paid-locked). Strict full-match excludes businesses
+              without confirmed data on <i>every</i> selected signal. In an
+              unseeded vertical the first search returns
+              <code>no_matches</code> — a dead end exactly at the moment that
+              decides everything.
+            </td>
+          </tr>
+          <tr>
+            <td><b>Outbound engine</b></td>
+            <td class="score s-hi">7.5/10</td>
+            <td>
+              Self-hosted, real: 5 Zoho inboxes on mapsly.xyz, 3-touch
+              sequences, signal personalization, reply/bounce detection, RFC
+              8058 one-click unsub, CAN-SPAM postal address fixed, kill
+              switches. Nearly every critical from the June 4.2/10 audit is
+              fixed in code. Gaps: copy hardcodes "med spas", Zoho AUP risk,
+              idle 30+ days (needs re-ramp), no complaint loop.
+            </td>
+          </tr>
+          <tr>
+            <td><b>Pricing &amp; billing</b></td>
+            <td class="score s-mid">6/10</td>
+            <td>
+              Coherent credits story ($0.05/credit vs Apollo ~$0.20; Free 50 /
+              $19 / $49 / $99 / $299). But: <code>STRIPE_PRICE_PLAN_*</code> env
+              vars unverified in prod (checkout silently degrades to
+              "unconfigured" without them), landing shows 3 tiers while app
+              sells 5, and free CSV export blanks contacts while the Free card
+              promises "CSV export".
+            </td>
+          </tr>
+          <tr>
+            <td><b>Demo-able wow assets</b></td>
+            <td class="score s-hi">8/10</td>
+            <td>
+              Five real ones: signal-matched free lead search; agency-branded
+              public Proof Pack link (<code>/s/[token]</code>);
+              Instantly/Smartlead-ready first-touch CSV with evidence merge
+              fields; whole-market SERP + ads intel; transparent per-lead
+              enrichment pricing.
+            </td>
+          </tr>
+          <tr>
+            <td><b>SEO assets</b></td>
+            <td class="score s-mid">5/10</td>
+            <td>
+              Architecture done (<code>/biz/[slug]</code> with JSON-LD,
+              hreflang, sitemap plumbing, compare pages vs
+              Apollo/GoHighLevel/LeadSwift) but dark: live sitemap has 36 URLs,
+              zero /biz pages, lastmod stale since 2026-05-20, /for-agencies
+              missing.
+            </td>
+          </tr>
+          <tr>
+            <td><b>Measurement</b></td>
+            <td class="score s-lo">2/10</td>
+            <td>
+              GSC: service account has no access to mapsly.ai (403). GA4:
+              <code>GA4_PROPERTY_ID</code> is set to a GTM container ID, so
+              every API query fails. We are flying blind on every channel until
+              these two 5-minute fixes land.
+            </td>
+          </tr>
+          <tr>
+            <td><b>Claims integrity</b></td>
+            <td class="score s-lo">4/10</td>
+            <td>
+              Landing says "2.1M businesses" (hardcoded constant; real: 6,630)
+              and "100+ signals" (real: 74). Our ICP audits marketing claims
+              professionally. One Reddit callout in a niche this small is
+              lasting damage.
+            </td>
+          </tr>
+          <tr style="border-top: 2px solid var(--line)">
+            <td><b>Overall GTM readiness</b></td>
+            <td class="score s-mid">5.6/10</td>
+            <td>
+              Strong machine, leaky funnel, blind instruments. ~2 weeks of
+              mostly-Claude work turns this into a 7.5+.
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="warn">
+        <b>The one empirical data point we own:</b> the June Miami campaign sent
+        612 emails to med-spas and got <b>1 reply (0.44%)</b> with a 9.3% bounce
+        rate and 0 signups — landing exactly on the strict-methodology industry
+        floor (Belkins: 0.45%). That's what generic-ish cold email to a cold
+        audience yields. The entire bet of this strategy is that
+        <i>"we already analyzed your market, here's proof"</i> moves us toward
+        the signal-personalized band (5–18% reply in published data). That is a
+        hypothesis to test in 500 sends — not a fact.
+      </div>
+
+      <!-- ============ 2. ICP ============ -->
+      <h2><span class="n">2</span>Who to pitch — the ICP decision</h2>
+      <p class="lede">Argued both ways by the red team; the call:</p>
+
+      <div class="grid2">
+        <div class="card">
+          <h3 style="margin-top: 0">
+            ✅ Agency-first (Tom) — but only in seeded markets
+          </h3>
+          <ul>
+            <li>
+              <b>Why:</b> the product is built for him (homepage is already the
+              agency landing), $49–$299 price carries real revenue at small user
+              counts, he's reachable by email (it's literally his channel), and
+              every successful analogue (Instantly, Smartlead, ListKit) got
+              first users from the outbound world they sold into.
+            </li>
+            <li>
+              <b>The constraint that makes it work:</b> only email agencies
+              whose metro×vertical we have <i>already enriched</i>, so the free
+              signup is guaranteed a non-empty wow. The seeding step converts
+              our fatal flaw (thin index) into the differentiator ("we already
+              ran your market").
+            </li>
+            <li>
+              <b>Caveat:</b> agency owners are the most cold-email-saturated
+              inbox in B2B (~2–4% reply typical). Only evidence-led copy clears
+              their filter.
+            </li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3 style="margin-top: 0">
+            🔁 SMB (Maria) — the designated pivot, not the start
+          </h3>
+          <ul>
+            <li>
+              <b>Why not first:</b> $29/mo needs volume + trust we don't have;
+              the SMB landing is demoted to /for-businesses; and our only SMB
+              campaign produced 1 reply in 612.
+            </li>
+            <li>
+              <b>Why it stays loaded:</b> the index is SMB-native
+              (dental/beauty), the cold copy engine and /l report are already
+              SMB-shaped, so the pivot costs ~2 weeks, not a rebuild. If
+              agencies fail the kill gates (§7), we flip.
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ============ 3. WHAT & HOW TO PITCH ============ -->
+      <h2><span class="n">3</span>What to pitch and how</h2>
+
+      <h3>The offer (agency)</h3>
+      <p>
+        <b>Not</b> "try our SaaS". The offer is finished work:
+        <i
+          >"We already analyzed your market. Here's evidence. A free account
+          hands you 50 of these leads with verified contacts — no card, no
+          call."</i
+        >
+        This matches the 2026 best-practice pattern exactly (mini-audit /
+        sample-list offers are what top-decile senders manufacture by hand — we
+        generate them programmatically at ~$0 marginal cost).
+      </p>
+
+      <h3>Email 1 — plain text, no links, &lt;80 words, binary ask</h3>
+      <div class="email">
+        <span class="hdr">Subject:</span> 12 dental sites in Denver load in 6+
+        seconds {{firstName}} — we ran a full scan of Denver's dental market
+        last week. Of 40 practices: 12 have mobile sites loading 6s+, 9 haven't
+        answered a review in 90 days, and 3 of their competitors are running
+        Meta ads at them. Each one is a ready-made pitch for an agency like
+        {{agencyName}}. Want the three worst offenders, with owner contacts?
+        I'll just send them.
+      </div>
+      <p class="src">
+        Rules baked in: no links or tracking pixel in email 1 (links cost 8–12%
+        inbox placement), micro-batches under 50 per cell (doubles reply rates
+        vs blasts), 3 touches over ~10 days max, US-only (CASL deferred), Proof
+        Pack link + free-account link go in the reply or touch 2.
+      </p>
+
+      <h3>Reply → the Proof Pack moment</h3>
+      <p>
+        On any reply, send the agency-branded public Proof Pack link
+        (<code>/s/[token]</code>) for a real business in their market + "your
+        free account has the other 47 with contacts — takes 2 minutes, Google
+        sign-in." The asset already exists in the product; it just has never
+        been used as a sales weapon.
+      </p>
+
+      <h3>Community pitch (background lane)</h3>
+      <div class="email">
+        <span class="hdr"
+          >r/agency or r/localseo post (monthly, no links, data in-post):</span
+        >
+        "We audited all 533 med spas in our index: 61% never reply to reviews,
+        median mobile load 5.2s, only 8% run any paid ads. If you sell to this
+        vertical, the pitch writes itself — happy to share the method."
+      </div>
+      <p class="src">
+        Value-first data drops are the only format that survives moderation (61%
+        of relevant subreddits restrict or ban promo). Never automate posting —
+        Reddit wiped ~70% of automated accounts in the 2025–26 crackdown.
+        Monitoring automation (F5Bot, free) is safe.
+      </p>
+
+      <h3>SMB pitch (pivot path, already built)</h3>
+      <p>
+        The existing engine's angle: "your business, its actual problems, one
+        report" via the /l briefing page. Held in reserve for Gate C (§7).
+      </p>
+
+      <!-- ============ 4. CHANNEL SCORECARD ============ -->
+      <h2><span class="n">4</span>Options — scored</h2>
+      <p class="lede">
+        Score = weighted fit for <i>this</i> product, <i>this</i> founder,
+        <i>these</i> constraints (ICP fit, speed to first users, automation fit,
+        founder-hours, cost, risk, evidence from analogues). Full reasoning in
+        the dossier.
+      </p>
+
+      <div class="tblwrap">
+        <table>
+          <tr>
+            <th>#</th>
+            <th>Channel</th>
+            <th>Score</th>
+            <th>Verdict</th>
+            <th>First users</th>
+            <th>Founder h/wk</th>
+            <th>$ cost</th>
+            <th>Main risk</th>
+          </tr>
+          <tr class="hl">
+            <td>1</td>
+            <td><b>Dogfooded cold email → agencies in seeded markets</b></td>
+            <td class="score s-hi">8.4</td>
+            <td><span class="tag t-do">PRIMARY</span></td>
+            <td>weeks 5–8</td>
+            <td>~1–1.5 (reading replies)</td>
+            <td>~$30/mo (2nd domain + inboxes)</td>
+            <td>domain burn / Zoho AUP; reply-rate floor</td>
+          </tr>
+          <tr class="hl">
+            <td>2</td>
+            <td>
+              <b
+                >Free "grade any local business" tool (+ embeddable agency
+                widget later)</b
+              >
+            </td>
+            <td class="score s-hi">7.8</td>
+            <td><span class="tag t-do">BUILD NOW</span></td>
+            <td>30–60 days</td>
+            <td>~0 (Claude builds)</td>
+            <td>~$0 (serves from snapshots)</td>
+            <td>crowded SERPs — needs community/email distribution, not SEO</td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td>
+              <b
+                >Programmatic SEO — gated /biz pages + market hubs for seeded
+                cells</b
+              >
+            </td>
+            <td class="score s-hi">7.2</td>
+            <td><span class="tag t-bg">COMPOUNDING</span></td>
+            <td>month 4–6+</td>
+            <td>~0 (Claude)</td>
+            <td>~$0</td>
+            <td>scaled-content penalty if we volume-dump thin pages</td>
+          </tr>
+          <tr>
+            <td>4</td>
+            <td>
+              <b
+                >Community value-first (Reddit + FB groups + Near Media/LocalU
+                data-study pitches)</b
+              >
+            </td>
+            <td class="score s-mid">6.8</td>
+            <td><span class="tag t-do">BACKGROUND</span></td>
+            <td>lumpy — one thread can be 0 or 60</td>
+            <td>1–2 (manual by design)</td>
+            <td>$0</td>
+            <td>ban risk; results unpredictable</td>
+          </tr>
+          <tr>
+            <td>5</td>
+            <td>
+              <b
+                >LinkedIn semi-manual loop (Claude drafts, Viktor clicks; 30–50
+                invites/wk, DM after engagement)</b
+              >
+            </td>
+            <td class="score s-mid">5.5</td>
+            <td><span class="tag t-later">OPTIONAL</span></td>
+            <td>60–90 days for signals</td>
+            <td>~1 (only if it fits)</td>
+            <td>$0</td>
+            <td>time-creep; reach collapsed 50–65%; ICP is saturated</td>
+          </tr>
+          <tr>
+            <td>6</td>
+            <td>
+              <b
+                >Launch platforms (PH + Uneed + MicroLaunch, low-effort pass)</b
+              >
+            </td>
+            <td class="score s-mid">5.0</td>
+            <td><span class="tag t-later">DEFER to ~wk 8–10</span></td>
+            <td>one-time ~100 mostly non-ICP signups</td>
+            <td>~3 once</td>
+            <td>$0</td>
+            <td>burns the one-shot if fired before activation is fixed</td>
+          </tr>
+          <tr>
+            <td>7</td>
+            <td>
+              <b
+                >Directories (G2/Capterra free listings, SaaSHub,
+                AlternativeTo)</b
+              >
+            </td>
+            <td class="score s-mid">4.6</td>
+            <td><span class="tag t-bg">SET &amp; FORGET</span></td>
+            <td>
+              1–5/mo drip; AI-answer citation at 10 G2 + 5 Capterra reviews
+            </td>
+            <td>~0 (one-time setup)</td>
+            <td>$0</td>
+            <td>slow; badge visibility now pay-gated</td>
+          </tr>
+          <tr>
+            <td>8</td>
+            <td><b>LinkedIn automation (Expandi/HeyReach/Waalaxy class)</b></td>
+            <td class="score s-lo">1.5</td>
+            <td><span class="tag t-no">NEVER</span></td>
+            <td>—</td>
+            <td>—</td>
+            <td>—</td>
+            <td>
+              23–40% restriction rates; LinkedIn publicly banned HeyReach itself
+              (Mar 2026); one personal account = whole channel
+            </td>
+          </tr>
+          <tr>
+            <td>9</td>
+            <td><b>AppSumo lifetime deal</b></td>
+            <td class="score s-lo">1.8</td>
+            <td><span class="tag t-no">RULED OUT — standing decision</span></td>
+            <td>—</td>
+            <td>—</td>
+            <td>—</td>
+            <td>
+              LTD + per-credit vendor costs = unbounded negative margin;
+              platform revenue −50%; ~17% refunds; deal-hunter audience ≠ $99/mo
+              agency
+            </td>
+          </tr>
+          <tr>
+            <td>10</td>
+            <td><b>Paid ads</b></td>
+            <td class="score s-lo">—</td>
+            <td><span class="tag t-no">EXCLUDED</span></td>
+            <td colspan="4">
+              By your constraint. For the record, the case studies agree: none
+              of the comparable winners needed them for first-100.
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="good">
+        <b>Why the mix works together:</b> cold email produces the first 10–30
+        (weeks 5–12) but mathematically cannot produce 100 (at a
+        250-contacts/week ceiling, 100 activated users needs 20k–50k contacts).
+        The free tool, pSEO, community, and directories are the 100-user engine
+        — they compound while the cold channel proves the pitch. Every seeded
+        market feeds all five: cold list, pSEO pages, data-drop posts, and the
+        free tool's demo examples all come from the same enrichment runs. One
+        data operation, five channels.
+      </div>
+
+      <!-- ============ 5. THE PLAN ============ -->
+      <h2><span class="n">5</span>The plan — 3 phases</h2>
+
+      <h3>
+        Phase 0 · "Unbreak the funnel" — weeks 1–2
+        <span class="tag t-bg">mostly Claude</span>
+      </h3>
+      <div class="card">
+        <p style="margin-top: 0">
+          <b>Viktor's ~15 minutes (the only human-required items):</b>
+        </p>
+        <ul>
+          <li>
+            Verify <code>STRIPE_PRICE_PLAN_STARTER/SOLO/GROWTH/SCALE</code> are
+            set in Vercel prod (otherwise the buy buttons are silently dead).
+          </li>
+          <li>
+            Grant the GSC service account access to the mapsly.ai property (~5
+            min).
+          </li>
+          <li>
+            Replace <code>GA4_PROPERTY_ID</code> (currently a GTM container ID)
+            with the numeric GA4 property ID (~5 min). The tag is already
+            collecting — history may become instantly queryable.
+          </li>
+          <li>
+            Buy domain #2 (e.g. getmapsly.com) with Google Workspace inboxes —
+            the Zoho AUP hedge. (~$30/mo, 10 min; Claude preps everything else.)
+          </li>
+        </ul>
+        <p>
+          <b>Claude's work queue:</b> fix free-CSV expectation (copy or in-app
+          flag: "contacts in-app on Free"); point "Book a walkthrough" CTA at an
+          async Proof Pack demo instead of /signin; soften landing claims to
+          match code (74 signals; reword the 2.1M); add /for-agencies to sitemap
+          + refresh lastmod; reset cold-inbox ramp + start warming both domains;
+          write the agency copy branch (kill the hardcoded "med spas");
+          found-run the full product loop once end-to-end (move leads
+          NEW→CONTACTED→WON, fire one OutreachEvent) to flush latent blockers
+          before a stranger hits them.
+        </p>
+      </div>
+
+      <h3>
+        Phase 1 · "Seeded-market wedge" — weeks 2–8
+        <span class="tag t-do">the bet</span>
+      </h3>
+      <div class="card">
+        <ul style="margin-top: 0">
+          <li>
+            <b>Seed 10 US metro×vertical cells</b> (start with Miami med-spa —
+            261 rows + prior data already there; then e.g. Denver dental, Austin
+            HVAC, Tampa law…). Run Target-mode discovery + enrichment
+            internally. Cost: low single-digit dollars per cell.
+          </li>
+          <li>
+            <b>Dogfood the agency list:</b> run our own discovery on category
+            "marketing agency" in those same metros (the index currently
+            contains 1–3 agencies — we literally cannot prospect our ICP from
+            our own data today). Agencies are local businesses; the signal
+            engine works on them unchanged. Verify emails via the existing
+            SMTP-probe path. Target: ≥500 verified agency contacts.
+          </li>
+          <li>
+            <b>Send:</b> micro-batches &lt;50 per cell, 3 touches, plain-text
+            link-free email 1, Proof Pack on reply/touch 2, US-only. Ceiling
+            after re-ramp: ~750 sends ≈ 250 new contacts/week.
+          </li>
+          <li>
+            <b>Founder's role:</b> ~30 min/day reading replies and pasting
+            Claude-drafted responses. Everything else is automated or
+            Claude-run.
+          </li>
+        </ul>
+      </div>
+
+      <h3>
+        Phase 2 · Compounding background — starts week 2, runs forever
+        <span class="tag t-bg">Claude-driven</span>
+      </h3>
+      <div class="card">
+        <ul style="margin-top: 0">
+          <li>
+            <b>Free tool:</b> "Grade any local business" — public read of
+            existing BusinessSnapshot scoring, instant, $0 marginal cost,
+            market-relative ("you rank 14th of 40 spas in Miami" — no live-scan
+            competitor can say that). Email-capture before full report (HubSpot
+            pattern: 30–40% capture). Later: embeddable white-label widget for
+            agencies (proven model — MySiteAuditor, SEOptimer — and every embed
+            is a backlink + an agency relationship).
+          </li>
+          <li>
+            <b>Gated pSEO:</b> publish /biz pages only for seeded rich-signal
+            cells (hundreds, not thousands), fix sitemap, monitor indexation via
+            restored GSC. Batches of 25–100 first; scale only at ≥80%
+            indexation. Expect nothing before month 4 — that's fine, it's the
+            100-user engine for months 5–12.
+          </li>
+          <li>
+            <b>Community lane (the manual 1–2 h/wk):</b> F5Bot alerts on ~20
+            keywords; 2–3 genuinely helpful replies/week in r/agency +
+            r/localseo; one monthly data-drop post; one data-study pitch/month
+            to Near Media / LocalU / BrightLocal / Niche Pursuits (one accepted
+            feature ≈ 20–100 qualified signups — the best yield-per-hour in the
+            whole plan); apply to Online Geniuses Slack now (30-day vetting).
+          </li>
+          <li>
+            <b>Directories:</b> free G2/Capterra/SaaSHub/AlternativeTo listings
+            once; ask early happy users for reviews (target 10 G2 + 5 Capterra =
+            the LLM-citation threshold).
+          </li>
+          <li>
+            <b>Launch pass (PH + Uneed + MicroLaunch):</b> deferred to ~week
+            8–10, after activation is proven — median outcome ~115 mostly
+            non-ICP signups; worth the backlinks, not worth 40 prep hours or a
+            leaky funnel.
+          </li>
+        </ul>
+      </div>
+
+      <!-- ============ 6. PREDICTIONS ============ -->
+      <h2><span class="n">6</span>Predictions — three scenarios</h2>
+      <p class="lede">
+        Funnel math anchored to the pessimistic end of published benchmarks
+        (vendors inflate) and to our own 0.44% floor. "Activated" = external
+        user whose first search returned ≥1 delivered lead.
+      </p>
+
+      <div class="tblwrap">
+        <table>
+          <tr>
+            <th></th>
+            <th>
+              Conservative<br /><span style="font-weight: 400"
+                >(our Miami rate persists)</span
+              >
+            </th>
+            <th>
+              Expected<br /><span style="font-weight: 400"
+                >(seeded offer works ~median)</span
+              >
+            </th>
+            <th>
+              Optimistic<br /><span style="font-weight: 400"
+                >(top-quartile + a community hit)</span
+              >
+            </th>
+          </tr>
+          <tr>
+            <td><b>Cold reply rate (positive)</b></td>
+            <td class="num">0.5%</td>
+            <td class="num">1.5–2.5%</td>
+            <td class="num">4%+</td>
+          </tr>
+          <tr>
+            <td><b>Contacts per activated user</b></td>
+            <td class="num">~500</td>
+            <td class="num">~150–250</td>
+            <td class="num">~80–130</td>
+          </tr>
+          <tr>
+            <td><b>Signups/week once sending (all channels)</b></td>
+            <td class="num">1–2</td>
+            <td class="num">3–6</td>
+            <td class="num">8–15</td>
+          </tr>
+          <tr>
+            <td><b>10 external signups</b></td>
+            <td class="num">week 10–12</td>
+            <td class="num">week 6–8</td>
+            <td class="num">week 5</td>
+          </tr>
+          <tr>
+            <td><b>10 activated users</b></td>
+            <td class="num">week 14–20</td>
+            <td class="num">week 8–12</td>
+            <td class="num">week 6–8</td>
+          </tr>
+          <tr>
+            <td><b>First paying customer</b></td>
+            <td class="num">week 10–16</td>
+            <td class="num">week 6–10</td>
+            <td class="num">week 4–6</td>
+          </tr>
+          <tr>
+            <td><b>100 total users</b></td>
+            <td class="num">month 9–12 (compounding-led)</td>
+            <td class="num">month 5–6</td>
+            <td class="num">month 3–4</td>
+          </tr>
+          <tr>
+            <td><b>Paying at month 3</b></td>
+            <td class="num">0–1</td>
+            <td class="num">2–5</td>
+            <td class="num">6–12</td>
+          </tr>
+        </table>
+      </div>
+
+      <h3>Engagement level (founder-hours per week, steady state)</h3>
+      <div class="tblwrap">
+        <table>
+          <tr>
+            <th>Activity</th>
+            <th>Hours/wk</th>
+            <th>Who</th>
+          </tr>
+          <tr>
+            <td>Reading cold replies + sending Claude-drafted responses</td>
+            <td class="num">1–1.5</td>
+            <td>Viktor (Claude drafts)</td>
+          </tr>
+          <tr>
+            <td>
+              Community replies + monthly data-drop (drafted by Claude, posted
+              by hand)
+            </td>
+            <td class="num">1–1.5</td>
+            <td>Viktor</td>
+          </tr>
+          <tr>
+            <td>
+              Seeding cells, copy branch, free tool, pSEO, monitoring, batch
+              prep
+            </td>
+            <td class="num">0</td>
+            <td>Claude</td>
+          </tr>
+          <tr>
+            <td>LinkedIn loop (only if hours remain — first thing to drop)</td>
+            <td class="num">0–1</td>
+            <td>Viktor</td>
+          </tr>
+          <tr style="border-top: 2px solid var(--line)">
+            <td><b>Total</b></td>
+            <td class="num"><b>2–3</b></td>
+            <td>fits the budget</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- ============ 7. KILL GATES ============ -->
+      <h2><span class="n">7</span>Kill / pivot gates — MVP discipline</h2>
+      <p class="lede">
+        Prove it or fail fast. Each gate is a measurement, a threshold, and a
+        pre-committed action. No gate may be renegotiated mid-flight.
+      </p>
+
+      <div class="gate">
+        <b>GATE A · week 4</b> — Phase 0 not fully green (Stripe verified,
+        GA4+GSC restored, ≥3 cells seeded, ≥500 verified agency contacts)? →
+        <b>Do not start sending.</b> Fix or stop; sending into a broken funnel
+        burns the list.
+      </div>
+      <div class="gate">
+        <b>GATE B · first 500 delivered agency emails (~weeks 5–8)</b> — bounce
+        &gt;5% → pause, re-verify list. Spam complaints visible in Postmaster →
+        halt domain, switch to domain 2. Positive replies &lt;0.5% OR free
+        signups &lt;3 → rewrite offer once, re-test 500. Second failure →
+        <b>kill agency cold email</b>, keep compounding channels, trigger ICP
+        review.
+      </div>
+      <div class="gate">
+        <b>GATE C · week 8</b> — &lt;10 external signups across ALL channels →
+        begin the 4-week <b>SMB-first cold test</b> on the native index (US
+        dental/beauty cells, existing copy engine).
+      </div>
+      <div class="gate">
+        <b>GATE D · week 12</b> — &lt;10 <i>activated</i> external users → stop
+        outbound-led GTM entirely; go free-tool + SMB self-serve + pSEO only;
+        reassess at month 6.
+      </div>
+      <div class="gate">
+        <b>GATE E · month 6</b> — no paying external customer → the problem is
+        product/offer, not channel. Stop GTM spend of any kind and revisit
+        positioning.
+      </div>
+      <div class="gate">
+        <b>STANDING</b> — &gt;50% of external signups hitting
+        <code>no_matches</code> in any week → halt all sending until seeding
+        catches up. Zoho suspension at any time → no resumption until migrated
+        off.
+      </div>
+
+      <!-- ============ 8. BEST PRACTICES ============ -->
+      <h2>
+        <span class="n">8</span>Best-practices cheat sheet (2025–26 rules)
+      </h2>
+      <div class="grid2">
+        <div class="card">
+          <h3 style="margin-top: 0">Cold email</h3>
+          <ul>
+            <li>
+              SPF + DKIM + DMARC aligned; RFC 8058 one-click unsub (we have it).
+              Gmail hard-rejects non-compliant bulk since Nov 2025; Microsoft
+              since May 2025.
+            </li>
+            <li>
+              Spam-complaint ceiling 0.3% — at 30 sends/day one click is 3.3%.
+              Weekly Postmaster Tools check is mandatory (no automated loop
+              exists).
+            </li>
+            <li>
+              25–50/inbox/day max; 3–4 week warmup after idle; never send cold
+              from mapsly.ai.
+            </li>
+            <li>
+              3 touches over ~10 days captures ~93% of replies; touch 4+ triples
+              unsubscribes.
+            </li>
+            <li>
+              No links/pixels in email 1; micro-batches &lt;50 (5.8% vs 2.1%
+              reply in published data); &lt;80 words; one binary ask.
+            </li>
+            <li>
+              US-only for now. CASL = CAD $10M exposure, sender bears burden of
+              proof; we have ConsentRecord plumbing but defer Canada.
+            </li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3 style="margin-top: 0">Everything else</h3>
+          <ul>
+            <li>
+              <b>Reddit:</b> value 70/30, data in-post, no links, never automate
+              posting, never DM-solicit. Draft with AI, post by hand.
+            </li>
+            <li>
+              <b>FB groups:</b> weeks of participation before anything
+              tool-shaped; admin relationships are the actual mechanism.
+            </li>
+            <li>
+              <b>LinkedIn:</b> personal profile only (3× reach vs company page);
+              ≤50 manual invites/wk; DM only after engagement (~20% vs ~5%
+              reply); no-note invites are fine — spend personalization on the
+              post-accept DM.
+            </li>
+            <li>
+              <b>pSEO:</b> unique per-page signal data or don't publish; staged
+              rollout; watch indexation ≥80% before scaling; local queries are
+              46–78% zero-click — target comparison/evidence intents.
+            </li>
+            <li>
+              <b>Free tool:</b> serve from snapshots ($0), rate-limit any live
+              refresh, partial grade before email capture.
+            </li>
+            <li>
+              <b>Metrics hygiene:</b> exclude sarminvictor*, Boxly, and "Victor
+              Sarmin 87" accounts from every funnel number (extends the
+              secret-shopper rule).
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ============ 9. RISKS ============ -->
+      <h2><span class="n">9</span>Top risks in the corrected plan</h2>
+      <ul>
+        <li>
+          <b>1 · Domain/provider burn.</b> One Zoho suspension (their AUP bans
+          cold email — the one audit finding never fixed), a complaint spike (no
+          FBL loop; auto-pause deliberately removed), or a bad scraped-list
+          bounce tail zeroes the primary channel overnight. Mitigations: domain
+          #2 on Google Workspace warming from week 1, email verification before
+          enroll, weekly manual Postmaster checks. Reduced, not removed.
+        </li>
+        <li>
+          <b>2 · Activation is unproven.</b> Zero external users have ever
+          reached the wow moment. Seeding guarantees non-empty results — it does
+          not guarantee agency owners find 50 free leads compelling enough to
+          pay $49–99. The whole plan rests on an untested moment; Gate B exists
+          precisely to test it cheaply.
+        </li>
+        <li>
+          <b>3 · Reply-rate reality.</b> Our only empirical number (0.44%) sits
+          at the industry floor. If the agency variant lands there too, 10 users
+          takes ~6 months and patience runs out first. The Proof Pack lift is a
+          hypothesis; 500 sends buys the answer.
+        </li>
+        <li>
+          <b>4 · Measurement blindness until Phase 0 lands.</b> With GSC/GA4
+          broken and Stripe unverified, a silent funnel failure could burn weeks
+          undetected. This is why Gate A blocks sending.
+        </li>
+        <li>
+          <b>5 · Claim drift.</b> "2.1M businesses / 100+ signals" vs 6,630 / 74
+          in front of an ICP that audits claims for a living. Fix the copy
+          before the first batch goes out.
+        </li>
+      </ul>
+
+      <!-- ============ 10. METHOD ============ -->
+      <h2><span class="n">10</span>Method & sources</h2>
+      <p class="src">
+        Built 2026-07-20 from a 10-agent workflow (~1.5M tokens): 4 recon agents
+        (codebase funnel walk; cold-engine audit; live Neon DB read-only
+        queries; live GSC/GA4/sitemap checks), 5 research agents (cold-email
+        deliverability &amp; benchmarks incl. FTC/CRTC primary sources; founder
+        first-100 case studies — Instantly, Smartlead, Hunter, Ahrefs, Clay,
+        BrightLocal, Snov.io, Apollo; community/directory landscape; LinkedIn
+        2025–26 enforcement; pSEO/free-tool benchmarks), plus an adversarial
+        red-team pass that recomputed all funnel math against real caps and
+        killed the naive versions of every plan. Benchmark caveat: most channel
+        rates come from vendors selling those channels; this plan uses the
+        pessimistic ends. Key file-level evidence cited inline throughout; full
+        agent outputs in the session transcript.
+      </p>
+
+      <div class="foot">
+        Mapsly · GTM strategy for first 10–100 users · prepared by Claude ·
+        2026-07-20 · report lives at
+        <code>docs/gtm-first-users-2026-07-20.html</code> · companion decisions
+        to log in <code>docs/improvement-plan</code> flow if adopted. Nothing in
+        this report has been implemented or committed — it is a proposal
+        awaiting Viktor's decisions.
+      </div>
+    </div>
+  </body>
+</html>

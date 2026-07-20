@@ -56,7 +56,7 @@ async function getBusinessSnapshot(businessId: string) {
 | Per-keyword SERP       | `kw-${keywordId}`          |
 | Per-agency aggregate   | `agency-${id}`             |
 | Global marketing       | `marketing`                |
-| SEO sitemap            | `sitemap`                  |
+| SEO sitemap            | `biz-sitemap`              |
 | User session aggregate | `user-${id}`               |
 
 Never use untagged caches. Untagged = unrevalidatable = stale forever.

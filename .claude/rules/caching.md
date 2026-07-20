@@ -89,20 +89,20 @@ revalidateTag(`agency-${agencyId}`, "days"); // if cascade applies
 
 ## Tag taxonomy
 
-| Tag pattern                   | Owner             | When to revalidate            |
-| ----------------------------- | ----------------- | ----------------------------- |
-| `business-${slug}`            | weekly cron       | After weekly snapshot write   |
-| `business-${slug}-reviews`    | daily cron        | After new-reviews-delta       |
-| `business-${slug}-lighthouse` | weekly cron       | After lighthouse-audit        |
-| `list-${id}`                  | list-refresh cron | After list-refresh            |
-| `list-${id}-full`             | list-refresh cron | After list-refresh            |
-| `lead-${id}`                  | user action       | After status change           |
-| `agency-${id}`                | aggregator        | After any list refresh        |
-| `agency-${id}-analytics`      | weekly            | After list-refresh cron       |
-| `kw-${id}`                    | weekly cron       | After serp-rank-scan          |
-| `marketing`                   | manual            | On copy update                |
-| `seo-sitemap`                 | weekly cron       | After indexer adds businesses |
-| `user-${id}`                  | user action       | After settings change         |
+| Tag pattern                   | Owner              | When to revalidate                                                    |
+| ----------------------------- | ------------------ | --------------------------------------------------------------------- |
+| `business-${slug}`            | weekly cron        | After weekly snapshot write                                           |
+| `business-${slug}-reviews`    | daily cron         | After new-reviews-delta                                               |
+| `business-${slug}-lighthouse` | weekly cron        | After lighthouse-audit                                                |
+| `list-${id}`                  | list-refresh cron  | After list-refresh                                                    |
+| `list-${id}-full`             | list-refresh cron  | After list-refresh                                                    |
+| `lead-${id}`                  | user action        | After status change                                                   |
+| `agency-${id}`                | aggregator         | After any list refresh                                                |
+| `agency-${id}-analytics`      | weekly             | After list-refresh cron                                               |
+| `kw-${id}`                    | weekly cron        | After serp-rank-scan                                                  |
+| `marketing`                   | manual             | On copy update                                                        |
+| `biz-sitemap`                 | discovery pipeline | After discovery adds businesses (`modules/business-discovery/run.ts`) |
+| `user-${id}`                  | user action        | After settings change                                                 |
 
 ## Anti-patterns
 

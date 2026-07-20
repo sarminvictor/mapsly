@@ -19,7 +19,8 @@ import type { MetadataRoute } from "next";
 
 import { CANONICAL_ORIGIN } from "@/lib/seo/canonical";
 
-export const revalidate = 86_400; // 24h
+// No `export const revalidate` — dead config under cacheComponents
+// (INC-2026-07-20-66 prevention #5); the output is pure and static anyway.
 
 export default function robots(): MetadataRoute.Robots {
   return {

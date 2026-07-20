@@ -20,6 +20,7 @@ import {
   buildLocalBusinessSchema,
 } from "@/modules/biz-profile/json-ld";
 import { getBusinessBySlug } from "@/modules/biz-profile/queries";
+import { passesBizIndexGate } from "@/modules/biz-profile/seo-gate";
 
 /**
  * Public business profile · `/biz/[slug]` (locale-prefixed equivalents
@@ -48,8 +49,12 @@ import { getBusinessBySlug } from "@/modules/biz-profile/queries";
  *   - LocalBusiness JSON-LD via `buildLocalBusinessSchema` (Schema.org
  *     LocalBusiness root type, with PostalAddress, GeoCoordinates,
  *     AggregateRating sub-objects).
- *   - Sitemap entry emitted by `app/sitemap.ts` via
- *     `listBizSitemapEntries`.
+ *   - Sitemap entry emitted by `app/sitemap.xml/route.ts` via
+ *     `listBizSitemapEntries` — but ONLY for businesses that pass
+ *     `passesBizIndexGate`. Gate-failing pages render normally yet declare
+ *     `noindex, follow` (INC-2026-07-20-66): thin template pages are the
+ *     post-March-2024 scaled-content deindex profile, while the claim
+ *     funnel + outreach links still need the URLs to resolve.
  *
  * notFound() handling:
  *   - If the slug doesn't match an active business, the query returns
@@ -111,7 +116,13 @@ export async function generateMetadata({
       title,
       description,
     },
-    robots: { index: true, follow: true },
+    // Index only pages with real proprietary signal (same predicate the
+    // sitemap query applies — the two must never diverge, see seo-gate.ts).
+    // `follow: true` either way: sparse pages keep passing link equity and
+    // keep serving the claim-funnel / outreach entry points.
+    robots: passesBizIndexGate(data)
+      ? { index: true, follow: true }
+      : { index: false, follow: true },
   };
 }
 

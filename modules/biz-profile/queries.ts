@@ -11,10 +11,11 @@
  *    `.claude/rules/cache-components.md` Pattern 1).
  *
  * 2. `listBizSitemapEntries(limit)` — bounded enumeration for
- *    `app/sitemap.ts`. Returns slugs of active businesses + a stable
- *    `lastModified` (latest snapshot date or business `updatedAt`).
- *    Bounded by `limit` to stay under Google's 50,000-URL-per-sitemap cap
- *    (currently 500 active businesses; cap unlikely to bite at launch).
+ *    `app/sitemap.xml/route.ts`. Returns slugs of businesses that pass the
+ *    SEO index gate (see `seo-gate.ts` — website + review depth + scored
+ *    snapshot) + a stable `lastModified` (latest snapshot date or business
+ *    `updatedAt`). Bounded by `limit` to stay under Google's
+ *    50,000-URL-per-sitemap cap.
  *
  * Caching strategy per `.claude/rules/caching.md`:
  *
@@ -31,6 +32,11 @@
  * `NEXT_PHASE === 'phase-production-build'` because Vercel's build worker
  * cannot open Neon WebSockets. The short-circuit returns the EMPTY shape;
  * runtime first-request re-runs the function and gets real data.
+ * EXCEPTION (INC-2026-07-20-66): `listBizSitemapEntries` deliberately has
+ * NO catch — for a crawler-facing enumeration an empty 200 is worse than an
+ * error (Google treats it as authoritative and drops URLs, and `use cache`
+ * would pin the empty result for the cacheLife window). Errors propagate to
+ * `app/sitemap.xml/route.ts`, which serves an uncacheable 503 instead.
  *
  * Per `.claude/rules/performance.md`, `select`s are explicit — never an
  * unbounded `findMany`/`findFirst`.
@@ -40,6 +46,7 @@ import { cacheLife, cacheTag } from "next/cache";
 
 import prisma from "@/lib/prisma";
 
+import { passesBizIndexGate, SITEMAP_CANDIDATE_WHERE } from "./seo-gate";
 import {
   EMPTY_BIZ_PROFILE,
   type BizProfileData,
@@ -94,11 +101,15 @@ export async function getBusinessBySlug(slug: string): Promise<BizProfileData> {
         photosCount: true,
         isClaimed: true,
         isActive: true,
+        isHidden: true,
+        permanentlyClosed: true,
+        suppressedAt: true,
         snapshots: {
           take: 1,
           orderBy: { snapshotDate: "desc" },
           select: {
             mapslyScore: true,
+            pillarScore: true,
             msiRank: true,
             msiTotal: true,
             replyRate: true,
@@ -133,7 +144,11 @@ export async function getBusinessBySlug(slug: string): Promise<BizProfileData> {
       reviewCount: business.reviewCount,
       photosCount: business.photosCount,
       isClaimed: business.isClaimed,
+      isHidden: business.isHidden,
+      permanentlyClosed: business.permanentlyClosed,
+      suppressedAt: business.suppressedAt,
       mapslyScore: snap?.mapslyScore ?? null,
+      pillarScore: snap?.pillarScore ?? null,
       msiRank: snap?.msiRank ?? null,
       msiTotal: snap?.msiTotal ?? null,
       replyRate: snap?.replyRate ?? null,
@@ -147,15 +162,26 @@ export async function getBusinessBySlug(slug: string): Promise<BizProfileData> {
 }
 
 /**
- * Enumerate active business slugs for the sitemap.
+ * Enumerate index-gate-passing business slugs for the sitemap.
  *
- * Bounded by `limit` (default 5000) to stay well under Google's 50k cap.
- * When the index grows past 50k, this should split into sitemap-index files
- * per `app/sitemap.ts` header note.
+ * Quality gate (INC-2026-07-20-66): `SITEMAP_CANDIDATE_WHERE` prunes
+ * candidates in the DB, then each row's LATEST snapshot goes through
+ * `passesBizIndexGate` — the same predicate `/biz/[slug]`'s
+ * `generateMetadata` uses for its robots decision, so the sitemap can never
+ * list a page that declares `noindex`.
+ *
+ * Bounded by `limit` — the binding constraint is Vercel's 10MB
+ * CDN-cacheable response cap, NOT Google's 50k-URL cap: measured density is
+ * ~2.98KB per business (4 locale entries × 5 hreflang alternates each), so
+ * ~3,300 gated businesses ≈ 10MB. Plan the sitemapindex + per-shard split
+ * at ~2,500 gated businesses (perf audit 2026-07-20).
  *
  * `lastModified` is the latest snapshot date when present, else the
- * business's `updatedAt`. Both are stable absolute dates so PPR prerender
- * is happy (no `new Date()`).
+ * business's `updatedAt`. Both are stable stored dates (no `new Date()`,
+ * INC-09).
+ *
+ * NO try/catch — deliberate; see file header. The route handler maps
+ * errors to an uncacheable 503 so crawlers keep their last-good copy.
  */
 export async function listBizSitemapEntries(
   limit = 5000,
@@ -164,31 +190,52 @@ export async function listBizSitemapEntries(
   cacheLife("hours");
   cacheTag("biz-sitemap");
 
+  // INC-27 guard. Unreachable today — the only consumer
+  // (app/sitemap.xml/route.ts) is request-time via `await connection()`.
+  // NOTE: this guard does NOT make a future prerendered consumer safe — if
+  // one executed this at build, the baked [] would share the cache key and
+  // trip the route's shrink guard (503) until the cacheLife window expires.
+  // The real safety is the route's shrink guard + the CDN's stale-good copy.
+  // Keep new consumers request-time.
   if (process.env.NEXT_PHASE === "phase-production-build") {
     return [];
   }
 
-  try {
-    const rows = await prisma.business.findMany({
-      where: { isActive: true },
-      take: limit,
-      orderBy: { slug: "asc" },
-      select: {
-        slug: true,
-        updatedAt: true,
-        snapshots: {
-          take: 1,
-          orderBy: { snapshotDate: "desc" },
-          select: { snapshotDate: true },
-        },
+  const rows = await prisma.business.findMany({
+    where: SITEMAP_CANDIDATE_WHERE,
+    take: limit,
+    orderBy: { slug: "asc" },
+    select: {
+      slug: true,
+      website: true,
+      reviewCount: true,
+      isHidden: true,
+      permanentlyClosed: true,
+      suppressedAt: true,
+      updatedAt: true,
+      snapshots: {
+        take: 1,
+        orderBy: { snapshotDate: "desc" },
+        select: { snapshotDate: true, mapslyScore: true, pillarScore: true },
       },
-    });
+    },
+  });
 
-    return rows.map((r) => ({
+  return rows
+    .filter((r) => {
+      const snap = r.snapshots[0];
+      return passesBizIndexGate({
+        website: r.website,
+        reviewCount: r.reviewCount,
+        isHidden: r.isHidden,
+        permanentlyClosed: r.permanentlyClosed,
+        suppressedAt: r.suppressedAt,
+        mapslyScore: snap?.mapslyScore ?? null,
+        pillarScore: snap?.pillarScore ?? null,
+      });
+    })
+    .map((r) => ({
       slug: r.slug,
       lastModified: r.snapshots[0]?.snapshotDate ?? r.updatedAt,
     }));
-  } catch {
-    return [];
-  }
 }

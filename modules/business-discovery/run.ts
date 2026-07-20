@@ -259,7 +259,10 @@ export async function runDiscoveryForLocation(input: {
 
   revalidateTag("admin-discovery", "seconds");
   if (newBusinesses > 0) {
-    revalidateTag("seo-sitemap", "days");
+    // Must match the cacheTag in listBizSitemapEntries — this fired
+    // "seo-sitemap" (a tag nothing listens to) until INC-2026-07-20-66.
+    // Profile matches the query's cacheLife("hours").
+    revalidateTag("biz-sitemap", "hours");
   }
 
   return {
