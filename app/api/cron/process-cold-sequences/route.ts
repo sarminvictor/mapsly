@@ -132,6 +132,11 @@ export async function processColdSequences(
           id: true,
           email: true,
           businessId: true,
+          // Per-recipient personalization bag for NON-business recipients
+          // (agency outreach): plain-string tokens merged into the template
+          // token map below. Business-cohort recipients ignore it (their copy
+          // is code-generated from live signals).
+          context: true,
           reportToken: true,
           status: true,
           // Prior touches' senders — rotate so this touch goes from a mailbox
@@ -241,7 +246,23 @@ export async function processColdSequences(
       subject = email.subject;
       renderedBody = email.body;
     } else {
-      const tokens = await buildTokens(r.businessId, { reportUrl, senderName });
+      // businessId=null path (agency outreach): merge the recipient's stored
+      // context bag over the generic tokens so DB templates can use
+      // {{firstName}} {{agencyName}} {{evidenceLine}} etc. Context values are
+      // plain strings baked at enroll time; template engine treats ""/missing
+      // as falsy for {{#if}} guards.
+      const contextTokens =
+        r.context && typeof r.context === "object" && !Array.isArray(r.context)
+          ? Object.fromEntries(
+              Object.entries(r.context as Record<string, unknown>)
+                .filter(([, v]) => typeof v === "string")
+                .map(([k, v]) => [k, v as string]),
+            )
+          : {};
+      const tokens = {
+        ...(await buildTokens(r.businessId, { reportUrl, senderName })),
+        ...contextTokens,
+      };
       subject = renderTemplate(step.subjectTemplate, tokens, spinSeed);
       renderedBody = renderTemplate(step.bodyTemplate, tokens, spinSeed);
     }
