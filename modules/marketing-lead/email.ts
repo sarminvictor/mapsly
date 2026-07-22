@@ -6,6 +6,7 @@
  */
 
 import prisma from "@/lib/prisma";
+import { renderEmailShell, escapeEmailHtml } from "@/lib/email/shell";
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
@@ -52,6 +53,14 @@ export async function sendReportConfirmation(opts: {
         to: opts.to,
         subject: "Your free Mapsly report is on the way",
         text,
+        html: renderEmailShell({
+          heading: "Your free report is on the way",
+          bodyHtml:
+            `Thanks for requesting your free report for <b>${escapeEmailHtml(opts.businessName)}</b>.<br/><br/>` +
+            "We're pulling your data now — your reviews, your ratings, and the customers going to nearby businesses. We'll email your report within one business day.<br/><br/>Keep an eye on your inbox.",
+          reason:
+            "You're receiving this because you requested a free report on mapsly.ai.",
+        }),
       }),
       signal: AbortSignal.timeout(10_000),
     });

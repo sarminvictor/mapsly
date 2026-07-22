@@ -11,6 +11,8 @@
 // someone else's business by typing their email — control of the inbox is the
 // proof, exactly like a magic link.
 
+import { renderEmailShell } from "@/lib/email/shell";
+
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
 function resendKey(): string | undefined {
@@ -56,6 +58,15 @@ export async function sendOptOutVerification(opts: {
         to: opts.to,
         subject: "Confirm your Mapsly opt-out request",
         text,
+        html: renderEmailShell({
+          heading: "Confirm your opt-out request",
+          bodyHtml:
+            "You (or someone) asked to remove this business's information from Mapsly.<br/><br/>" +
+            "To confirm, click the button below. If you didn't request this, ignore this email — nothing changes unless you click.",
+          cta: { label: "Confirm removal", url: opts.verifyUrl },
+          reason:
+            "You're receiving this because an opt-out was requested for a business associated with this address.",
+        }),
       }),
     });
     return true;

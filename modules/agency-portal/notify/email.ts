@@ -13,6 +13,8 @@
 // § Agency. Mobile-friendly HTML (WP7-11 re-checks at 380px): a single-column
 // max-560px table, inline styles only (email clients strip <style>), one button.
 
+import { renderEmailShell } from "@/lib/email/shell";
+
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
 function resendKey(): string | undefined {
@@ -86,20 +88,14 @@ function emailShell(opts: {
   ctaUrl: string;
   footer: string;
 }): string {
-  return [
-    `<div style="background:#f6f7fb;padding:24px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a1a2e;">`,
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e6e8f0;border-radius:12px;">`,
-    `<tr><td style="padding:24px 24px 8px;">`,
-    `<div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#5b3df5;font-weight:600;">Mapsly</div>`,
-    `<h1 style="font-size:20px;line-height:1.3;margin:8px 0 0;color:#1a1a2e;">${opts.heading}</h1>`,
-    `</td></tr>`,
-    `<tr><td style="padding:8px 24px 4px;font-size:14px;line-height:1.55;color:#3a3a52;">${opts.bodyHtml}</td></tr>`,
-    `<tr><td style="padding:16px 24px 24px;">`,
-    `<a href="${opts.ctaUrl}" style="display:inline-block;background:#5b3df5;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:11px 20px;border-radius:8px;">${esc(opts.ctaLabel)} →</a>`,
-    `</td></tr>`,
-    `<tr><td style="padding:0 24px 24px;font-size:12px;line-height:1.5;color:#8a8aa0;border-top:1px solid #eef0f6;padding-top:16px;">${opts.footer}</td></tr>`,
-    `</table></div>`,
-  ].join("");
+  // Delegates to the shared house shell (lib/email/shell.ts) so every
+  // transactional email renders identically — standard footer included.
+  return renderEmailShell({
+    heading: opts.heading,
+    bodyHtml: opts.bodyHtml,
+    cta: { label: opts.ctaLabel, url: opts.ctaUrl },
+    reason: opts.footer,
+  });
 }
 
 // ── WP6-3 · run-finished ─────────────────────────────────────────────────────
@@ -147,12 +143,12 @@ export async function sendRunFinished(
       : `Enriched ${opts.enriched.toLocaleString()} lead${opts.enriched === 1 ? "" : "s"}${failLine}${refundLine}. You only paid for the leads that landed.`;
 
   const html = emailShell({
-    heading: esc(heading),
+    heading, // shared shell escapes
     bodyHtml: `<p style="margin:0 0 4px;">${esc(summary)}</p>`,
     ctaLabel:
       opts.outcome === "FAILED" ? "Retry in the workbench" : "See your leads",
     ctaUrl: opts.workbenchUrl,
-    footer: `${esc(opts.agencyName)} · Mapsly. You get this because you started an enrichment run.`,
+    footer: `${opts.agencyName} · Mapsly. You get this because you started an enrichment run.`,
   });
 
   const text = [
@@ -215,7 +211,7 @@ export async function sendAgencyDigest(
     bodyHtml: `${rows}<p style="margin:12px 0 0;color:#8a8aa0;font-size:13px;">Re-enrich to pull the latest signals into your workbench.</p>`,
     ctaLabel: "Open my research",
     ctaUrl: opts.researchUrl,
-    footer: `${esc(opts.agencyName)} · Mapsly weekly digest. Reflects the past week's refreshed data across your active researches.`,
+    footer: `${opts.agencyName} · Mapsly weekly digest. Reflects the past week's refreshed data across your active researches.`,
   });
 
   const text = [

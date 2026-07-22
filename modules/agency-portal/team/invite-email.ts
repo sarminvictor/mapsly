@@ -9,6 +9,8 @@
 // Agency voice (the recipient is a teammate joining a tool): terse, direct,
 // no fluff — per .claude/rules/copy-voice.md § Agency.
 
+import { renderEmailShell, escapeEmailHtml } from "@/lib/email/shell";
+
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
 function resendKey(): string | undefined {
@@ -57,6 +59,15 @@ export async function sendInviteEmail(
         to: opts.to,
         subject: `${opts.agencyName} · you're invited to Mapsly`,
         text,
+        html: renderEmailShell({
+          heading: `Join ${opts.agencyName} on Mapsly`,
+          bodyHtml:
+            `<b>${escapeEmailHtml(opts.inviterEmail)}</b> invited you to <b>${escapeEmailHtml(opts.agencyName)}</b> (role: ${escapeEmailHtml(opts.role.toLowerCase())}).<br/><br/>` +
+            "Mapsly is the team's prospecting workspace — shared researches, leads, and outreach drafts, one pooled credit wallet.<br/><br/>Sign in with this email address to accept. The link expires in 7 days.",
+          cta: { label: "Accept the invite", url: opts.acceptUrl },
+          reason:
+            "You're receiving this because a Mapsly workspace invited this address. If you weren't expecting it, ignore this email.",
+        }),
       }),
       signal: AbortSignal.timeout(10_000),
     });

@@ -63,6 +63,50 @@ async function ShareBody({ params }: { params: Promise<{ token: string }> }) {
 
   return (
     <div style={{ background: "#f6f7fb", minHeight: "100vh", padding: "24px" }}>
+      {/* Product CTA — screen-only (the print/PDF artifact stays clean; the
+          @media print isolation in report.module.css hides everything outside
+          the sheet). The share page is the viral surface: whoever's reading
+          this audit is a prospecting-adjacent visitor. */}
+      <div
+        style={{
+          maxWidth: 820,
+          margin: "0 auto 14px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          background: "#ffffff",
+          border: "1px solid #e2e8f0",
+          borderRadius: 12,
+          padding: "12px 18px",
+          fontFamily:
+            "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        }}
+      >
+        <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.4 }}>
+          <span style={{ fontWeight: 700, color: "#0f172a" }}>
+            Audits like this, for any local market.
+          </span>{" "}
+          Mapsly scores whole markets — reviews, site speed, search rank, ads —
+          with contacts included.
+        </div>
+        <a
+          href="https://www.mapsly.ai/for-agencies"
+          style={{
+            flexShrink: 0,
+            background: "#5b3df5",
+            color: "#ffffff",
+            textDecoration: "none",
+            fontWeight: 600,
+            fontSize: 13,
+            padding: "9px 16px",
+            borderRadius: 8,
+            whiteSpace: "nowrap",
+          }}
+        >
+          Get your market free →
+        </a>
+      </div>
       <ProofPackSheet
         lead={resolved.lead}
         agencyName={resolved.agencyName}

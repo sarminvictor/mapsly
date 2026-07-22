@@ -39,6 +39,36 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     Resend({
       apiKey: RESEND_API_KEY,
       from: process.env.RESEND_FROM_EMAIL ?? "login@mapsly.ai",
+      // Branded magic-link email (house shell) — the provider default is an
+      // unstyled bare link with no footer (owner feedback 2026-07-22).
+      async sendVerificationRequest({ identifier, url, provider }) {
+        const { renderEmailShell } = await import("@/lib/email/shell");
+        const res = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${provider.apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: provider.from,
+            to: identifier,
+            subject: "Sign in to Mapsly",
+            html: renderEmailShell({
+              heading: "Sign in to Mapsly",
+              bodyHtml:
+                "Click the button below to sign in. The link works once and expires in 24 hours.",
+              cta: { label: "Sign in", url },
+              reason:
+                "You're receiving this because a sign-in link was requested for this address. If that wasn't you, ignore this email.",
+            }),
+            text: `Sign in to Mapsly:\n\n${url}\n\nThe link works once and expires in 24 hours. If you did not request it, ignore this email.`,
+          }),
+          signal: AbortSignal.timeout(10_000),
+        });
+        if (!res.ok) {
+          throw new Error(`resend signin email failed: ${res.status}`);
+        }
+      },
     }),
     // "Continue with Google" — a one-click alternative to the magic link. It's
     // provider-agnostic downstream: like the magic link it lands the user on
