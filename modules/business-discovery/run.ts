@@ -257,12 +257,20 @@ export async function runDiscoveryForLocation(input: {
     }),
   ]);
 
-  revalidateTag("admin-discovery", "seconds");
-  if (newBusinesses > 0) {
-    // Must match the cacheTag in listBizSitemapEntries — this fired
-    // "seo-sitemap" (a tag nothing listens to) until INC-2026-07-20-66.
-    // Profile matches the query's cacheLife("hours").
-    revalidateTag("biz-sitemap", "hours");
+  // Guarded like every sibling module (website-intel, ads-intel,
+  // harvest-pending): revalidateTag only works inside a Next request/render
+  // scope. From a standalone script (scripts/seed-cell.ts) the rows are
+  // already written; the next cached read picks them up.
+  try {
+    revalidateTag("admin-discovery", "seconds");
+    if (newBusinesses > 0) {
+      // Must match the cacheTag in listBizSitemapEntries — this fired
+      // "seo-sitemap" (a tag nothing listens to) until INC-2026-07-20-66.
+      // Profile matches the query's cacheLife("hours").
+      revalidateTag("biz-sitemap", "hours");
+    }
+  } catch {
+    // Non-request scope · revalidate is best-effort.
   }
 
   return {

@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phase 1 · Automated pipeline plan · 2026-07-21</title>
+    <style>
+      :root {
+        --ink: #1a1d27;
+        --muted: #5b6172;
+        --bg: #f6f7fb;
+        --card: #fff;
+        --line: #e4e6ef;
+        --indigo: #5b3df5;
+        --indigo-soft: #efeaff;
+        --green: #0f7b4d;
+        --green-soft: #e3f4ec;
+        --red: #b3261e;
+        --red-soft: #fbe9e7;
+        --amber: #8a5a00;
+        --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          15px/1.5 Inter,
+          system-ui,
+          sans-serif;
+        padding: 0 0 70px;
+      }
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+      header {
+        background: linear-gradient(135deg, #1a1d27, #2b2350);
+        color: #fff;
+        padding: 34px 0 28px;
+        margin-bottom: 26px;
+      }
+      h1 {
+        font-size: 25px;
+        margin: 0 0 6px;
+      }
+      .sub {
+        color: #c9c4ea;
+        font-size: 14px;
+      }
+      .pill {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border-radius: 999px;
+        padding: 2px 10px;
+        font-size: 11.5px;
+        margin-right: 6px;
+        font-family: var(--mono);
+      }
+      h2 {
+        font-size: 19px;
+        margin: 34px 0 4px;
+      }
+      h2 .n {
+        display: inline-block;
+        background: var(--indigo);
+        color: #fff;
+        border-radius: 8px;
+        padding: 1px 10px;
+        font-family: var(--mono);
+        font-size: 14px;
+        margin-right: 9px;
+      }
+      .lede {
+        color: var(--muted);
+        margin: 0 0 10px;
+        font-size: 13.5px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        background: var(--card);
+      }
+      .tblwrap {
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        margin: 10px 0;
+      }
+      th {
+        background: #f0f1f7;
+        text-align: left;
+        padding: 8px 10px;
+        font-size: 11.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+      }
+      td {
+        padding: 7px 10px;
+        border-top: 1px solid var(--line);
+        vertical-align: top;
+      }
+      code {
+        font-family: var(--mono);
+        font-size: 0.88em;
+        background: #eef0f6;
+        border-radius: 4px;
+        padding: 1px 5px;
+        white-space: nowrap;
+      }
+      td code {
+        white-space: normal;
+        word-break: break-all;
+      }
+      .who {
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 700;
+        white-space: nowrap;
+        border-radius: 6px;
+        padding: 1px 7px;
+      }
+      .w-c {
+        background: var(--indigo-soft);
+        color: var(--indigo);
+      }
+      .w-v {
+        background: #fff3d6;
+        color: var(--amber);
+      }
+      .verdict {
+        background: var(--indigo-soft);
+        border: 1px solid #d5c9ff;
+        border-radius: 10px;
+        padding: 13px 17px;
+        margin: 12px 0;
+        font-size: 14px;
+      }
+      .warn {
+        background: var(--red-soft);
+        border: 1px solid #f3c3bd;
+        border-radius: 10px;
+        padding: 11px 15px;
+        margin: 10px 0;
+        font-size: 13.5px;
+      }
+      ul {
+        margin: 6px 0;
+        padding-left: 20px;
+      }
+      li {
+        margin: 3px 0;
+      }
+      .foot {
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 36px;
+        border-top: 1px solid var(--line);
+        padding-top: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap">
+        <div style="margin-bottom: 8px">
+          <span class="pill">PHASE 1 · EXECUTION</span
+          ><span class="pill">2026-07-21</span
+          ><span class="pill">fully automated · UI = verification only</span>
+        </div>
+        <h1>
+          Pipeline: seed markets → ingest agencies → personalized outreach
+        </h1>
+        <div class="sub">
+          Everything runs as scripts on existing code. <b>One</b> production
+          code change, <b>two</b> approvals from Viktor (the /ship, the
+          preview). Legend: <span class="who w-c">CLAUDE</span> automated by me
+          · <span class="who w-v">VIKTOR</span> your action.
+        </div>
+      </div>
+    </header>
+    <div class="wrap">
+      <div class="verdict">
+        <b>Total new code: 1 prod edit + 6 scripts.</b> The cold system already
+        supports agency recipients natively:
+        <code>ColdRecipient.businessId = null</code> automatically routes to DB
+        templates (never the hardcoded med-spa engine), and the dormant
+        <code>ColdRecipient.context</code> JSON field carries per-recipient
+        personalization ({{firstName}}, {{agencyName}}, {{evidenceLine}}).
+        Compliance (unsubscribe, postal footer, suppression, bounce/reply
+        detection) applies automatically. Budget: ≤$20 vendor spend. Parked by
+        your decision: AI-search signal (needs DataForSEO $100/mo — revisit when
+        subscriptions cover it).
+      </div>
+
+      <h2>
+        <span class="n">0</span>Prerequisite ship — 1 small code edit
+        <span class="who w-v">VIKTOR: 1 approval</span>
+      </h2>
+      <p class="lede">
+        <b>Why in plain words:</b> our mailer fills email templates with data
+        about the recipient — but today it only knows how to look up SMBs from
+        our Business table. Agencies aren't in that table, so their emails would
+        render as "Hi there" with an empty evidence line. The fix: each agency
+        recipient carries a small data bag ({firstName, agencyName,
+        evidenceLine}) in a DB field that already exists but was never used —
+        the edit (~5 lines) tells the mailer "also read this bag when filling
+        the template." No schema change, zero risk to the SMB path. It must
+        deploy because the mailer runs in production (Vercel cron), not on my
+        machine.
+      </p>
+      <div class="tblwrap">
+        <table>
+          <tr>
+            <th>#</th>
+            <th></th>
+            <th>Action</th>
+            <th>How</th>
+            <th>Verify</th>
+          </tr>
+          <tr>
+            <td>0.1</td>
+            <td><span class="who w-c">CLAUDE</span></td>
+            <td>
+              Merge <code>ColdRecipient.context</code> into template tokens
+            </td>
+            <td>
+              Edit
+              <code>app/api/cron/process-cold-sequences/route.ts</code> (select
+              <code>context</code> at :130, merge into tokens at :244) — the
+              only prod change the whole plan needs
+            </td>
+            <td>
+              <code>deploy-check</code> green → <b>/ship</b> (your approval)
+            </td>
+          </tr>
+          <tr>
+            <td>0.2</td>
+            <td><span class="who w-c">CLAUDE</span></td>
+            <td>Mailbox restart (idle 30+ days)</td>
+            <td>
+              <code>scripts/agency-mailbox-prep.ts</code>: sync boxes from env,
+              status ACTIVE, <b>reset rampStartedAt = now</b> (direct DB —
+              load-bearing: stale ramp would jump to full cap and trip Zoho)
+            </td>
+            <td>
+              <code>/admin/email</code> → all boxes ACTIVE, ramp day 0 (cap
+              3/box/day); send seed test
+            </td>
+          </tr>
+          <tr>
+            <td>0.3</td>
+            <td><span class="who w-c">CLAUDE</span></td>
+            <td>DNS health check on mapsly.xyz</td>
+            <td>
+              Verify SPF/DKIM/DMARC still aligned (dig) — agency owners are the
+              most spam-literate audience possible; they check
+            </td>
+            <td>dig output in report</td>
+          </tr>
+        </table>
+      </div>
+
+      <h2>
+        <span class="n">A</span>Seed 5 cells — markets + signals
+        <span class="who w-c">CLAUDE · ~1 day · ≤$20</span>
+      </h2>
+      <p class="lede">
+        One script, run per cell:
+        <code>pnpm tsx scripts/seed-cell.ts --category=X --city=Y</code>.
+        Pipeline inside (all existing functions, same ones the UI calls):
+        discovery → qualify (contacts+tech) → reviews → deep Maps rank + SERP →
+        Lighthouse → Google Ads → score in-process (<code
+          >writeSnapshotsForBusinessIds({skipGate:true})</code
+        >
+        → cell aggregation → pillar scoring — $0, bypasses the paid-cell gate
+        correctly) → tier-1 gate assert.
+      </p>
+      <div class="tblwrap">
+        <table>
+          <tr>
+            <th>Cell</th>
+            <th>Researches (official paths)</th>
+            <th>Cost</th>
+            <th>Serves</th>
+          </tr>
+          <tr>
+            <td><b>Scottsdale × med spa</b></td>
+            <td rowspan="5">
+              Standard research types, run through the normal rails — no
+              signal-by-signal special-casing:<br /><b>discovery</b> (free) →
+              <b>contacts</b> (tech + booking-tool fingerprint ride along) →
+              <b>reviews</b> → <b>lighthouse</b> → <b>serp</b> (deep Maps rank)
+              → <b>google_ads</b> → scoring.<br /><b>Not run:</b> meta_ads
+              (fragile), ai_research (not needed for pitch), AI-search (parked,
+              $100/mo).
+            </td>
+            <td class="num">~$2–4</td>
+            <td>Every med-spa agency (the industry's capital)</td>
+          </tr>
+          <tr>
+            <td><b>Boise × med spa</b> (enrich existing 48 rows)</td>
+            <td class="num">~$1–2</td>
+            <td>Diamond Accelerator's backyard</td>
+          </tr>
+          <tr>
+            <td><b>Austin × dental</b></td>
+            <td class="num">~$2–4</td>
+            <td>Dental wave · growth-story demo</td>
+          </tr>
+          <tr>
+            <td><b>Frisco/Plano × dental</b></td>
+            <td class="num">~$2–4</td>
+            <td>Backyard of Magnify + Edify + TNT (wave-1 targets)</td>
+          </tr>
+          <tr>
+            <td><b>Tampa × dental</b></td>
+            <td class="num">~$2–4</td>
+            <td>FL density · eNox backyard</td>
+          </tr>
+        </table>
+      </div>
+      <div class="tblwrap">
+        <table>
+          <tr>
+            <th>#</th>
+            <th></th>
+            <th>Step</th>
+            <th>Verify (browser)</th>
+          </tr>
+          <tr>
+            <td>A.1</td>
+            <td><span class="who w-c">CLAUDE</span></td>
+            <td>
+              Create category+location, run discovery per cell
+              (<code>runDiscoveryForLocation</code>, ≤1000/page, crash-safe)
+            </td>
+            <td>
+              <code>/admin/discovery</code> — run OK, business counts per cell
+            </td>
+          </tr>
+          <tr>
+            <td>A.2</td>
+            <td><span class="who w-c">CLAUDE</span></td>
+            <td>
+              Enrich: qualify → reviews (poll-harvest) → search scan →
+              Lighthouse → Google Ads
+            </td>
+            <td>
+              <code>/admin/cells</code> + <code>/admin/businesses</code> —
+              enrichment coverage columns
+            </td>
+          </tr>
+          <tr>
+            <td>A.3</td>
+            <td><span class="who w-c">CLAUDE</span></td>
+            <td>
+              Score in-process + assert ≥40 businesses/cell pass tier-1 gate
+            </td>
+            <td>
+              <code>/biz/[slug]</code> spot-checks show score + rank; sitemap
+              count rises automatically (the gate we shipped picks them up)
+            </td>
+          </tr>
+          <tr>
+            <td>A.4</td>
+            <td><span class="who w-c">CLAUDE</span></td>
+            <td>
+              Cost audit: sum <code>CronRun.costUsd</code> (job prefix
+              <code>script:</code>) + <code>TrackedLocation.totalCostUsd</code>
+            </td>
+            <td>Numbers in my report to you; hard stop if any cell &gt; $5</td>
+          </tr>
+          <tr>
+            <td>A.5</td>
+            <td><span class="who w-c">CLAUDE</span></td>
+            <td>
+              Demo-quality check via Chrome: open the agency workbench on every
+              seeded market as a user would — non-empty results, evidence
+              renders, contacts present; screenshots in my report
+            </td>
+            <td>
+              <code>/discover</code> via browser (me); your eyeball optional
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <h2>
+        <span class="n">B</span>Build the pool: 150+ agencies → 50+ verified
+        PERSONAL emails <span class="who w-c">CLAUDE · ~$2</span>
+      </h2>
+      <p class="lede">
+        Your point taken: the 88-row research list won't yield 50 personal
+        emails after role-address filtering. So the pool grows first — target
+        <b>150+ fit-verified agencies</b>, so after email discovery (~60–70% hit
+        rate) and personal-only filtering we still land ≥50.
+      </p>
+      <div class="tblwrap">
+        <table>
+          <tr>
+            <th>#</th>
+            <th></th>
+            <th>Step</th>
+            <th>How</th>
+            <th>Verify</th>
+          </tr>
+          <tr>
+            <td>B.0</td>
+            <td><span class="who w-c">CLAUDE</span></td>
+            <td><b>Expand the pool via DFS + AI agents</b></td>
+            <td>
+              (a) DataForSEO SERP: top-100 organic for ~20 niche queries
+              ("dental marketing agency", "dental seo company", "med spa
+              marketing agency"…) → dedupe domains (~300–500 raw); (b) research
+              agents verify fit per domain (small, vertical-pure,
+              retainer-based, founder findable) → 150+ pass
+            </td>
+            <td>Pool stats + fit-filter counts in my report</td>
+          </tr>
+          <tr>
+            <td>B.1</td>
+            <td><span class="who w-c">CLAUDE</span></td>
+            <td>Merge with the 88 verified rows, rank by fit</td>
+            <td>
+              → <code>scripts/data/agency-targets.json</code> {name, domain,
+              vertical, firstName, fitScore}
+            </td>
+            <td>Top-50 list in my report</td>
+          </tr>
+          <tr>
+            <td>B.2</td>
+            <td><span class="who w-c">CLAUDE</span></td>
+            <td>Discover PERSONAL emails ($0)</td>
+            <td>
+              <code>scripts/agency-ingest.ts</code>: free DOM fetch on /,
+              /about, /contact, /team → <code>parseContacts</code> → keep
+              personal addresses only (chris@, jsmith@), drop role
+              (info@/hello@) + vendor hits; AI-agent fallback for
+              Cloudflare-blocked sites (LinkedIn/podcast pages)
+            </td>
+            <td>Personal-email count — gate: ≥50 before Stage C starts</td>
+          </tr>
+          <tr>
+            <td>B.3</td>
+            <td><span class="who w-c">CLAUDE</span></td>
+            <td>SMTP-verify every email</td>
+            <td>
+              <code>smtpVerifyEmail</code> inside
+              <code>withCronRun('script:agency-email-verify')</code> — keep
+              deliverable, drop undeliverable
+            </td>
+            <td><code>/admin/cron-runs</code> — the verification run + cost</td>
+          </tr>
+        </table>
+      </div>
+
+      <h2>
+        <span class="n">C</span>Campaign: personalized drafts → your review →
+        send <span class="who w-v">VIKTOR: 1 preview approval</span>
+      </h2>
+      <div class="tblwrap">
+        <table>
+          <tr>
+            <th>#</th>
+            <th></th>
+            <th>Step</th>
+            <th>How</th>
+            <th>Verify</th>
+          </tr>
+          <tr>
+            <td>C.1</td>
+            <td><span class="who w-c">CLAUDE</span></td>
+            <td>Create campaign, stays <b>DRAFT</b></td>
+            <td>
+              <code>scripts/agency-campaign-setup.ts</code>: 2 touches (day 0 +
+              day 4), &lt;80-word bodies, spintax variants, tokens {{firstName}}
+              {{agencyName}} {{evidenceLine}}; 9–17 ET weekdays; no links in
+              touch 1
+            </td>
+            <td>
+              <code>/admin/email/campaigns/[id]</code> — step editor (you can
+              hand-edit copy)
+            </td>
+          </tr>
+          <tr>
+            <td>C.2</td>
+            <td><span class="who w-c">CLAUDE</span></td>
+            <td>
+              Enroll <b>wave 1 = 15</b> (8 med spa + 7 dental) with baked
+              evidence
+            </td>
+            <td>
+              <code>scripts/agency-enroll.ts</code>: computes ONE real evidence
+              string per recipient from their vertical's seeded cell (disjoint
+              rows per agency — no shared samples),
+              <code>businessId=null</code> (asserted — non-null would fire the
+              med-spa SMB copy), writes ConsentRecord, checks suppression
+            </td>
+            <td>Recipient counts on campaign page</td>
+          </tr>
+          <tr>
+            <td>C.3</td>
+            <td><span class="who w-c">CLAUDE</span></td>
+            <td><b>Approval package for you</b></td>
+            <td>
+              (a) HTML preview: every recipient × every touch rendered with
+              their REAL data, one page; (b)
+              <b>test emails to sarminvictor@gmail.com</b> — 3–5 sample
+              recipients' actual emails sent through the real mailer (real
+              From-mailbox, footer, unsubscribe link) so your inbox shows
+              exactly what an agency gets
+            </td>
+            <td>
+              <span class="who w-v">VIKTOR</span> eyeballs inbox + preview →
+              <b>replies "approved" or edits</b>
+            </td>
+          </tr>
+          <tr>
+            <td>C.4</td>
+            <td><span class="who w-c">CLAUDE</span></td>
+            <td>Activate only after your approval</td>
+            <td>
+              Campaign → ACTIVE. The existing 15-min cron + ramp caps do the
+              rest: day-0 cap 3/box/day → wave 1 spreads naturally (small
+              batches for free), rotation, jitter, suppression, unsubscribe,
+              postal footer all automatic
+            </td>
+            <td>
+              <code>/admin/email</code> — sends, bounces, opens (auto-refresh)
+            </td>
+          </tr>
+          <tr>
+            <td>C.5</td>
+            <td>
+              <span class="who w-c">CLAUDE</span> +
+              <span class="who w-v">VIKTOR</span>
+            </td>
+            <td>Replies</td>
+            <td>
+              IMAP poller stops sequences on reply + alerts. I draft the
+              response (feedback questions + product link with their market);
+              <b>you send it</b> — replies stay personal
+            </td>
+            <td>Reply threads in your inbox</td>
+          </tr>
+          <tr>
+            <td>C.6</td>
+            <td><span class="who w-c">CLAUDE</span></td>
+            <td>
+              Waves 2–3 (15 + 20) weekly, iterating template on what wave 1
+              taught
+            </td>
+            <td>Same scripts, new cohort; evidence refreshed from cells</td>
+            <td>
+              Weekly one-paragraph report: sends, replies, signups, feedback
+              learnings
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="warn">
+        <b>Hard rules baked into the scripts:</b> ① never set
+        <code>businessId</code> on agency recipients (fires the wrong copy
+        engine) ② emailed evidence = business names + numbers only,
+        <b>no owner contacts</b> (ToS sidestep; contacts live in-product) ③ only
+        claims verifiable in our seeded cells ④ exactly ONE campaign ACTIVE at a
+        time (the old Miami campaign shares mailbox caps) ⑤ role addresses
+        filtered ⑥ kill switches: global pause toggle, campaign PAUSE,
+        per-mailbox PAUSE, <code>COLD_GLOBAL_PAUSE=1</code>.
+      </div>
+
+      <h2><span class="n">D</span>Gates (from the research — unchanged)</h2>
+      <ul>
+        <li>
+          <b>Judge the message only after ~25 sends across both verticals</b>
+          (July–Aug is agency slow season).
+        </li>
+        <li>
+          <b>Automation graduation gate:</b> 25+ conversations · ≥10% reply · ≥3
+          agencies pitched from our data · ≥1 paying · Sean Ellis ≥40%. Until
+          then: first touches stay small-wave and template-reviewed.
+        </li>
+        <li>
+          <b>Kill gates:</b> 25+ dental conversations with no payer → weight to
+          med spa; both fail → home services probes (RS Gonzales, Roofing REV,
+          Polianna).
+        </li>
+      </ul>
+
+      <h2 style="margin-top: 30px">
+        <span class="n">T</span>Effort — T-shirt sizes (S ≈ under 1h · M ≈ a few
+        hours · L ≈ many hours)
+      </h2>
+      <div class="tblwrap">
+        <table>
+          <tr>
+            <th>Stage</th>
+            <th>Size</th>
+            <th>Your part</th>
+          </tr>
+          <tr>
+            <td><b>0</b> · code edit + ship + mailbox prep + DNS check</td>
+            <td class="num">S</td>
+            <td>1 min (/ship approval)</td>
+          </tr>
+          <tr>
+            <td><b>A</b> · seed 5 cells + score + browser demo check</td>
+            <td class="num">M</td>
+            <td>none (I verify via Chrome)</td>
+          </tr>
+          <tr>
+            <td>
+              <b>B</b> · pool expansion (DFS + agents) + personal-email
+              discovery + verify
+            </td>
+            <td class="num">M</td>
+            <td>none</td>
+          </tr>
+          <tr>
+            <td><b>C</b> · campaign + wave-1 enroll + approval package</td>
+            <td class="num">S</td>
+            <td>10–15 min (inbox + preview eyeball)</td>
+          </tr>
+          <tr>
+            <td>Per wave thereafter</td>
+            <td class="num">S</td>
+            <td>replies + ~15 min/wave</td>
+          </tr>
+        </table>
+      </div>
+      <p class="lede">
+        Only real-world waits are outside our control: enrichment vendor queues
+        (minutes–hours) and mailbox ramp (3→18/box/day over ~8 days —
+        deliverability physics, not effort).
+      </p>
+
+      <div class="foot">
+        Mapsly · Phase 1 pipeline · 2026-07-21 ·
+        <code>docs/phase1-pipeline-plan-2026-07-21.html</code> · companions:
+        niche research (07-21) + GTM strategy (07-20). Mechanics verified
+        against code by 2 recon agents (exact file:line refs in session
+        transcript). Nothing executed yet — Step 0 starts on your go.
+      </div>
+    </div>
+  </body>
+</html>

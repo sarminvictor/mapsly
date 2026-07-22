@@ -392,6 +392,13 @@ export interface LeadDetail {
   angles: LeadPainChip[];
   // ── 6. Data-domain blocks ──
   domains: LeadDomainBlock[];
+  /** Market ad context — latest cell AdMarketRun advertiser counts. Lets the
+   *  Proof Pack render absence honestly: "no active ads — while N businesses
+   *  in this market run them". Null = that platform never scanned this cell. */
+  marketAds: {
+    metaAdvertisers: number | null;
+    googleAdvertisers: number | null;
+  };
   /** Always-free GBP Profile block (photos / claimed / years / hours /
    *  attributes / description / Maps link) — Data section, listing-labelled. */
   profile: LeadProfile;
@@ -514,6 +521,7 @@ export async function getLeadDetail(
     reviewAgg,
     recentReviews,
     coverageRows,
+    marketAdRuns,
   ] = await Promise.all([
     // The business already passed the agency cell gate above; scoping the Lead
     // to the same agencyId is enough (a Lead is owned by exactly one agency).
@@ -697,7 +705,21 @@ export async function getLeadDetail(
       [{ id: business.id, cellKey: business.cellKey }],
       agencyId,
     ),
+    // Market ad context — newest run per platform for this business's cell.
+    prisma.adMarketRun.findMany({
+      where: { cellKey: business.cellKey, status: { in: ["OK", "PARTIAL"] } },
+      orderBy: { ranAt: "desc" },
+      take: 6,
+      select: { platform: true, advertiserCount: true },
+    }),
   ]);
+  const marketAds = {
+    metaAdvertisers:
+      marketAdRuns.find((r) => r.platform === "META")?.advertiserCount ?? null,
+    googleAdvertisers:
+      marketAdRuns.find((r) => r.platform === "GOOGLE")?.advertiserCount ??
+      null,
+  };
 
   // The honest per-type run states for this business (the loader returns a row
   // for every business it was given).
@@ -1907,6 +1929,7 @@ export async function getLeadDetail(
     signalVerdicts,
     angles,
     domains: outDomains,
+    marketAds,
     profile,
     rivals,
     expertFindings,

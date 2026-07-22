@@ -117,9 +117,19 @@ export async function reviewsTaskPost(
   query: ReviewsTaskPostQuery,
 ): Promise<{ taskId: string; postedCostUsd: number }> {
   const parsed = ReviewsTaskPostQuerySchema.parse(query);
+  // Script mode (MAPSLY_REVIEWS_NO_PINGBACK=1): omit the pingback so results
+  // stay retrievable via task_get. Pingback-registered tasks answer task_get
+  // with 40601 "Task Handed" once the pingback fires — which LOSES the result
+  // when the pingback can't be ingested (standalone scripts run outside prod;
+  // prod rejects their token). Poll-harvest (harvestPendingReviewsForBusiness)
+  // is the retrieval path in that mode. Same env-gated escape-hatch pattern as
+  // MAPSLY_COLLECT_REVIEWS_ALLOW_ALL (lib/reviews/should-collect.ts). Unset in
+  // prod, so cron/webhook behavior is unchanged.
   const body = {
     ...parsed,
-    pingback_url: buildReviewsPingbackUrl(),
+    ...(process.env.MAPSLY_REVIEWS_NO_PINGBACK === "1"
+      ? {}
+      : { pingback_url: buildReviewsPingbackUrl() }),
   };
 
   const { rawCostUsd, taskId } = await dataforSeoPost<unknown>({

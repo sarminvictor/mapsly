@@ -59,3 +59,10 @@ _probe_*
 .pr-number
 
 .pg-scripts/
+
+# Phase-1 agency outreach data — real scraped founder emails, never commit
+scripts/data/
+scripts/agency-emails-preview.html
+
+# Scraped agency contact research — contains real founder emails (PII), never commit
+docs/niche-agency-research-2026-07-21.html

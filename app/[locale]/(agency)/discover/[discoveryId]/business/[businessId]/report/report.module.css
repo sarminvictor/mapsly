@@ -88,18 +88,112 @@
 .evrow {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 12px;
-  padding: 3px 0;
+  padding: 5px 0;
   border-bottom: 1px dashed #f1f5f9;
 }
 
 .evlabel {
-  color: #475569;
+  color: #334155;
+  font-weight: 600;
+}
+
+.evlabelwrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.evhint {
+  font-size: 11px;
+  color: #94a3b8;
+  line-height: 1.35;
+}
+
+.evright {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 60%;
+  flex-wrap: wrap;
 }
 
 .evvalue {
   font-weight: 600;
   text-align: right;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.chip {
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.chipG {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.chipA {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.chipR {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.sectionIntro {
+  font-size: 11.5px;
+  color: #64748b;
+  margin: 0 0 8px;
+}
+
+.findingrow {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 5px 0;
+  border-bottom: 1px dashed #f1f5f9;
+}
+
+.findingtitle {
+  font-weight: 700;
+}
+
+.findingmeans {
+  font-size: 11.5px;
+  color: #64748b;
+}
+
+.quoterow {
+  padding: 6px 0;
+  border-bottom: 1px dashed #f1f5f9;
+}
+
+.quotemeta {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-bottom: 2px;
+}
+
+.quotetext {
+  font-style: italic;
+  color: #475569;
 }
 
 .pitch {
