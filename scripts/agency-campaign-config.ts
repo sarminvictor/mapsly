@@ -60,9 +60,9 @@ Worth a look at the rest?
 {{One more from|Second one from}} {{marketLabel}}: {{proofName2}} — {{proofLine2}}.
 {{proofUrl2}}
 
-The full set is already scored — {{cellStats}}. I'm giving the whole market to a few {{vertical}} agencies free, in exchange for blunt written feedback — {{no call, no card|no strings, no call}}.
+Every audit like this comes out of Mapsly — {{marketCity}} is one of the markets we've already scored end to end.
 
-Reply "send it" and it's yours.
+{{Here's the offer:|Simple offer:}} reply with YOUR target city and I'll have every {{vertical}} business in it scored the same way, inside Mapsly, within a day. No call, no card — you just tell me where you hunt.
 
 {{senderFirstName}} · Mapsly`,
   },
@@ -73,9 +73,12 @@ Reply "send it" and it's yours.
     subjectTemplate: "re: {{marketLabel}}",
     bodyTemplate: `{{Hi|Hey}} {{firstName}},
 
-Last note — the {{marketLabel}} research is still unclaimed: {{cellStats}}.
+Last note — the offer stands: {{one line with your target city|name your target city}}, and every {{vertical}} business in it gets scored in Mapsly within a day — reviews, site speed, search rank, ads, contacts.
 
-If prospecting {{vertical}} clients is on your plate this quarter, it's a running start. {{A one-line reply gets it.|One line back and I'll send it over.}} Otherwise I'll leave you alone.
+{{If you'd rather poke around first, a free account gets you 50 leads with contacts, no card|Or just try it yourself — free account, 50 leads with contacts, no card}}:
+https://www.mapsly.ai/for-agencies
+
+{{If prospecting isn't on the menu this quarter, ignore me — no more emails.|Not the quarter for it? No worries — this is my last note.}}
 
 {{senderFirstName}} · Mapsly`,
   },
@@ -258,10 +261,10 @@ export const MARKET_PROOFS: Record<string, [MarketProof, MarketProof]> = {
   Frisco: [
     {
       // fired: low_reply_rate, unanswered_1star, reputation_slipping,
-      // no_booking, no_tracking_pixel, flying_blind
+      // no_booking, no_tracking_pixel, flying_blind + LH 2026-07-22: lcp 34.9s
       name: "Celina Family Dentistry",
       url: "https://www.mapsly.ai/s/5952229165195909",
-      line: "650 reviews, but the owner replies to about 1 in 10, 1★ reviews sit unanswered, there's no online booking, and the site runs no analytics at all",
+      line: "650 reviews, but the owner replies to about 1 in 10, the site takes 35 seconds to load on a phone, and there's no online booking",
     },
     {
       // fired: low_reply_rate, reputation_slipping, not_in_local_pack

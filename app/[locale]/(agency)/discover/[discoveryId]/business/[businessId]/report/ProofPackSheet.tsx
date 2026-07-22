@@ -32,8 +32,8 @@ const PLAIN: Record<string, { label: string; hint?: string }> = {
     hint: "Google's 0–100 score · 90+ good, under 50 failing",
   },
   LCP: {
-    label: "Time until the page shows",
-    hint: "How long before the main content appears · Google's bar: under 2.5s",
+    label: "Page load time",
+    hint: "Until the main part of the page is fully on screen · Google's bar: under 2.5s",
   },
   INP: {
     label: "Tap response",
