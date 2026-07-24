@@ -29,6 +29,7 @@ import path from "node:path";
 
 import prisma from "@/lib/prisma";
 import { isSuppressed } from "@/modules/cold/suppression";
+import { makeClickToken } from "@/modules/cold/token";
 import { cellMembershipWhere } from "@/modules/business-discovery/cell-membership";
 import { passesBizIndexGate } from "@/modules/biz-profile/seo-gate";
 import {
@@ -417,6 +418,20 @@ async function main() {
       });
       if (rec.businessId !== null)
         throw new Error("ASSERT businessId=null violated");
+      // Attribution: stamp `?v=<HMAC(recipientId)>` onto the audit links now
+      // that the row exists. Report.viewCount can't tell a prospect from a
+      // SafeLinks prescan; this token can (wave-1 panel, 2026-07-24).
+      const vt = makeClickToken(rec.id);
+      await prisma.coldRecipient.update({
+        where: { id: rec.id },
+        data: {
+          context: {
+            ...context,
+            proofUrl1: `${context.proofUrl1}?v=${vt}`,
+            proofUrl2: `${context.proofUrl2}?v=${vt}`,
+          },
+        },
+      });
       await prisma.consentRecord.create({
         data: {
           email,

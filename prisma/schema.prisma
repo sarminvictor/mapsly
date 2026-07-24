@@ -1832,6 +1832,7 @@ model ColdRecipient {
   lastError   String?
   context     Json? // optional cached personalization snapshot
   sends       ColdSend[]
+  clicks      ColdClick[]
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
 
@@ -1839,6 +1840,32 @@ model ColdRecipient {
   @@index([status, nextRunAt])
   @@index([campaignId, status])
   @@index([businessId])
+}
+
+/// Attributed click on an audit/share link embedded in a cold email.
+///
+/// Report.viewCount counts EVERY /s/ page load — internal QA, corporate URL
+/// prescans (SafeLinks / Mimecast / Barracuda), organic traffic — with no
+/// dedup and no per-recipient key, so it cannot answer "did a real prospect
+/// click?". This table can: the email carries `?v=<HMAC of recipientId>`, and
+/// each hit is stored with its UA verdict so bots can be excluded at query
+/// time rather than silently inflating the number (wave-1 judge panel,
+/// 2026-07-24). Raw signals only — classification stays re-derivable.
+model ColdClick {
+  id          String        @id @default(cuid())
+  recipientId String
+  recipient   ColdRecipient @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  /// The /s/[token] share token that was opened (distinguishes which touch).
+  shareToken  String
+  /// True when the UA is a known scanner/crawler/proxy (lib/bot-detect.ts).
+  isBot       Boolean       @default(false)
+  botReason   String?
+  userAgent   String?       @db.Text
+  clickedAt   DateTime      @default(now())
+
+  @@index([recipientId, clickedAt])
+  @@index([shareToken])
+  @@index([isBot, clickedAt])
 }
 
 model ColdSend {

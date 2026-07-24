@@ -91,3 +91,42 @@ export function openPixelUrlFor(coldSendId: string): string {
   const { baseUrl } = getColdSenderConfig();
   return `${baseUrl}/o/${makeOpenToken(coldSendId)}`;
 }
+
+// ── Click-attribution tokens · wave-1 judge panel (2026-07-24) ───────────
+// HMAC over the ColdRecipient id, appended as `?v=` to the audit links in the
+// body. Report.viewCount counts EVERY page load (internal QA, SafeLinks /
+// Mimecast prescans, organic) with no dedup, so it cannot answer "did a real
+// recipient click?" — this token can. Recipient-scoped (not send-scoped)
+// because the URL is baked into ColdRecipient.context at enroll time; the
+// share token in the path already distinguishes which touch was clicked.
+
+const CLICK_PREFIX = "click:";
+
+export function makeClickToken(recipientId: string): string {
+  const { unsubscribeSecret } = getColdSenderConfig();
+  const payload = Buffer.from(`${CLICK_PREFIX}${recipientId}`).toString(
+    "base64url",
+  );
+  return `${payload}.${sign(payload, unsubscribeSecret)}`;
+}
+
+/** Returns the ColdRecipient id if the token is a valid CLICK token, else null. */
+export function verifyClickToken(token: string): string | null {
+  const { unsubscribeSecret } = getColdSenderConfig();
+  const dot = token.lastIndexOf(".");
+  if (dot <= 0) return null;
+  const payload = token.slice(0, dot);
+  const sig = token.slice(dot + 1);
+  const expected = sign(payload, unsubscribeSecret);
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  try {
+    const decoded = Buffer.from(payload, "base64url").toString("utf8");
+    if (!decoded.startsWith(CLICK_PREFIX)) return null; // /u or /o token
+    const id = decoded.slice(CLICK_PREFIX.length);
+    return id.length > 0 ? id : null;
+  } catch {
+    return null;
+  }
+}

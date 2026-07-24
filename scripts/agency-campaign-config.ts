@@ -13,6 +13,18 @@ export const AGENCY_CAMPAIGN_NAME =
   "Agency outreach · dental+medspa wave 1 (US)";
 
 /**
+ * The upgrade promo — lives ONLY in warm reply threads (the fulfillment
+ * reply text), NEVER in the cold sequence bodies (deliverability: promo/$
+ * language is a spam fingerprint on a warming domain). Created in Stripe
+ * by Viktor 2026-07-22: $100 off, duration once, first-order-only, 50 max.
+ */
+export const PROMO = {
+  code: "JULY26",
+  /** Honest across all plans ($49–499): $100 off; ≤$100 plans → first month free. */
+  line: "$100 off your first month",
+} as const;
+
+/**
  * v2 sequence (2026-07-22, after Viktor's copy review):
  * ONE focused message — "we already did your prospecting research; here is a
  * live audit as proof" — value shown, not promised. 3 touches:
@@ -51,18 +63,28 @@ Worth a look at the rest?
 {{senderFirstName}} · Mapsly`,
   },
   {
+    // v3 (2026-07-24, after the wave-1 judge panel): OFFER-FIRST. The ask was
+    // buried in paragraph 4 behind a demo of someone else's market; T1 already
+    // spent the attention, so T2 leads with the deliverable and puts proof
+    // underneath. Subject is fresh + one-word-answerable — the old
+    // "re: {City} — the second audit" threaded onto a T1 most recipients never
+    // opened (plausible-human open 6/35) and reads as fake-thread manipulation
+    // to a marketer audience. Adds a national-agency fallback: many of these
+    // shops sell across metros, and "which city" doesn't compute for them.
     stepOrder: 1,
     delayDays: 3,
     delayHours: 0,
-    subjectTemplate: "re: {{marketCity}} — the second audit",
+    subjectTemplate: "{{agencyName}} — which city do you hunt in?",
     bodyTemplate: `{{Hi|Hey}} {{firstName}},
 
-{{One more from|Second one from}} {{marketLabel}}: {{proofName2}} — {{proofLine2}}.
+Straight to it: reply with the city you hunt in and I'll have every {{vertical}} business in it scored the same way — reviews, site speed, search rank, ads, contacts — inside Mapsly within a day. No call, no card. One word is enough.
+
+{{Work nationally? Name the kind of practice you close best and I'll pull them across metros instead.|Sell nationally? Tell me the practice profile you close best and I'll pull those across metros instead.}}
+
+{{marketCity}} was just the demo — one more from it: {{proofName2}} — {{proofLine2}}
 {{proofUrl2}}
 
-Every audit like this comes out of Mapsly — {{marketCity}} is one of the markets we've already scored end to end.
-
-{{Here's the offer:|Simple offer:}} reply with YOUR target city and I'll have every {{vertical}} business in it scored the same way, inside Mapsly, within a day. No call, no card — you just tell me where you hunt.
+I can turn around about five of these this week.
 
 {{senderFirstName}} · Mapsly`,
   },
@@ -70,10 +92,10 @@ Every audit like this comes out of Mapsly — {{marketCity}} is one of the marke
     stepOrder: 2,
     delayDays: 5,
     delayHours: 0,
-    subjectTemplate: "re: {{marketLabel}}",
+    subjectTemplate: "last note, {{firstName}}",
     bodyTemplate: `{{Hi|Hey}} {{firstName}},
 
-Last note — the offer stands: {{one line with your target city|name your target city}}, and every {{vertical}} business in it gets scored in Mapsly within a day — reviews, site speed, search rank, ads, contacts.
+Last note — the offer stands: {{name the city you hunt in|one line with your target city}}, and every {{vertical}} business in it gets scored in Mapsly within a day: reviews, site speed, search rank, ads, contacts.
 
 {{If you'd rather poke around first, a free account gets you 50 leads with contacts, no card|Or just try it yourself — free account, 50 leads with contacts, no card}}:
 https://www.mapsly.ai/for-agencies

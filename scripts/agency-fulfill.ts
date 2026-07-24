@@ -32,6 +32,7 @@ import { passesBizIndexGate } from "@/modules/biz-profile/seo-gate";
 import { provisionAgencyForUser } from "@/modules/agency-portal/provision";
 import { grantFreeTierIfNew } from "@/modules/cost/server";
 import { EVIDENCE_SIGNAL_KEYS } from "./agency-signal-evidence";
+import { PROMO } from "./agency-campaign-config";
 
 const CATEGORY: Record<string, string> = {
   dental: "dentist",
@@ -222,7 +223,8 @@ async function main() {
   console.log(
     `Done — every ${verticalLabel} business in ${cityLabel} is scored and waiting in your workspace: ${tier1.length} businesses with reviews, site speed, search rank, ads and contacts.\n\n` +
       `To open it: go to https://www.mapsly.ai/signin, sign in with this email address (30 seconds, no card), and you'll find "${cityLabel} ${verticalLabel} — full market" in your research.\n\n` +
-      `One ask: after you've poked around, tell me bluntly what's useful and what isn't.`,
+      `One ask: after you've poked around, tell me bluntly what's useful and what isn't.\n\n` +
+      `P.S. — when you want your own cities mapped (plus exports and unlimited markets), code ${PROMO.code} gets you ${PROMO.line}. First 50 agencies, first order only.`,
   );
 }
 

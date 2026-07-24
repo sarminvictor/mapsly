@@ -17,8 +17,12 @@
 
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
+import prisma from "@/lib/prisma";
+import { classifyUserAgent } from "@/lib/bot-detect";
+import { verifyClickToken } from "@/modules/cold/token";
 import { ProofPackSheet } from "@/app/[locale]/(agency)/discover/[discoveryId]/business/[businessId]/report/ProofPackSheet";
 import { resolveShareReport } from "@/modules/reports/share";
 
@@ -37,22 +41,60 @@ export function generateMetadata(): Metadata {
 
 export default function SharePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   return (
     <Suspense fallback={null}>
-      <ShareBody params={params} />
+      <ShareBody params={params} searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function ShareBody({ params }: { params: Promise<{ token: string }> }) {
+/**
+ * Record an ATTRIBUTED click when the link carried `?v=<click token>`.
+ * Best-effort and never throws — an analytics write must not 500 a
+ * client-facing audit page. Bot verdict is stored, not filtered here, so the
+ * classification stays re-derivable (same discipline as the /o pixel).
+ */
+async function recordAttributedClick(shareToken: string, v: string) {
+  try {
+    const recipientId = verifyClickToken(v);
+    if (!recipientId) return;
+    const ua = (await headers()).get("user-agent") ?? "";
+    const verdict = classifyUserAgent(ua);
+    await prisma.coldClick.create({
+      data: {
+        recipientId,
+        shareToken,
+        isBot: verdict.isBot,
+        botReason: verdict.reason,
+        userAgent: ua.slice(0, 400) || null,
+      },
+    });
+  } catch {
+    // swallow — never break the page for a tracking write
+  }
+}
+
+async function ShareBody({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ token: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { token } = await params;
   if (!TOKEN_RE.test(token)) notFound();
 
   const resolved = await resolveShareReport(token);
   if (!resolved) notFound();
+
+  const sp = await searchParams;
+  const v = typeof sp.v === "string" ? sp.v : null;
+  if (v) await recordAttributedClick(token, v);
 
   // The share was retrieved now (request-scoped) — safe to read the clock.
   const retrievedOn = new Date().toLocaleDateString("en-US", {
