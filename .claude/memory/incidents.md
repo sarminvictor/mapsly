@@ -465,3 +465,12 @@ Two bars rendered for `2026-03`; February 2026 silently missing from the 12-mont
 **Where encoded:** app/sitemap.xml/route.ts (header), lib/seo/sitemap-xml.ts (header), modules/biz-profile/seo-gate.ts, modules/biz-profile/queries.ts (no-catch note), .claude/rules/caching.md + performance.md (tag taxonomy corrected), lib/seo/__tests__/sitemap-xml.test.ts + modules/biz-profile/__tests__/seo-gate.test.ts (golden locks), this entry.
 **Confidence:** high (root cause reproduced locally byte-for-byte; framework behavior confirmed against Next 16 source + docs; counts verified against live DB).
 **Tags:** seo, sitemap, cache-components, metadata-routes, vercel, prisma, pseo
+
+### INC-2026-07-29-67 · diagnostic IMAP fetch consumed the poller's UNSEEN marker — unsubscribe went unhonored for 5 days
+
+**Symptom:** tyson@titanwebagency.com sent a mailto-format unsubscribe (Apple Mail, subject "unsubscribe") on Jul 24; he stayed ACTIVE and received touch 2 on Jul 28. poll-cold-inboxes never classified the message even though modules/cold/inbound.ts UNSUB_INTENT matches the subject.
+**Root cause:** the cron processes UNSEEN messages only (\Seen is its idempotency marker). An ad-hoc diagnostic script fetched inbox messages with `fetchOne({ source: true })` on a read-write mailbox lock — IMAP BODY[] fetch sets \Seen — minutes after the unsub arrived, so the poller's next tick saw nothing. The classifier was never the problem; my tooling consumed its input.
+**Fix applied:** manually suppressed (ColdSuppression UNSUBSCRIBE) + recipient UNSUBSCRIBED + pending T3 SKIPPED (2026-07-29, within CAN-SPAM's 10-day window). All future inbox diagnostics go through `scripts/inbox-scan.ts`, which opens every mailbox with `mailboxOpen(folder, { readOnly: true })` — fetches cannot set \Seen.
+**Prevention:** NEVER hand-roll IMAP reads against the cold mailboxes; `scripts/inbox-scan.ts` is the only sanctioned diagnostic path (it also sweeps Junk/Spam folders and prints each message's seen-state so a consumed marker is visible). Mechanical check: `grep -rn "ImapFlow" scripts/ | grep -v inbox-scan.ts` must return nothing.
+**Where encoded:** scripts/inbox-scan.ts (header comment) · this entry.
+**Tags:** cold-email, imap, compliance, diagnostics
