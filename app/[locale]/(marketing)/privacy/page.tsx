@@ -109,6 +109,7 @@ export default async function PrivacyPage({
           <li>{t("s3_b3")}</li>
         </ul>
         <p>{t("s3_p2")}</p>
+        <p>{t("s3_p3")}</p>
       </Section>
 
       <Section heading={t("s4_heading")}>
@@ -143,6 +144,7 @@ export default async function PrivacyPage({
           <li>{t("s7_b4")}</li>
           <li>{t("s7_b5")}</li>
           <li>{t("s7_b6")}</li>
+          <li>{t("s7_b7")}</li>
         </ul>
         <p>{t("s7_p2")}</p>
       </Section>

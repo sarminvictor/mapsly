@@ -1,0 +1,903 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Poland market expansion · research + phased plan · 2026-08-05</title>
+    <style>
+      :root {
+        --ink: #1a1d27;
+        --muted: #5b6172;
+        --bg: #f6f7fb;
+        --card: #fff;
+        --line: #e4e6ef;
+        --indigo: #5b3df5;
+        --indigo-soft: #efeaff;
+        --green: #0f7b4d;
+        --green-soft: #e3f4ec;
+        --red: #b3261e;
+        --red-soft: #fbe9e7;
+        --amber: #8a5a00;
+        --amber-soft: #fff3d6;
+        --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          15px/1.5 Inter,
+          system-ui,
+          sans-serif;
+        padding: 0 0 70px;
+      }
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+      header {
+        background: linear-gradient(135deg, #1a1d27, #2b2350);
+        color: #fff;
+        padding: 34px 0 28px;
+        margin-bottom: 26px;
+      }
+      h1 {
+        font-size: 25px;
+        margin: 0 0 6px;
+      }
+      .sub {
+        color: #c9c4ea;
+        font-size: 14px;
+      }
+      .pill {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border-radius: 999px;
+        padding: 2px 10px;
+        font-size: 11.5px;
+        margin-right: 6px;
+        font-family: var(--mono);
+      }
+      h2 {
+        font-size: 19px;
+        margin: 34px 0 4px;
+      }
+      h2 .n {
+        display: inline-block;
+        background: var(--indigo);
+        color: #fff;
+        border-radius: 8px;
+        padding: 1px 10px;
+        font-family: var(--mono);
+        font-size: 14px;
+        margin-right: 9px;
+      }
+      .lede {
+        color: var(--muted);
+        margin: 0 0 10px;
+        font-size: 13.5px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        background: var(--card);
+      }
+      .tblwrap {
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        margin: 10px 0;
+      }
+      th {
+        background: #f0f1f7;
+        text-align: left;
+        padding: 8px 10px;
+        font-size: 11.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+      }
+      td {
+        padding: 7px 10px;
+        border-top: 1px solid var(--line);
+        vertical-align: top;
+      }
+      code {
+        font-family: var(--mono);
+        font-size: 0.88em;
+        background: #eef0f6;
+        border-radius: 4px;
+        padding: 1px 5px;
+        white-space: nowrap;
+      }
+      td code {
+        white-space: normal;
+        word-break: break-all;
+      }
+      .who {
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 700;
+        white-space: nowrap;
+        border-radius: 6px;
+        padding: 1px 7px;
+      }
+      .w-c {
+        background: var(--indigo-soft);
+        color: var(--indigo);
+      }
+      .w-v {
+        background: #fff3d6;
+        color: var(--amber);
+      }
+      .verdict {
+        background: var(--indigo-soft);
+        border: 1px solid #d5c9ff;
+        border-radius: 10px;
+        padding: 13px 17px;
+        margin: 12px 0;
+        font-size: 14px;
+      }
+      .warn {
+        background: var(--red-soft);
+        border: 1px solid #f3c3bd;
+        border-radius: 10px;
+        padding: 11px 15px;
+        margin: 10px 0;
+        font-size: 13.5px;
+      }
+      .good {
+        background: var(--green-soft);
+        border: 1px solid #b7e4cd;
+        border-radius: 10px;
+        padding: 11px 15px;
+        margin: 10px 0;
+        font-size: 13.5px;
+      }
+      .score {
+        display: inline-block;
+        min-width: 30px;
+        text-align: center;
+        font-family: var(--mono);
+        font-weight: 700;
+        border-radius: 6px;
+        padding: 1px 7px;
+      }
+      .s-hi {
+        background: var(--green-soft);
+        color: var(--green);
+      }
+      .s-mid {
+        background: var(--amber-soft);
+        color: var(--amber);
+      }
+      .s-lo {
+        background: var(--red-soft);
+        color: var(--red);
+      }
+      ul {
+        margin: 6px 0;
+        padding-left: 20px;
+      }
+      li {
+        margin: 3px 0;
+      }
+      .foot {
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 36px;
+        border-top: 1px solid var(--line);
+        padding-top: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap">
+        <div style="margin-bottom: 8px">
+          <span class="pill">RESEARCH + PLAN</span
+          ><span class="pill">2026-08-05</span
+          ><span class="pill">6 parallel research agents</span
+          ><span class="pill">not started — awaiting approval</span>
+        </div>
+        <h1>Add Poland as a third target market (US + Canada → + Poland)</h1>
+        <div class="sub">
+          Scope: agency "Discover"/Hunter market-<b>research</b> only —
+          searching/filtering Polish businesses by signal. Cold outreach to
+          Poland is explicitly out of scope (see §Legal).
+        </div>
+      </div>
+    </header>
+    <div class="wrap">
+      <div class="verdict">
+        <b>Plain-English summary:</b> nothing structural blocks this. The
+        database already stores country as free text, the DataForSEO data
+        pipeline already works per-country, and UI language is already decoupled
+        from which country's businesses you can search — an agency can search
+        Polish businesses in English today, no Polish translation needed. The
+        real work is four concrete things: (1) one hardcoded allow-list
+        (<code>["US","CA"]</code>) that currently blocks Poland from even being
+        selectable, (2) a US/Canada-only city list that the live search feature
+        depends on, (3) phone-number parsing that only understands North
+        American numbers and would silently reject every Polish phone number,
+        and (4) a plain-language legal note — collecting and displaying public
+        Polish business data for research is on solid legal footing, but
+        <i>emailing</i> those businesses is not (Poland requires opt-in consent,
+        unlike the US), so that stays walled off. Estimated cost to seed an
+        initial 2-city pilot: under $20.
+      </div>
+
+      <h2><span class="n">§1</span>Score card</h2>
+      <p class="lede">
+        1–10 per dimension. Green ≥8 (ship as-is or trivial), amber 6–7 (real
+        but small work), red &lt;6 (needs a decision or new build).
+      </p>
+      <div class="tblwrap">
+        <table>
+          <tr>
+            <th>Dimension</th>
+            <th>Score</th>
+            <th>Why</th>
+          </tr>
+          <tr>
+            <td>Schema / data model</td>
+            <td><span class="score s-hi">10</span></td>
+            <td>
+              <code>Business.country</code> is a free <code>String?</code>
+              (<code>prisma/schema.prisma:215</code>), no enum, no CHECK
+              constraint. Indexes already include country
+              (<code>:383,384,386</code>). Zero migration needed.
+            </td>
+          </tr>
+          <tr>
+            <td>Discovery pipeline (admin-curated)</td>
+            <td><span class="score s-hi">9</span></td>
+            <td>
+              <code>modules/business-discovery/run.ts</code> targets by lat/lng
+              radius, not a country lock. Adding Poland = new
+              <code>TrackedLocation</code> rows — a data op, not code.
+            </td>
+          </tr>
+          <tr>
+            <td>Discovery pipeline (agency-triggered live search)</td>
+            <td><span class="score s-lo">4</span></td>
+            <td>
+              <code>modules/discovery/run-discovery.ts:331-333</code>
+              hard-throws on any city that doesn't resolve against
+              <code>lib/geo/us-metros.ts</code> — a gazetteer literally typed
+              <code>country?: "US" | "CA"</code>. Real blocker, small fix.
+            </td>
+          </tr>
+          <tr>
+            <td>Hunter/Discover market picker UI</td>
+            <td><span class="score s-mid">7</span></td>
+            <td>
+              Same gazetteer feeds the picker (<code>MarketStep.tsx</code>). One
+              binary ternary mislabels anything non-US/CA as "USA"
+              (<code>:93</code>) + 2 hardcoded copy strings. Mechanical, no deep
+              coupling.
+            </td>
+          </tr>
+          <tr>
+            <td>UI locale / i18n coupling</td>
+            <td><span class="score s-hi">10</span></td>
+            <td>
+              Confirmed <b>fully decoupled</b> — no code branches on
+              <code>locale</code> to gate which country's businesses are
+              searchable. Poland ships with zero translation work.
+            </td>
+          </tr>
+          <tr>
+            <td>Billing / currency</td>
+            <td><span class="score s-hi">10</span></td>
+            <td>
+              Currency is hardcoded <code>"usd"</code> off the agency's own
+              subscription (<code>modules/billing/queries.ts</code>), never off
+              the searched market. No change needed.
+            </td>
+          </tr>
+          <tr>
+            <td>DataForSEO data-source coverage</td>
+            <td><span class="score s-mid">8</span></td>
+            <td>
+              Poland location_code <b>2616</b> confirmed via docs. Maps search,
+              SERP, Reviews, Lighthouse all support Poland. Live test call
+              didn't run this session (MCP tooling was mid-connect) — re-verify
+              with one real call before Phase 2.
+            </td>
+          </tr>
+          <tr>
+            <td>Meta Ads data-source coverage</td>
+            <td><span class="score s-mid">8</span></td>
+            <td>
+              Actually <b>better</b> than US/CA — the EU's Digital Services Act
+              forces Meta to run a public, structured ad-transparency
+              repository. One addition needed: handle the GDPR cookie-consent
+              wall in our actor.
+            </td>
+          </tr>
+          <tr>
+            <td>Signal-registry parity (104 signals / 21 groups)</td>
+            <td><span class="score s-mid">6</span></td>
+            <td>
+              11/21 groups work unmodified. 7/21 need small fixes (mostly 2 root
+              causes: a missing location-code case, and NANP-only phone
+              parsing). 3/21 need a real decision — see §3.
+            </td>
+          </tr>
+          <tr>
+            <td>Legal basis (research-only scope)</td>
+            <td><span class="score s-mid">7</span></td>
+            <td>
+              GDPR Art. 6(1)(f) legitimate-interest holds for aggregating public
+              B2B data without contacting the business. Needs a written
+              assessment + opt-out page before launch, plus a carve-out for
+              sole-proprietor listings (see §4).
+            </td>
+          </tr>
+          <tr>
+            <td>Competitive differentiation</td>
+            <td><span class="score s-hi">9</span></td>
+            <td>
+              Apollo/ZoomInfo carry Polish company records but are
+              contact-database tools, not a combined GBP+reviews+website+ads
+              signal layer. That combination doesn't exist for Poland among
+              named competitors today.
+            </td>
+          </tr>
+          <tr>
+            <td>Cost / sizing clarity</td>
+            <td><span class="score s-mid">6</span></td>
+            <td>
+              Order-of-magnitude city sizes known (GUS/REGON). Real per-business
+              cost needs a live pilot — and DataForSEO raised prices ~20%
+              globally on 2026-07-01, so existing US/CA cost assumptions may
+              already be stale too.
+            </td>
+          </tr>
+        </table>
+      </div>
+      <p class="lede">
+        <b>Average 7.7/10.</b> This reads as "do it" — every red/amber cell
+        resolves to a scoped, mechanical fix, not a redesign.
+      </p>
+
+      <h2><span class="n">§2</span>Current vs. proposed</h2>
+      <div class="tblwrap">
+        <table>
+          <tr>
+            <th>Dimension</th>
+            <th>Today (US + Canada)</th>
+            <th>Proposed (+ Poland)</th>
+          </tr>
+          <tr>
+            <td>Target markets</td>
+            <td>US (2840), Canada (2124)</td>
+            <td>+ Poland (2616)</td>
+          </tr>
+          <tr>
+            <td>Discovery — admin seeder</td>
+            <td><code>TrackedLocation</code> rows per US/CA city</td>
+            <td>+ PL <code>TrackedLocation</code> rows (data op)</td>
+          </tr>
+          <tr>
+            <td>Discovery — agency live search</td>
+            <td><code>metroBySlug()</code> throws outside US/CA</td>
+            <td>gazetteer extended with PL cities + voivodeships</td>
+          </tr>
+          <tr>
+            <td>Market picker UI</td>
+            <td><code>"US"|"CA"</code> union, binary USA/Canada label</td>
+            <td>+ <code>"PL"</code>, correct per-country label</td>
+          </tr>
+          <tr>
+            <td>UI language</td>
+            <td>English only (no locale switcher exists)</td>
+            <td>unchanged — Poland search works in English</td>
+          </tr>
+          <tr>
+            <td>Billing currency</td>
+            <td>USD, off the agency's own subscription</td>
+            <td>unchanged</td>
+          </tr>
+          <tr>
+            <td>Ads signal source</td>
+            <td>Meta actor, no consent-wall handling needed</td>
+            <td>+ EU cookie-consent-accept step in the actor</td>
+          </tr>
+          <tr>
+            <td>Search/SERP/Google-Ads signals</td>
+            <td><code>locationCodeForCountry()</code> covers US/CA/GB/AU</td>
+            <td>+ PL case (else silently defaults to US — wrong data)</td>
+          </tr>
+          <tr>
+            <td>Phone-derived signals (NAP, reachability)</td>
+            <td>4 duplicated NANP-only parsers</td>
+            <td>
+              international parsing (also fixes latent bugs in current markets)
+            </td>
+          </tr>
+          <tr>
+            <td>Cell-based market-relative scoring</td>
+            <td>percentile-vs-cell w/ absolute-threshold fallback</td>
+            <td>
+              unchanged mechanism — PL cells cold-start on absolute fallback
+              until ≥8 samples/cell
+            </td>
+          </tr>
+          <tr>
+            <td><code>hipaa_pixel_risk</code> / <code>license_status</code></td>
+            <td>US-specific playbooks (state boards, HIPAA)</td>
+            <td>suppressed for PL businesses (recommended — see §3)</td>
+          </tr>
+          <tr>
+            <td>Cold-outreach eligibility</td>
+            <td>CAN-SPAM (US) / CASL (CA) footer selection only</td>
+            <td>
+              + hard gate: PL businesses excluded from cold pipeline entirely
+              until real opt-in consent capture exists
+            </td>
+          </tr>
+          <tr>
+            <td>Legal basis for data collection</td>
+            <td>implicit</td>
+            <td>written GDPR legitimate-interest assessment + opt-out page</td>
+          </tr>
+        </table>
+      </div>
+
+      <h2><span class="n">§3</span>Recommendations</h2>
+      <ol>
+        <li>
+          Ship the unblock work (§5 Phase 1) as one focused session — almost
+          entirely mechanical (widen 3 type unions, fix 1 hardcoded enum, add 1
+          location-code case, fix 1 ternary + 2 copy strings) except the
+          phone-parser replacement, which is real engineering.
+        </li>
+        <li>
+          Treat the phone-number parser fix as the highest-leverage item in this
+          whole plan. It's not Poland-specific debt — the 4 duplicated NANP-only
+          parsers (<code>modules/contacts/extract.ts:104-105,237-253</code>,
+          <code>modules/contacts/reachability.ts:92-96</code>,
+          <code>services/contact-scraper/parse.ts:163-172</code>,
+          <code>services/lighthouse/dom-checks.ts:254-287</code>) silently
+          reject any non-North-American number today. Fixing it once pays off
+          beyond this project.
+        </li>
+        <li>
+          Add the cold-outreach eligibility gate in <b>Phase 1</b>, not as an
+          afterthought. It's a small code change and it closes real legal
+          exposure before a single Polish lead row exists — Poland's opt-in
+          regime has no grace period the way CAN-SPAM's opt-out model does.
+        </li>
+        <li>
+          Pilot 2 cities (Warsaw + Kraków) before committing to the full 6-metro
+          rollout. Validates the entire pipeline against real Polish businesses
+          and produces a real cost-per-business number — current estimates are
+          order-of-magnitude only.
+        </li>
+        <li>
+          Don't build <code>hipaa_pixel_risk</code> or
+          <code>license_status</code> Poland-equivalents now. HIPAA has no
+          direct analog (RODO is a different framework) and Poland has no "state
+          licensing board" — it would need CEIDG/KRS + professional chamber
+          (izba) lookups, real new scope with no signal yet that agencies need
+          it. Suppress both for PL businesses; revisit if asked.
+        </li>
+        <li>
+          Draft the Legitimate Interest Assessment + opt-out page early and in
+          parallel with the engineering phases — it's your judgment call on
+          language, not blocking code, and it's the one real compliance gap in
+          the research-only scope.
+        </li>
+        <li>
+          Re-verify DataForSEO's actual current per-call cost before the Phase 2
+          pilot spend. The confirmed ~20% global price increase (2026-07-01)
+          means our existing budget assumptions may already be stale for US/CA
+          too — worth a quick re-check regardless of Poland.
+        </li>
+        <li>
+          <b>Do not</b> read this as unlocking Polish outreach. Discover's GDPR
+          legitimate-interest basis for aggregating already-public data does not
+          carry over to cold-emailing those businesses — Poland requires prior
+          opt-in consent under a categorically different legal test (Art. 10 of
+          the Act on Providing Services by Electronic Means + Art. 172
+          Telecommunications Law), enforced by UODO (up to 4% global turnover)
+          and UKE.
+        </li>
+      </ol>
+
+      <h2>
+        <span class="n">0</span>Decisions needed from you
+        <span class="who w-v">VIKTOR · 5 min</span>
+      </h2>
+      <p class="lede">
+        Answer these before Phase 1 starts — everything else in this plan
+        assumes the recommended answer.
+      </p>
+      <div class="tblwrap">
+        <table>
+          <tr>
+            <th>Question</th>
+            <th>Recommendation</th>
+          </tr>
+          <tr>
+            <td>Target cities for the pilot + rollout</td>
+            <td>
+              Pilot: Warsaw + Kraków. Full rollout adds Wrocław, Poznań, Gdańsk,
+              Łódź (top 6 metros by REGON business count).
+            </td>
+          </tr>
+          <tr>
+            <td>Category set</td>
+            <td>
+              Reuse the existing curated DataForSEO category taxonomy — no new
+              verticals needed for v1.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <code>hipaa_pixel_risk</code> / <code>license_status</code> for PL
+            </td>
+            <td>Suppress both for Polish businesses (see Recommendation 5).</td>
+          </tr>
+          <tr>
+            <td>Budget ceiling</td>
+            <td>
+              Pilot ≤ $20. Full 6-metro rollout ≤ $150 (re-priced after pilot —
+              see §6).
+            </td>
+          </tr>
+          <tr>
+            <td>
+              Who drafts the Legitimate Interest Assessment + opt-out page
+            </td>
+            <td>
+              I draft it; you review the legal framing before it's published.
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <h2>
+        <span class="n">1</span>Unblock — make Poland selectable + fix signal
+        correctness
+        <span class="who w-c">CLAUDE · 1 session</span>
+      </h2>
+      <div class="tblwrap">
+        <table>
+          <tr>
+            <th>#</th>
+            <th>Change</th>
+            <th>Where</th>
+          </tr>
+          <tr>
+            <td>1.1</td>
+            <td>Widen the country allow-list</td>
+            <td>
+              <code>modules/signals/registry.ts:984</code> —
+              <code>enumValues: ["US","CA"]</code> → add <code>"PL"</code>.
+              Nothing else in this plan matters until this ships.
+            </td>
+          </tr>
+          <tr>
+            <td>1.2</td>
+            <td>Extend the metro gazetteer</td>
+            <td>
+              <code>scripts/build-places-gazetteer.ts:147</code> (drop the PL
+              filter), add a voivodeship admin1→name map next to the existing CA
+              one (<code>:35</code>); widen the
+              <code>country?: "US"|"CA"</code> type in
+              <code>lib/geo/us-metros.ts:36-38</code> (and the 2 mirrored unions
+              in <code>flow-types.ts:112-115</code> and
+              <code>MarketStep.tsx:29-33</code>) to include <code>"PL"</code>
+            </td>
+          </tr>
+          <tr>
+            <td>1.3</td>
+            <td>Fix the market-picker label + copy</td>
+            <td>
+              <code>MarketStep.tsx:93</code> binary ternary (currently mislabels
+              anything non-CA as "USA"); 2 hardcoded "US or Canada" strings at
+              <code>:264</code>, <code>:272</code>
+            </td>
+          </tr>
+          <tr>
+            <td>1.4</td>
+            <td>Add Poland to the location-code helper</td>
+            <td>
+              <code>locationCodeForCountry()</code> — add
+              <code>PL → 2616</code>. Currently duplicated in
+              <code>modules/ads-intel/keyword-set.ts:11-23</code> and
+              <code>modules/reviews/persist-helpers.ts:145-157</code>; worth
+              consolidating into one shared helper while touching it (light
+              cleanup, not a rewrite)
+            </td>
+          </tr>
+          <tr>
+            <td>1.5</td>
+            <td>Replace NANP-only phone parsing with international parsing</td>
+            <td>
+              4 duplicated call sites:
+              <code>modules/contacts/extract.ts:104-105,237-253</code>,
+              <code>modules/contacts/reachability.ts:92-96</code>,
+              <code>services/contact-scraper/parse.ts:163-172</code>,
+              <code>services/lighthouse/dom-checks.ts:254-287</code>. Fixes
+              <code>nap_consistent</code> + all phone-derived reachability
+              signals. The single largest code chunk in this plan.
+            </td>
+          </tr>
+          <tr>
+            <td>1.6</td>
+            <td>Cold-pipeline eligibility gate</td>
+            <td>
+              Add a country check so PL businesses can never enter the
+              cold-sequences pipeline until real opt-in consent capture exists —
+              cheap insurance against Poland's opt-in-only rule. (Exact gate
+              point to confirm against
+              <code>modules/outreach/handoff.ts</code> during implementation —
+              not directly located by this research pass.)
+            </td>
+          </tr>
+          <tr>
+            <td>1.7</td>
+            <td>Live verification call</td>
+            <td>
+              One real DataForSEO Business Listings Search against Warsaw before
+              trusting the pipeline end-to-end (this session's MCP connection
+              wasn't up in time to run it)
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <h2>
+        <span class="n">2</span>Pilot seed — Warsaw + Kraków
+        <span class="who w-c">CLAUDE · 1 session · ≤$20</span>
+      </h2>
+      <div class="tblwrap">
+        <table>
+          <tr>
+            <th>#</th>
+            <th>Step</th>
+            <th>Verify</th>
+          </tr>
+          <tr>
+            <td>2.1</td>
+            <td>
+              Add GDPR cookie-consent-accept step to the Meta Ad Library actor
+              (EU sessions only)
+            </td>
+            <td>
+              Actor deploys via <code>apify push</code> — separate from
+              <code>/ship</code>
+            </td>
+          </tr>
+          <tr>
+            <td>2.2</td>
+            <td>
+              Create 2 <code>TrackedLocation</code> rows (Warsaw, Kraków) ×
+              existing curated categories, run the admin discovery seeder
+            </td>
+            <td><code>/admin/discovery</code> — run OK, business counts</td>
+          </tr>
+          <tr>
+            <td>2.3</td>
+            <td>
+              Spot-check signal correctness on real Polish businesses:
+              <code>nap_consistent</code>, reachability, SERP rank, ads, reviews
+            </td>
+            <td>Manual review of a sample of seeded businesses</td>
+          </tr>
+          <tr>
+            <td>2.4</td>
+            <td>
+              Confirm cell absolute-fallback scoring behaves correctly on empty
+              PL cells
+            </td>
+            <td>
+              <code>CellMetric</code> rows show
+              <code>outcome: "empty"</code> pre-seed,
+              <code>confidence: "low"</code> until ≥8 samples
+            </td>
+          </tr>
+          <tr>
+            <td>2.5</td>
+            <td>
+              Cost audit: real $/business, compare to the pre-pilot estimate
+            </td>
+            <td>
+              Sum <code>CronRun.costUsd</code> for the pilot run — feeds the
+              Phase 3 budget
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <h2>
+        <span class="n">3</span>Full rollout — remaining 4 metros
+        <span class="who w-c">CLAUDE · 1 session · re-priced after §2</span>
+      </h2>
+      <div class="tblwrap">
+        <table>
+          <tr>
+            <th>#</th>
+            <th>Step</th>
+            <th>Verify</th>
+          </tr>
+          <tr>
+            <td>3.1</td>
+            <td>
+              Add <code>TrackedLocation</code> rows for Wrocław, Poznań, Gdańsk,
+              Łódź
+            </td>
+            <td><code>/admin/discovery</code></td>
+          </tr>
+          <tr>
+            <td>3.2</td>
+            <td>Bulk discovery run, cost-tracked via <code>CronRun</code></td>
+            <td>Hard stop if any cell exceeds the $5 single-call ceiling</td>
+          </tr>
+          <tr>
+            <td>3.3</td>
+            <td>
+              Monitor cell sample-size accumulation toward the 8-sample
+              market-relative scoring threshold
+            </td>
+            <td><code>/admin/cells</code></td>
+          </tr>
+        </table>
+      </div>
+
+      <h2>
+        <span class="n">4</span>Compliance + polish
+        <span class="who w-v">VIKTOR: review LIA</span>
+      </h2>
+      <p class="lede">
+        Independent of §2/§3 — can run in parallel with the engineering phases.
+      </p>
+      <div class="tblwrap">
+        <table>
+          <tr>
+            <th>#</th>
+            <th>Step</th>
+            <th>Notes</th>
+          </tr>
+          <tr>
+            <td>4.1</td>
+            <td>
+              Draft Poland-specific Legitimate Interest Assessment +
+              opt-out/removal-request page
+            </td>
+            <td>
+              Covers the GDPR Art. 21 safeguard; addresses the sole-proprietor
+              (JDG) personal-data nuance
+            </td>
+          </tr>
+          <tr>
+            <td>4.2</td>
+            <td>Cosmetic signal relabels</td>
+            <td>
+              <code>province</code> tooltip → mention voivodeship
+              (<code>registry.ts:968</code>); <code>ada_risk</code> → EU framing
+              (EAA/EN 301 549) or suppress for PL;
+              <code>estimated_monthly_ad_spend</code> → fix hardcoded
+              <code>"$"</code> label (<code>registry.ts:794</code>)
+            </td>
+          </tr>
+          <tr>
+            <td>4.3</td>
+            <td>
+              Re-verify DataForSEO cost assumptions against the 2026-07-01
+              pricing update
+            </td>
+            <td>Applies to US/CA budgeting too, not just Poland</td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="good">
+        <b>Why this reads as low-risk:</b> every piece of the "hard" work (phone
+        parsing, location codes, the market gazetteer) is generic
+        internationalization debt, not Poland-specific hacking — the same fixes
+        make a fourth or fifth market trivial later. Nothing here touches the
+        SMB portal, the schema needs no migration, and billing is untouched.
+      </div>
+
+      <div class="warn">
+        <b>What this plan deliberately does NOT do:</b> it does not enable cold
+        outreach to Poland, does not add a Polish UI locale, does not make
+        Polish agencies payable customers (VAT/Stripe Tax), and does not build a
+        HIPAA-equivalent or license-board-equivalent legal-risk model for
+        Poland. Each is a real, separable project — raise them explicitly if you
+        want them scoped.
+      </div>
+
+      <h2><span class="n">§5</span>Sizing (order of magnitude)</h2>
+      <div class="tblwrap">
+        <table>
+          <tr>
+            <th>City</th>
+            <th>Active-business order of magnitude (GUS/REGON)</th>
+          </tr>
+          <tr>
+            <td>Warsaw</td>
+            <td>
+              ~550K REGON entities (upper bound — includes
+              dormant/sole-proprietor shells)
+            </td>
+          </tr>
+          <tr>
+            <td>Kraków</td>
+            <td>~170–190K</td>
+          </tr>
+          <tr>
+            <td>Gdańsk</td>
+            <td>~70K</td>
+          </tr>
+          <tr>
+            <td>Wrocław / Poznań / Łódź</td>
+            <td>
+              ~100–200K each (population-scaled estimate, not directly sourced)
+            </td>
+          </tr>
+          <tr>
+            <td>Poland, national</td>
+            <td>~2.9M active enterprises</td>
+          </tr>
+        </table>
+      </div>
+      <p class="lede">
+        REGON counts overcount vs. "Google-Maps-discoverable active businesses"
+        — treat as an upper bound. The pilot (§2) produces a real seed-size
+        number instead of extrapolating from this.
+      </p>
+
+      <h2><span class="n">§6</span>Sources</h2>
+      <ul>
+        <li>
+          DataForSEO location reference —
+          <code>docs.dataforseo.com/v3/business_data-google-locations/</code>,
+          confirms Poland = 2616
+        </li>
+        <li>
+          DataForSEO pricing update (2026-07-01, ~20% global increase) —
+          <code>dataforseo.com/update/pricing-update-in-dataforseo-apis</code>
+        </li>
+        <li>
+          GUS / Statistics Poland REGON register —
+          <code>stat.gov.pl</code> (national + Warsaw city breakdowns)
+        </li>
+        <li>
+          EDPB Guidelines 1/2024 on legitimate interest —
+          <code>edpb.europa.eu</code>
+        </li>
+        <li>GDPR Art. 6(1)(f), Recital 47 — <code>gdpr-info.eu</code></li>
+        <li>
+          Poland Act on Providing Services by Electronic Means (Art. 10) +
+          Telecommunications Law (Art. 172) — summarized via
+          <code>prawomarketingu.pl</code>
+        </li>
+        <li>
+          EU Digital Services Act ad-repository requirement —
+          <code>eu-digital-services-act.com</code>, Oxford Academic (IJLIT)
+        </li>
+      </ul>
+
+      <div class="foot">
+        Mapsly · Poland market expansion · 2026-08-05 ·
+        <code>docs/poland-market-expansion-2026-08-05.html</code> · Findings
+        verified against code by 6 parallel research agents (exact file:line
+        refs above, from this session's transcript) + 2 external-research agents
+        (DataForSEO/Meta coverage, GDPR/competitive landscape). Nothing executed
+        yet — Phase 1 starts on your go, after §0 decisions.
+      </div>
+    </div>
+  </body>
+</html>

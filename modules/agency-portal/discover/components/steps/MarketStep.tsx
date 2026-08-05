@@ -29,8 +29,14 @@ import { requestCategoryAction } from "@/modules/discovery/category-request-acti
 export interface MetroOption {
   slug: string;
   name: string;
-  country: "US" | "CA";
+  country: "US" | "CA" | "PL";
 }
+
+const COUNTRY_LABEL: Record<MetroOption["country"], string> = {
+  US: "USA",
+  CA: "Canada",
+  PL: "Poland",
+};
 export interface CategoryOption {
   id: string;
   slug: string;
@@ -90,7 +96,7 @@ export function MarketStep({
       metros.map((m) => ({
         value: m.slug,
         label: m.name,
-        meta: m.country === "CA" ? "Canada" : "USA",
+        meta: COUNTRY_LABEL[m.country],
       })),
     [metros],
   );
@@ -261,7 +267,7 @@ export function MarketStep({
                   key={`city-${comboResetKey}`}
                   id="mktCityInput"
                   label="City"
-                  placeholder="Type any US or Canada city…"
+                  placeholder="Type any US, Canada, or Poland city…"
                   options={cityOpts}
                   onPick={(o) => {
                     const found = metros.find((m) => m.slug === o.value);
@@ -269,7 +275,7 @@ export function MarketStep({
                   }}
                   // R2-1 · the city gazetteer is authoritative — no request
                   // capture — but say what we cover instead of a silent blank.
-                  emptyLabel="We cover 300+ US & Canada metros — that city isn't one yet. Try the nearest large metro."
+                  emptyLabel="We cover 300+ US, Canada & Poland metros — that city isn't one yet. Try the nearest large metro."
                 />
                 <MarketCombobox
                   key={`cat-${comboResetKey}`}

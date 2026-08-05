@@ -109,9 +109,10 @@ export interface MarketCell {
   categoryId: string;
   /** Category slug (dataforseo id) — feeds the discovery cells input. */
   categorySlug: string;
-  /** ISO-2 country of the metro ("US" | "CA") — feeds the cellKey + discovery
-   *  so Canadian businesses are stamped CA, not the old hardcoded US. */
-  country: "US" | "CA";
+  /** ISO-2 country of the metro ("US" | "CA" | "PL") — feeds the cellKey +
+   *  discovery so non-US businesses are stamped correctly, not the old
+   *  hardcoded US. */
+  country: "US" | "CA" | "PL";
 }
 
 /**

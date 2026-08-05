@@ -35,7 +35,7 @@ export interface UsMetro {
   radiusTier: RadiusTier;
   /** ISO-2 country. Optional — absent means "US" (the curated majors predate
    *  the US+CA expansion). The generated cities always set it explicitly. */
-  country?: "US" | "CA";
+  country?: "US" | "CA" | "PL";
   /** Lowercased sub-cities/neighborhoods that collapse into this metro. */
   aliases: string[];
 }
@@ -464,15 +464,178 @@ export const CURATED_METROS: readonly UsMetro[] = [
 ] as const;
 
 /**
+ * Poland — curated majors (2026-08). Hand-entered (no GeoNames build step,
+ * unlike GENERATED_CITIES) — the 15 largest Polish cities by population.
+ * `state` carries the ISO 3166-2:PL voivodeship code (same role US postal
+ * codes play for CURATED_METROS); `name` is deliberately ASCII (no
+ * diacritics) because `normalizePlace()` in resolve-metro.ts doesn't strip
+ * them — an accented name would silently break combobox/typeahead matching.
+ */
+export const PL_METROS: readonly UsMetro[] = [
+  {
+    slug: "warsaw",
+    name: "Warsaw, Poland",
+    state: "MZ",
+    lat: 52.2297,
+    lng: 21.0122,
+    radiusTier: "LARGE",
+    country: "PL",
+    aliases: [],
+  },
+  {
+    slug: "krakow",
+    name: "Krakow, Poland",
+    state: "MA",
+    lat: 50.0647,
+    lng: 19.945,
+    radiusTier: "LARGE",
+    country: "PL",
+    aliases: [],
+  },
+  {
+    slug: "lodz",
+    name: "Lodz, Poland",
+    state: "LD",
+    lat: 51.7592,
+    lng: 19.456,
+    radiusTier: "MID",
+    country: "PL",
+    aliases: [],
+  },
+  {
+    slug: "wroclaw",
+    name: "Wroclaw, Poland",
+    state: "DS",
+    lat: 51.1079,
+    lng: 17.0385,
+    radiusTier: "MID",
+    country: "PL",
+    aliases: [],
+  },
+  {
+    slug: "poznan",
+    name: "Poznan, Poland",
+    state: "WP",
+    lat: 52.4064,
+    lng: 16.9252,
+    radiusTier: "MID",
+    country: "PL",
+    aliases: [],
+  },
+  {
+    slug: "gdansk",
+    name: "Gdansk, Poland",
+    state: "PM",
+    lat: 54.352,
+    lng: 18.6466,
+    radiusTier: "MID",
+    country: "PL",
+    aliases: [],
+  },
+  {
+    slug: "szczecin",
+    name: "Szczecin, Poland",
+    state: "ZP",
+    lat: 53.4285,
+    lng: 14.5528,
+    radiusTier: "MID",
+    country: "PL",
+    aliases: [],
+  },
+  {
+    slug: "bydgoszcz",
+    name: "Bydgoszcz, Poland",
+    state: "KP",
+    lat: 53.1235,
+    lng: 18.0084,
+    radiusTier: "MID",
+    country: "PL",
+    aliases: [],
+  },
+  {
+    slug: "lublin",
+    name: "Lublin, Poland",
+    state: "LU",
+    lat: 51.2465,
+    lng: 22.5684,
+    radiusTier: "SMALL",
+    country: "PL",
+    aliases: [],
+  },
+  {
+    slug: "bialystok",
+    name: "Bialystok, Poland",
+    state: "PD",
+    lat: 53.1325,
+    lng: 23.1688,
+    radiusTier: "SMALL",
+    country: "PL",
+    aliases: [],
+  },
+  {
+    slug: "katowice",
+    name: "Katowice, Poland",
+    state: "SL",
+    lat: 50.2649,
+    lng: 19.0238,
+    radiusTier: "SMALL",
+    country: "PL",
+    aliases: [],
+  },
+  {
+    slug: "gdynia",
+    name: "Gdynia, Poland",
+    state: "PM",
+    lat: 54.5189,
+    lng: 18.5305,
+    radiusTier: "SMALL",
+    country: "PL",
+    aliases: [],
+  },
+  {
+    slug: "czestochowa",
+    name: "Czestochowa, Poland",
+    state: "SL",
+    lat: 50.8118,
+    lng: 19.1203,
+    radiusTier: "SMALL",
+    country: "PL",
+    aliases: [],
+  },
+  {
+    slug: "radom",
+    name: "Radom, Poland",
+    state: "MZ",
+    lat: 51.4027,
+    lng: 21.1471,
+    radiusTier: "SMALL",
+    country: "PL",
+    aliases: [],
+  },
+  {
+    slug: "sosnowiec",
+    name: "Sosnowiec, Poland",
+    state: "SL",
+    lat: 50.2863,
+    lng: 19.1041,
+    radiusTier: "SMALL",
+    country: "PL",
+    aliases: [],
+  },
+] as const;
+
+/**
  * The full gazetteer the app selects from: the curated majors (rich aliases +
  * stable slugs) FIRST, then the generated US + Canada cities ≥100k population
- * (deduped against the curated set in scripts/build-places-gazetteer.ts). The
- * Market step, `metroBySlug`, and discovery all read this — so adding a city
- * here makes it selectable AND discoverable with no other wiring.
+ * (deduped against the curated set in scripts/build-places-gazetteer.ts), then
+ * the curated Poland majors. The Market step, `metroBySlug`, and discovery
+ * all read this — so adding a city here makes it selectable AND discoverable
+ * with no other wiring.
  */
 export const US_METROS: readonly UsMetro[] = [
   ...CURATED_METROS,
   ...GENERATED_CITIES,
+  ...PL_METROS,
 ];
 
 /** Radius (km) for a metro, derived from its tier. */

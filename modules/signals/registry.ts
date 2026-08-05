@@ -977,11 +977,11 @@ const qualifierSignals: readonly SignalDefinition[] = [
   {
     key: "country",
     label: "Country",
-    helpTooltip: "Country (ISO 2-letter). US or CA in v1.",
+    helpTooltip: "Country (ISO 2-letter). US, CA, or PL.",
     category: "qualifiers",
     type: "enum",
     comparators: ENUM_COMPARATORS,
-    enumValues: ["US", "CA"],
+    enumValues: ["US", "CA", "PL"],
     defaultValue: "US",
     source: "dataforseo:maps",
     cadence: "static",
