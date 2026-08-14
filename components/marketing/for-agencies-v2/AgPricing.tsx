@@ -1,14 +1,23 @@
+import { getTranslations } from "next-intl/server";
+
 import { Link } from "@/i18n/navigation";
 
-import { PriceCheck } from "@/components/marketing/for-businesses/fb-shared";
+import { AgPlanCards } from "./AgPlanCards";
 
 /**
- * AgPricing · "Pay for outcomes, not seats."
+ * AgPricing · "Pay for outcomes, not seats." — the homepage pricing band.
  *
- * Purple rounded band (same gradient as the SMB pricing band) with a
- * centered head and three plan cards. Reuses the SMB `.fb-price-*` card
- * system; the middle plan carries the floating yellow badge + a yellow
- * ring. Each card's CTA links to /signin (start free / start trial).
+ * Purple rounded band (bottom half of the sticky-stacking pair with
+ * <AgHunter>) carrying a centered head and the plan ladder.
+ *
+ * The ladder itself is <AgPlanCards>, the SAME component the standalone
+ * /pricing page renders. This band used to hand-roll three cards from
+ * `for_agencies.pricing.p*_*` i18n keys, which drifted from what the app
+ * actually charges: it advertised Free / $19 Starter / $99 Growth while the
+ * grant table sold Starter $19, Solo $49, Growth $99 and Pro $299 — so Solo,
+ * the tier the repricing decision says to advertise, appeared nowhere on the
+ * marketing site. Sharing one renderer over `PLAN_CARDS` makes that class of
+ * bug structurally impossible rather than a thing to remember.
  *
  * Pure server component.
  */
@@ -16,23 +25,9 @@ interface AgPricingProps {
   t: (key: string) => string;
 }
 
-interface Plan {
-  key: "p1" | "p2" | "p3";
-  features: number;
-  featured?: boolean;
-}
+export async function AgPricing({ t }: AgPricingProps) {
+  const tp = await getTranslations("pricing");
 
-// Featured = Growth (p3), not Starter (p2). Repricing strategy (B3) says never
-// advertise the $19 entry tier — the plan to advertise is Solo ($49), which this
-// 3-up marketing grid doesn't yet show. Until it's expanded to the full 5-tier
-// ladder (follow-up), crown the serious paid tier rather than the weak entry one.
-const PLANS: Plan[] = [
-  { key: "p1", features: 5 },
-  { key: "p2", features: 5 },
-  { key: "p3", features: 5, featured: true },
-];
-
-export function AgPricing({ t }: AgPricingProps) {
   return (
     <section
       id="pricing"
@@ -49,43 +44,16 @@ export function AgPricing({ t }: AgPricingProps) {
           <p className="fb-sub">{t("pricing.sub")}</p>
         </div>
 
-        <div className="fb-ag-price-grid">
-          {PLANS.map(({ key, features, featured }) => (
-            <div
-              key={key}
-              className={`fb-price-card${
-                featured ? " fb-price-card--featured" : ""
-              }`}
-            >
-              {featured && (
-                <span className="fb-price-badge">{t("pricing.p2_badge")}</span>
-              )}
-              <p className="fb-price-plan">{t(`pricing.${key}_name`)}</p>
-              <div className="fb-price-amount">
-                {t(`pricing.${key}_price`)}
-                <span className="fb-unit">{t(`pricing.${key}_period`)}</span>
-              </div>
-              <p className="fb-price-sub">{t(`pricing.${key}_sub`)}</p>
+        <AgPlanCards />
 
-              <ul className="fb-price-list">
-                {Array.from({ length: features }, (_, i) => i + 1).map((n) => (
-                  <li key={n}>
-                    <PriceCheck />
-                    {t(`pricing.${key}_f${n}`)}
-                  </li>
-                ))}
-              </ul>
-
-              {/* audience=agency → self-serve agency provisioning (WP2-1). */}
-              <Link
-                href={{ pathname: "/signin", query: { audience: "agency" } }}
-                className="fb-btn"
-              >
-                {t(`pricing.${key}_cta`)}
-              </Link>
-            </div>
-          ))}
-        </div>
+        {/* Sends the ladder's detail (FAQ, full comparison) to the dedicated
+            page — and gives /pricing a prominent internal link from the
+            highest-traffic page on the site. */}
+        <p className="fb-ag-price-note">
+          <Link href="/pricing" className="fb-ag-price-link">
+            {tp("see_full")}
+          </Link>
+        </p>
       </div>
     </section>
   );

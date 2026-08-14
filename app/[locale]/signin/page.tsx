@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 
 import { auth } from "@/lib/auth";
+import { RedirectType } from "next/navigation";
+
 import { redirect } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { SignInForm } from "./SignInForm";
@@ -71,14 +73,22 @@ export default async function SignInPage({
   // along so an already-signed-in invitee still gets seated (WP5-8).
   const session = await auth();
   if (session?.user?.id) {
-    redirect({
-      href: invite
-        ? { pathname: "/post-signin", query: { invite } }
-        : audience
-          ? { pathname: "/post-signin", query: { audience } }
-          : "/post-signin",
-      locale: locale as Locale,
-    });
+    // REPLACE, not push. An already-signed-in visitor who clicks any pricing
+    // or hero CTA lands here, gets bounced to /post-signin, and then cannot
+    // go back: Back returns to /signin, which immediately bounces forward
+    // again — the browser looks frozen on the destination. Replacing drops
+    // /signin from history so Back reaches the page they came from.
+    redirect(
+      {
+        href: invite
+          ? { pathname: "/post-signin", query: { invite } }
+          : audience
+            ? { pathname: "/post-signin", query: { audience } }
+            : "/post-signin",
+        locale: locale as Locale,
+      },
+      RedirectType.replace,
+    );
   }
 
   // The homepage hero's free-leads capsule, echoed above the card so the

@@ -1,6 +1,10 @@
 import { Suspense } from "react";
 import { headers } from "next/headers";
-import { unauthorized, redirect as nativeRedirect } from "next/navigation";
+import {
+  unauthorized,
+  redirect as nativeRedirect,
+  RedirectType,
+} from "next/navigation";
 
 import { auth } from "@/lib/auth";
 import { redirect } from "@/i18n/navigation";
@@ -12,6 +16,12 @@ import { acceptPendingInvite } from "@/modules/agency-portal/team/accept";
 
 // Post-signin landing. The magic-link callback drops the user here, we look
 // up their role + agency membership, then redirect by audience.
+//
+// EVERY redirect here is RedirectType.replace. This page renders nothing — it
+// is a pure dispatcher — so leaving it in history traps the Back button: Back
+// returns to /post-signin, which immediately dispatches forward again and the
+// browser appears stuck on the destination. Same reasoning as the signed-in
+// bounce in /signin.
 //
 // Order of precedence:
 //   1. ADMIN → /admin (outside next-intl tree — native redirect)
@@ -73,7 +83,7 @@ async function PostSignInRedirect({
   if (user.role === "ADMIN") {
     // /admin sits OUTSIDE the next-intl tree — use the native redirect
     // (next-intl's redirect would prefix the locale and break the path).
-    nativeRedirect("/admin");
+    nativeRedirect("/admin", RedirectType.replace);
   }
 
   // WP5-8 · seat invite. Runs BEFORE the member/self-provision routing so an
@@ -89,12 +99,12 @@ async function PostSignInRedirect({
       inviteToken,
     );
     if (accepted.status === "accepted") {
-      redirect({ href: "/welcome", locale });
+      redirect({ href: "/welcome", locale }, RedirectType.replace);
     }
   }
 
   if (user.agencyMembers.length > 0) {
-    redirect({ href: "/welcome", locale });
+    redirect({ href: "/welcome", locale }, RedirectType.replace);
   }
 
   // WP2-1 · self-serve agency creation. The /for-agencies CTAs send
@@ -126,18 +136,21 @@ async function PostSignInRedirect({
     if (blocked) {
       // Bounce back to the agency landing with a "use a business email" note.
       // (No agency was created — routing into /welcome would break.)
-      redirect({
-        href: {
-          pathname: "/for-agencies",
-          query: { signup: "business_email_required" },
+      redirect(
+        {
+          href: {
+            pathname: "/for-agencies",
+            query: { signup: "business_email_required" },
+          },
+          locale,
         },
-        locale,
-      });
+        RedirectType.replace,
+      );
     }
     if (provisioned) {
       // /welcome grants the 50 free credits (grantFreeTierIfNew — the single
       // grant path) and shows the agency front door.
-      redirect({ href: "/welcome", locale });
+      redirect({ href: "/welcome", locale }, RedirectType.replace);
     }
   }
 
@@ -153,10 +166,10 @@ async function PostSignInRedirect({
       landing,
       await currentOrigin(),
     );
-    if (checkoutUrl) nativeRedirect(checkoutUrl);
+    if (checkoutUrl) nativeRedirect(checkoutUrl, RedirectType.replace);
   }
 
-  redirect({ href: "/home", locale });
+  redirect({ href: "/home", locale }, RedirectType.replace);
 
   // Unreachable — redirect() throws. Return null so TS infers ReactNode.
   return null;

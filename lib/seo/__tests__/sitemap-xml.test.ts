@@ -27,6 +27,11 @@ const GOLDEN_STATIC_LOCS = [
   "https://www.mapsly.ai/es/para-empresas",
   "https://www.mapsly.ai/en-CA/for-businesses",
   "https://www.mapsly.ai/fr/pour-entreprises",
+  // T1 · standalone /pricing page (added 2026-08-14).
+  "https://www.mapsly.ai/pricing",
+  "https://www.mapsly.ai/es/precios",
+  "https://www.mapsly.ai/en-CA/pricing",
+  "https://www.mapsly.ai/fr/tarifs",
   "https://www.mapsly.ai/compare/mapsly-vs-apollo",
   "https://www.mapsly.ai/es/compare/mapsly-vs-apollo",
   "https://www.mapsly.ai/en-CA/compare/mapsly-vs-apollo",
@@ -58,9 +63,9 @@ const GOLDEN_STATIC_LOCS = [
 ];
 
 describe("buildStaticEntries", () => {
-  test("emits exactly the 36 golden static marketing URLs", () => {
+  test("emits exactly the 40 golden static marketing URLs", () => {
     const locs = buildStaticEntries().map((e) => e.loc);
-    expect(locs.length).toBe(36);
+    expect(locs.length).toBe(40);
     expect([...locs].sort()).toEqual([...GOLDEN_STATIC_LOCS].sort());
   });
 
@@ -152,7 +157,7 @@ describe("buildSitemapXml", () => {
     );
     expect(xml).toContain('xmlns:xhtml="http://www.w3.org/1999/xhtml"');
     expect(xml).toContain('hreflang="x-default"');
-    expect((xml.match(/<url>/g) ?? []).length).toBe(36);
+    expect((xml.match(/<url>/g) ?? []).length).toBe(40);
     expect(xml.trimEnd().endsWith("</urlset>")).toBe(true);
   });
 

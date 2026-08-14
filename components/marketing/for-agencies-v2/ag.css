@@ -398,36 +398,7 @@
 .fb-pricing--ag .fb-board-head .fb-sub {
   color: #fff;
 }
-.fb-ag-price-grid {
-  margin: clamp(24px, 3.5vw, 44px) auto 0;
-  max-width: 1080px;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 22px;
-  align-items: stretch;
-}
-/* the agency cards fill their grid cell (override fb.css' fixed widths) */
-.fb-ag-price-grid .fb-price-card {
-  width: 100%;
-  padding: 36px 34px 30px;
-  display: flex;
-  flex-direction: column;
-}
 /* equal-height cards: the feature list grows so every CTA lands on the same baseline */
-.fb-ag-price-grid .fb-price-list {
-  flex: 1;
-}
-/* highlighted middle card · subtle yellow ring */
-.fb-ag-price-grid .fb-price-card--featured {
-  outline: 3px solid var(--fb-yellow);
-  outline-offset: 0;
-}
-.fb-ag-price-grid .fb-price-card .fb-price-badge {
-  top: -20px;
-  left: 50%;
-  transform: translateX(-50%);
-  white-space: nowrap;
-}
 
 /* ------------------------------------------------ platform (white · 3 cols) */
 
@@ -600,7 +571,7 @@
   .fb-ag-demo-rail {
     display: none;
   }
-  .fb-ag-price-grid {
+  .fb-ag-plans {
     grid-template-columns: 1fr;
     /* more vertical gap between stacked cards · room for the floating badge */
     gap: 44px;
@@ -625,7 +596,7 @@
     scroll-snap-align: center;
   }
   /* keep the featured ring from clipping when cards stack */
-  .fb-ag-price-grid .fb-price-card--featured {
+  .fb-pricing .fb-ag-plans .fb-price-card--featured {
     outline-offset: 0;
   }
 }
@@ -686,5 +657,212 @@
   font-weight: 600;
 }
 .fb-faq-compare a:hover {
+  text-decoration: underline;
+}
+
+/* ------------------------------------------- standalone /pricing page (T1) */
+
+/* Hero · the pricing headline is shorter than the homepage's, so it needs
+   less top pad to sit on the same optical line. Everything else (mesh,
+   dots, glass pill) is inherited from .fb-hero--ag. */
+.fb-hero--pricing {
+  padding-top: 132px;
+  padding-bottom: clamp(48px, 6vw, 88px);
+}
+@media (max-width: 560px) {
+  .fb-hero--pricing {
+    padding-top: 104px;
+  }
+}
+
+/* Trust row under the hero CTA · three short reassurances, inline. */
+.fb-ag-trust {
+  list-style: none;
+  margin: 28px 0 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px 26px;
+}
+.fb-ag-trust li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+}
+.fb-ag-trust svg {
+  flex: 0 0 auto;
+}
+
+/* The purple band keeps the homepage treatment verbatim — rounded top, square
+   bottom, sticky-card geometry — so /pricing and / are the same object. The
+   only change is trimming the stack-pair top padding, since nothing sits
+   above it here. */
+.fb-pricing--solo {
+  padding-top: clamp(52px, 5.5vw, 84px);
+  margin-top: clamp(-28px, -2vw, -12px);
+}
+.fb-ag-eyebrow {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #caecec;
+}
+
+/* FOUR paid cards. Free is a strip below, not a fifth column — same call the
+   in-app billing screen makes, and for the same reason: five equal columns
+   shrink the price type past legibility. */
+.fb-ag-plans {
+  margin: clamp(28px, 3.5vw, 48px) auto 0;
+  max-width: 1160px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+/* Specificity note · fb.css sets `.fb-pricing .fb-price-card { width: 466px;
+   margin-left: auto; margin-right: <gutter> }` for the SMB single-card band.
+   That selector is (0,2,0) — the same weight as `.fb-ag-plans .fb-price-card`,
+   so which one won came down to stylesheet order, and the inherited fixed
+   width + gutter margin made every card overflow its grid column and overlap
+   its neighbour. Qualifying with `.fb-pricing` takes this to (0,3,0) so it
+   wins outright, and the margins are reset explicitly rather than inherited. */
+.fb-pricing .fb-ag-plans .fb-price-card {
+  width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+  padding: 34px 26px 28px;
+  display: flex;
+  flex-direction: column;
+}
+/* Equal-height cards: the feature list absorbs the slack so every CTA lands
+   on the same baseline. */
+.fb-pricing .fb-ag-plans .fb-price-list {
+  flex: 1;
+}
+.fb-pricing .fb-ag-plans .fb-price-card--featured {
+  outline: 3px solid var(--fb-yellow);
+  outline-offset: 0;
+}
+.fb-pricing .fb-ag-plans .fb-price-card .fb-price-badge {
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+@media (max-width: 1080px) {
+  .fb-ag-plans {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .fb-ag-plans {
+    grid-template-columns: 1fr;
+  }
+  /* Stacked, the floating badge would overlap the card above. */
+  .fb-pricing .fb-ag-plans .fb-price-card--featured {
+    margin-top: 14px;
+  }
+}
+
+/* The one number an agency shops on. */
+.fb-ag-yield {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.fb-ag-yield-n {
+  font-family: var(--fb-head);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--fb-ink);
+}
+.fb-ag-yield-l {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fb-ink);
+}
+.fb-ag-yield-sub {
+  font-size: 12.5px;
+  color: var(--fb-ink-70);
+}
+.fb-ag-rate {
+  margin: 12px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fb-ink-70);
+}
+.fb-ag-reset {
+  margin: 0 0 14px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--fb-ink-50);
+}
+
+/* Free tier · horizontal strip, deliberately quieter than the paid cards. */
+.fb-ag-free-strip {
+  max-width: 1160px;
+  margin: 18px auto 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 22px 28px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.fb-ag-free-copy {
+  min-width: 260px;
+  flex: 1;
+}
+.fb-ag-free-label {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+.fb-ag-free-desc {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.74);
+}
+/* Ghost CTA · the free tier must never be the loudest button on the page. */
+.fb-btn--ghost {
+  background: transparent;
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+  color: #fff;
+}
+.fb-btn--ghost:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: #fff;
+}
+
+.fb-ag-price-note {
+  max-width: 1160px;
+  margin: clamp(20px, 2.5vw, 30px) auto 0;
+  text-align: center;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+/* "See full pricing" link under the homepage band's ladder. */
+.fb-ag-price-link {
+  color: #fffd54;
+  font-weight: 700;
+  text-decoration: none;
+}
+.fb-ag-price-link:hover {
   text-decoration: underline;
 }

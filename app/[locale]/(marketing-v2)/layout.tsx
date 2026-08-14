@@ -21,7 +21,8 @@ import { Suspense, type ReactNode } from "react";
 import { Space_Grotesk, Bricolage_Grotesque } from "next/font/google";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 
-import { Link } from "@/i18n/navigation";
+import { Link, getPathname } from "@/i18n/navigation";
+import type { Locale } from "@/i18n/routing";
 import { FbLogo } from "@/components/marketing/for-businesses/FbLogo";
 import { StickyHeader } from "@/components/marketing/for-businesses/StickyHeader";
 import { V2NavLinks } from "@/components/marketing/for-businesses/V2NavLinks";
@@ -95,6 +96,12 @@ async function V2Header({ params }: { params: Promise<LayoutParams> }) {
         <V2NavLinks
           labels={{
             price: t("price"),
+            // Resolved here (server) so the nav stays a plain <a> — see the
+            // priceHref note in V2NavLabels.
+            priceHref: getPathname({
+              href: "/pricing",
+              locale: locale as Locale,
+            }),
             navAria: t("nav_aria"),
             cta: {
               signin: t("signin"),
@@ -123,6 +130,9 @@ async function V2Footer({ params }: { params: Promise<LayoutParams> }) {
           <FbLogo height={32} />
         </Link>
         <nav aria-label={t("footer.nav_aria")} className="fb-footer-nav">
+          {/* Pricing leads the footer nav: it is the highest-intent public
+              page and the only site-wide internal link Google gets to it. */}
+          <Link href="/pricing">{t("footer.pricing")}</Link>
           <Link href="/privacy">{t("footer.privacy")}</Link>
           <Link href="/terms">{t("footer.terms")}</Link>
           <Link href="/cookies">{t("footer.cookies")}</Link>

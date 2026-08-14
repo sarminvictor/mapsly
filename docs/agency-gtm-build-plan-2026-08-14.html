@@ -1,0 +1,3153 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      Mapsly · agency GTM build plan — 22 tasks to 10 paying customers
+    </title>
+    <style>
+      :root {
+        --ink: #1a1d27;
+        --muted: #5b6172;
+        --faint: #8a90a2;
+        --bg: #f6f7fb;
+        --card: #fff;
+        --line: #e4e6ef;
+        --indigo: #5b3df5;
+        --indigo-soft: #efeaff;
+        --green: #0f7b4d;
+        --green-soft: #e3f4ec;
+        --red: #b3261e;
+        --red-soft: #fbe9e7;
+        --amber: #8a5a00;
+        --amber-soft: #fff3d6;
+        --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          16px/1.62 Inter,
+          system-ui,
+          -apple-system,
+          sans-serif;
+        padding: 0 0 90px;
+      }
+      .wrap {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+      header {
+        background: linear-gradient(
+          135deg,
+          #14161f 0%,
+          #2b2350 55%,
+          #3a2a6d 100%
+        );
+        color: #fff;
+        padding: 44px 0 38px;
+        position: relative;
+        overflow: hidden;
+      }
+      header::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          680px 280px at 80% 12%,
+          rgba(91, 61, 245, 0.42),
+          transparent 62%
+        );
+      }
+      header .wrap {
+        position: relative;
+        z-index: 1;
+      }
+      h1 {
+        font-size: 29px;
+        line-height: 1.24;
+        margin: 0 0 9px;
+        letter-spacing: -0.4px;
+      }
+      .sub {
+        color: #c4bdec;
+        font-size: 15px;
+        margin: 0 0 22px;
+      }
+      .hero-stats {
+        display: flex;
+        gap: 26px;
+        flex-wrap: wrap;
+      }
+      .hs {
+        color: #fff;
+      }
+      .hs b {
+        display: block;
+        font-size: 26px;
+        font-weight: 800;
+        letter-spacing: -0.6px;
+      }
+      .hs span {
+        font-size: 12.5px;
+        color: #b9b1e4;
+      }
+      /* sticky progress */
+      .bar {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        background: rgba(255, 255, 255, 0.93);
+        backdrop-filter: blur(9px);
+        border-bottom: 1px solid var(--line);
+        padding: 11px 0;
+      }
+      .bar .wrap {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      .prog {
+        flex: 1;
+        min-width: 180px;
+        height: 11px;
+        background: #e9ebf2;
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      .prog i {
+        display: block;
+        height: 100%;
+        width: 0;
+        background: linear-gradient(90deg, #8b7cf0, var(--indigo));
+        border-radius: 6px;
+        transition: width 0.45s cubic-bezier(0.22, 0.9, 0.3, 1);
+      }
+      .pnum {
+        font: 700 14px/1 var(--mono);
+        white-space: nowrap;
+      }
+      .filters {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+      }
+      .filters button {
+        border: 1px solid var(--line);
+        background: #fff;
+        border-radius: 20px;
+        padding: 5px 12px;
+        font: 600 12px/1.5 Inter;
+        color: var(--muted);
+      }
+      .filters button[aria-pressed="true"] {
+        background: var(--indigo);
+        border-color: var(--indigo);
+        color: #fff;
+      }
+      .reset {
+        border: 0;
+        background: none;
+        color: var(--faint);
+        font-size: 12px;
+        text-decoration: underline;
+      }
+      /* phases */
+      section.phase {
+        margin: 34px 0 0;
+      }
+      .phase-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 18px;
+        border-left: 4px solid var(--c);
+        padding: 2px 0 12px 15px;
+        margin-bottom: 14px;
+      }
+      .phase-head h2 {
+        font-size: 21px;
+        margin: 0 0 3px;
+        letter-spacing: -0.2px;
+      }
+      .pid {
+        font: 700 12px/1 var(--mono);
+        color: #fff;
+        background: var(--c);
+        padding: 5px 8px;
+        border-radius: 5px;
+        margin-right: 10px;
+        vertical-align: middle;
+      }
+      .phase-head p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+        max-width: 66ch;
+      }
+      .phase-prog {
+        text-align: right;
+        min-width: 120px;
+      }
+      .pp-bar {
+        width: 120px;
+        height: 7px;
+        background: #e9ebf2;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-bottom: 5px;
+      }
+      .pp-fill {
+        height: 100%;
+        width: 0;
+        background: var(--c);
+        border-radius: 4px;
+        transition: width 0.45s ease;
+      }
+      .phase-prog span {
+        font: 600 11.5px/1 var(--mono);
+        color: var(--muted);
+      }
+      /* task */
+      .task {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        margin-bottom: 10px;
+        overflow: hidden;
+        transition: opacity 0.2s;
+      }
+      .task.done {
+        opacity: 0.55;
+        background: #fbfcfe;
+      }
+      .task.done .tt-row h3 {
+        text-decoration: line-through;
+        color: var(--muted);
+      }
+      .task.hide {
+        display: none;
+      }
+      .task-head {
+        display: flex;
+        gap: 13px;
+        padding: 15px 17px;
+        align-items: flex-start;
+      }
+      .cb {
+        flex: 0 0 auto;
+        padding-top: 2px;
+      }
+      .cb input {
+        position: absolute;
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      .cb .box {
+        display: block;
+        width: 21px;
+        height: 21px;
+        border: 2px solid #c9ccd8;
+        border-radius: 6px;
+        transition: 0.15s;
+        position: relative;
+      }
+      .cb input:checked + .box {
+        background: var(--green);
+        border-color: var(--green);
+      }
+      .cb input:checked + .box::after {
+        content: "";
+        position: absolute;
+        left: 6px;
+        top: 2px;
+        width: 5px;
+        height: 10px;
+        border: solid #fff;
+        border-width: 0 2.5px 2.5px 0;
+        transform: rotate(45deg);
+      }
+      .cb input:focus-visible + .box {
+        outline: 2px solid var(--indigo);
+        outline-offset: 2px;
+      }
+      .task-title {
+        flex: 1;
+        min-width: 0;
+      }
+      .tt-row {
+        display: flex;
+        align-items: baseline;
+        gap: 9px;
+        flex-wrap: wrap;
+      }
+      .tid {
+        font: 700 11.5px/1 var(--mono);
+        color: var(--indigo);
+        background: var(--indigo-soft);
+        padding: 4px 7px;
+        border-radius: 4px;
+      }
+      .tt-row h3 {
+        font-size: 16.5px;
+        margin: 0;
+        letter-spacing: -0.1px;
+      }
+      .tt-meta {
+        display: flex;
+        gap: 6px;
+        margin: 7px 0 0;
+        flex-wrap: wrap;
+      }
+      .size {
+        font: 800 11px/1 Inter;
+        padding: 5px 9px;
+        border-radius: 5px;
+        letter-spacing: 0.03em;
+        cursor: help;
+      }
+      .who {
+        font: 600 11px/1 Inter;
+        padding: 5px 9px;
+        border-radius: 5px;
+        background: #eef0f6;
+        color: var(--muted);
+      }
+      .who-v {
+        background: #fff3d6;
+        color: #8a5a00;
+      }
+      .ph {
+        font: 600 11px/1 Inter;
+        padding: 5px 9px;
+        border-radius: 5px;
+        background: #f2f3f8;
+        color: var(--c);
+      }
+      .shipped {
+        font: 800 10px/1 Inter;
+        letter-spacing: 0.06em;
+        background: var(--green);
+        color: #fff;
+        padding: 5px 8px;
+        border-radius: 5px;
+      }
+      .why {
+        margin: 9px 0 0;
+        color: var(--muted);
+        font-size: 13.5px;
+        line-height: 1.55;
+      }
+      .why b {
+        color: var(--ink);
+      }
+      .expand {
+        flex: 0 0 auto;
+        border: 1px solid var(--line);
+        background: #fff;
+        border-radius: 7px;
+        padding: 6px 12px;
+        font: 600 12px/1.4 Inter;
+        color: var(--muted);
+        height: fit-content;
+      }
+      .expand[aria-expanded="true"] {
+        background: var(--indigo);
+        border-color: var(--indigo);
+        color: #fff;
+      }
+      .task-body {
+        padding: 0 17px 18px 51px;
+        border-top: 1px solid #f0f1f6;
+        margin-top: 2px;
+      }
+      .prose {
+        font-size: 14px;
+        line-height: 1.62;
+        color: var(--ink);
+        margin: 14px 0 0;
+      }
+      .prose p {
+        margin: 0 0 9px;
+      }
+      .prose code,
+      .files code {
+        font: 600 12.5px/1 var(--mono);
+        background: #f1f2f7;
+        padding: 2px 5px;
+        border-radius: 4px;
+        color: #3a3f52;
+      }
+      .warn-inline {
+        background: var(--amber-soft);
+        border-left: 3px solid var(--amber);
+        padding: 10px 13px;
+        border-radius: 0 7px 7px 0;
+      }
+      .lbl {
+        font: 700 10.5px/1 Inter;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--faint);
+        margin: 15px 0 7px;
+      }
+      .files ul,
+      .accept ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+      .files li {
+        font-size: 13px;
+        margin-bottom: 4px;
+        color: var(--muted);
+      }
+      .accept li {
+        font-size: 13.5px;
+        margin-bottom: 5px;
+      }
+      .codewrap {
+        margin: 14px 0 0;
+        border: 1px solid #dfe2ec;
+        border-radius: 9px;
+        overflow: hidden;
+      }
+      .code-h {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #f1f2f7;
+        padding: 8px 12px;
+        border-bottom: 1px solid #dfe2ec;
+      }
+      .code-h span {
+        font: 600 11.5px/1 var(--mono);
+        color: #5b6172;
+      }
+      .cpy {
+        border: 1px solid #d3d7e3;
+        background: #fff;
+        border-radius: 5px;
+        padding: 4px 9px;
+        font: 600 11px/1 Inter;
+        color: var(--muted);
+      }
+      .cpy.ok {
+        background: var(--green);
+        border-color: var(--green);
+        color: #fff;
+      }
+      pre.code {
+        margin: 0;
+        padding: 13px 15px;
+        overflow-x: auto;
+        background: #14161f;
+        color: #e6e8f0;
+      }
+      pre.code code {
+        font: 400 12.5px/1.65 var(--mono);
+        white-space: pre;
+        background: none;
+        padding: 0;
+        color: inherit;
+      }
+      .copy {
+        margin: 14px 0 0;
+        border: 1px solid #d7e3dc;
+        border-radius: 9px;
+        overflow: hidden;
+      }
+      .copy-h {
+        background: var(--green-soft);
+        padding: 8px 13px;
+        font: 700 11px/1 Inter;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--green);
+        border-bottom: 1px solid #d7e3dc;
+      }
+      .copy-b {
+        padding: 13px 15px;
+        font: 400 13px/1.68 var(--mono);
+        background: #fbfdfc;
+        white-space: normal;
+        color: #28303c;
+      }
+      .legend {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 18px 20px;
+        margin-top: 26px;
+      }
+      .legend h3 {
+        margin: 0 0 12px;
+        font-size: 15px;
+      }
+      .lg {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        margin-bottom: 9px;
+        font-size: 13.5px;
+      }
+      .lg .size {
+        flex: 0 0 auto;
+      }
+      footer {
+        color: var(--faint);
+        font-size: 12.5px;
+        border-top: 1px solid var(--line);
+        padding-top: 20px;
+        margin-top: 40px;
+        line-height: 1.62;
+      }
+      @media (max-width: 700px) {
+        .wrap {
+          padding: 0 15px;
+        }
+        .task-body {
+          padding-left: 17px;
+        }
+        .phase-head {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        .expand {
+          order: 3;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap">
+        <h1>Build plan — first 10 paying agencies</h1>
+        <p class="sub">
+          22 tasks · sized S to XL · tick them off as we ship · progress saves
+          in this browser
+        </p>
+        <div class="hero-stats">
+          <div class="hs"><b>22</b><span>tasks total</span></div>
+          <div class="hs"><b>6·11·3·2</b><span>S · M · L · XL</span></div>
+          <div class="hs"><b>6</b><span>need you (no calls)</span></div>
+          <div class="hs">
+            <b>83%</b><span>simulated odds of hitting 10</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="bar">
+      <div class="wrap">
+        <div class="prog"><i id="progFill"></i></div>
+        <span class="pnum" id="progNum">0 / 22</span>
+        <div class="filters">
+          <button data-f="all" aria-pressed="true">All</button>
+          <button data-f="todo" aria-pressed="false">To do</button>
+          <button data-f="ai" aria-pressed="false">AI builds</button>
+          <button data-f="viktor" aria-pressed="false">You</button>
+          <button data-f="S" aria-pressed="false">S</button>
+          <button data-f="M" aria-pressed="false">M</button>
+          <button data-f="L" aria-pressed="false">L</button>
+          <button data-f="XL" aria-pressed="false">XL</button>
+        </div>
+        <button class="reset" id="reset">reset</button>
+      </div>
+    </div>
+
+    <div class="wrap">
+      <section class="phase" data-phase="P0">
+        <div class="phase-head" style="--c: #b3261e">
+          <div>
+            <h2><span class="pid">P0</span>Stop the leaks</h2>
+            <p>
+              Nothing downstream converts until these exist. Do these before any
+              traffic work.
+            </p>
+          </div>
+          <div class="phase-prog">
+            <div class="pp-bar">
+              <div class="pp-fill" data-phase-fill="P0"></div>
+            </div>
+            <span data-phase-count="P0">0/8</span>
+          </div>
+        </div>
+        <article
+          class="task done"
+          id="T1"
+          data-size="L"
+          data-who="ai"
+          data-phase="P0"
+          data-baked="1"
+        >
+          <div class="task-head">
+            <label class="cb"
+              ><input type="checkbox" data-task="T1" checked /><span
+                class="box"
+              ></span
+            ></label>
+            <div class="task-title">
+              <div class="tt-row">
+                <span class="tid">T1</span>
+                <h3>Build the /pricing page</h3>
+                <span class="shipped">SHIPPED</span>
+              </div>
+              <div class="tt-meta">
+                <span
+                  class="size"
+                  style="color: #8a5a00; background: #fff3d6"
+                  title="Several sessions + review chain."
+                  >L</span
+                >
+                <span class="who who-a">AI in chat</span>
+                <span class="ph" style="--c: #b3261e">Stop the leaks</span>
+              </div>
+              <p class="why">
+                <b>Why:</b> mapsly.ai/pricing is a 404 today. Every ad,
+                comparison page, cold email and AI citation that makes someone
+                curious sends them nowhere.
+              </p>
+            </div>
+            <button
+              class="expand"
+              aria-expanded="false"
+              aria-controls="T1-body"
+            >
+              Details
+            </button>
+          </div>
+          <div class="task-body" id="T1-body" hidden>
+            <div class="prose">
+              <p>
+                Reuse the exact card system already on the homepage band —
+                <code>.fb-price-card</code>, <code>.fb-price-badge</code>,
+                <code>.fb-price-amount</code>, <code>.fb-price-list</code> from
+                <code>ag.css</code> — so the page is visually identical to the
+                pricing band people already see. The only structural change: the
+                standalone page shows <b>all five tiers</b>, not three.
+              </p>
+              <p class="warn-inline">
+                <b>Critical:</b> do not hardcode prices in i18n again. Read
+                <code>PLAN_CARDS</code> / <code>PLAN_CARD_ORDER</code> from
+                <code>modules/cost/pricing.ts</code> — the single source of
+                truth the in-app <code>PlansGrid</code> already uses. That is
+                how the marketing grid drifted out of sync in the first place
+                (see T2).
+              </p>
+            </div>
+            <div class="files">
+              <div class="lbl">Files</div>
+              <ul>
+                <li>
+                  <code
+                    >app/[locale]/(marketing-v2)/pricing/page.tsx — NEW</code
+                  >
+                </li>
+                <li>
+                  <code
+                    >components/marketing/for-agencies-v2/AgPricingPage.tsx —
+                    NEW</code
+                  >
+                </li>
+                <li><code>app/sitemap.xml — add the route</code></li>
+                <li>
+                  <code
+                    >i18n/pathnames.ts — add /pricing + localized paths</code
+                  >
+                </li>
+                <li>
+                  <code>messages/{en,es,en-CA,fr}.json — pricing.* keys</code>
+                </li>
+              </ul>
+            </div>
+            <div class="codewrap">
+              <div class="code-h">
+                <span>app/[locale]/(marketing-v2)/pricing/page.tsx</span
+                ><button class="cpy" type="button">Copy</button>
+              </div>
+              <pre
+                class="code"
+                data-lang="tsx"
+              ><code>import type { Metadata } from "next";
+import { setRequestLocale, getTranslations } from "next-intl/server";
+
+import { AgPricingPage } from "@/components/marketing/for-agencies-v2/AgPricingPage";
+import { getLocaleAlternates } from "@/i18n/pathnames";
+import { CANONICAL_ORIGIN } from "@/lib/seo/canonical";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise&lt;{ locale: string }&gt;;
+}): Promise&lt;Metadata&gt; {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "pricing.meta" });
+
+  return {
+    title: t("title"),
+    description: t("description"),
+    alternates: {
+      canonical: `${CANONICAL_ORIGIN}/pricing`,
+      languages: getLocaleAlternates("/pricing"),
+    },
+    openGraph: {
+      type: "website",
+      siteName: "Mapsly",
+      title: t("og_title"),
+      description: t("og_description"),
+      url: `${CANONICAL_ORIGIN}/pricing`,
+    },
+    twitter: { card: "summary_large_image", title: t("og_title") },
+    robots: { index: true, follow: true },
+  };
+}
+
+// Static marketing surface — no auth, no DB. Safe to prerender.
+export default async function PricingPage({
+  params,
+}: {
+  params: Promise&lt;{ locale: string }&gt;;
+}) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  return &lt;AgPricingPage /&gt;;
+}</code></pre>
+            </div>
+            <div class="codewrap">
+              <div class="code-h">
+                <span
+                  >components/marketing/for-agencies-v2/AgPricingPage.tsx</span
+                ><button class="cpy" type="button">Copy</button>
+              </div>
+              <pre
+                class="code"
+                data-lang="tsx"
+              ><code>import { getTranslations } from "next-intl/server";
+
+import { Link } from "@/i18n/navigation";
+import { PriceCheck } from "@/components/marketing/for-businesses/fb-shared";
+import { PLAN_CARDS, PLAN_CARD_ORDER } from "@/modules/cost/pricing";
+
+import "./ag.css";
+
+/**
+ * AgPricingPage · the standalone /pricing surface.
+ *
+ * Same visual system as &lt;AgPricing&gt; (the homepage band) — .fb-price-card et al
+ * from ag.css — but renders the FULL ladder from PLAN_CARDS rather than a
+ * hand-picked three. Prices/credits come from modules/cost/pricing.ts so this
+ * page can never drift from what the app actually grants (the drift that
+ * produced the $19-vs-$49 mismatch).
+ *
+ * Pure server component.
+ */
+export async function AgPricingPage() {
+  const t = await getTranslations("pricing");
+
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [1, 2, 3, 4].map((n) =&gt; ({
+      "@type": "Question",
+      name: t(`faq.q${n}`),
+      acceptedAnswer: { "@type": "Answer", text: t(`faq.a${n}`) },
+    })),
+  };
+
+  return (
+    &lt;&gt;
+      &lt;section
+        className="fb-section fb-pricing fb-pricing--ag"
+        aria-labelledby="pricing-title"
+        data-fb-tone="dark"
+      &gt;
+        &lt;div className="fb-container"&gt;
+          &lt;div className="fb-board-head"&gt;
+            &lt;h1 id="pricing-title" className="fb-h2"&gt;
+              {t("title_lead")}{" "}
+              &lt;em className="fb-em fb-ylw"&gt;{t("title_emph")}&lt;/em&gt;
+            &lt;/h1&gt;
+            &lt;p className="fb-sub"&gt;{t("sub")}&lt;/p&gt;
+          &lt;/div&gt;
+
+          &lt;div className="fb-ag-price-grid fb-ag-price-grid--full"&gt;
+            {PLAN_CARD_ORDER.map((key) =&gt; {
+              const card = PLAN_CARDS[key];
+              return (
+                &lt;div
+                  key={key}
+                  className={`fb-price-card${card.featured ? " fb-price-card--featured" : ""}`}
+                &gt;
+                  {card.featured &amp;&amp; (
+                    &lt;span className="fb-price-badge"&gt;{t("badge_popular")}&lt;/span&gt;
+                  )}
+                  &lt;p className="fb-price-plan"&gt;{card.name}&lt;/p&gt;
+                  &lt;div className="fb-price-amount"&gt;
+                    ${card.monthlyUsd}
+                    &lt;span className="fb-unit"&gt;/mo&lt;/span&gt;
+                  &lt;/div&gt;
+                  &lt;p className="fb-price-sub"&gt;
+                    {t("leads_per_month", { n: card.monthlyCredits })}
+                  &lt;/p&gt;
+
+                  &lt;ul className="fb-price-list"&gt;
+                    {card.features.map((f) =&gt; (
+                      &lt;li key={f}&gt;
+                        &lt;PriceCheck /&gt;
+                        {f}
+                      &lt;/li&gt;
+                    ))}
+                  &lt;/ul&gt;
+
+                  &lt;Link
+                    href={{ pathname: "/signin", query: { audience: "agency", plan: key } }}
+                    className="fb-btn"
+                  &gt;
+                    {card.monthlyUsd === 0 ? t("cta_free") : t("cta_paid")}
+                  &lt;/Link&gt;
+                &lt;/div&gt;
+              );
+            })}
+          &lt;/div&gt;
+        &lt;/div&gt;
+      &lt;/section&gt;
+
+      &lt;script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      /&gt;
+    &lt;/&gt;
+  );
+}</code></pre>
+            </div>
+            <div class="codewrap">
+              <div class="code-h">
+                <span>components/marketing/for-agencies-v2/ag.css — append</span
+                ><button class="cpy" type="button">Copy</button>
+              </div>
+              <pre
+                class="code"
+                data-lang="css"
+              ><code>/* Five-up ladder on the standalone /pricing page. The homepage band stays
+   3-up; this variant wraps to 2 rows on tablet and stacks on mobile. */
+.fb-ag-price-grid--full {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+}
+@media (max-width: 1100px) {
+  .fb-ag-price-grid--full { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .fb-ag-price-grid--full { grid-template-columns: 1fr; }
+}</code></pre>
+            </div>
+            <div class="copy">
+              <div class="copy-h">Page headline + sub</div>
+              <div class="copy-b">
+                Pay for outcomes, not seats.<br /><br />1 credit = 1 delivered
+                lead with verified contacts. Add reviews, site speed,<br />ads
+                and rankings for a few credits more. Every plan includes saved
+                lists and<br />CSV export. No contracts, cancel any time.
+              </div>
+            </div>
+            <div class="accept">
+              <div class="lbl">Done when</div>
+              <ul>
+                <li>mapsly.ai/pricing returns 200 in all four locales</li>
+                <li>
+                  Prices and credit counts render from PLAN_CARDS — grep the
+                  component for a hardcoded '$' and find none
+                </li>
+                <li>
+                  Page appears in sitemap.xml with hreflang for all four locales
+                </li>
+                <li>FAQPage JSON-LD validates at validator.schema.org</li>
+                <li>Lighthouse mobile ≥ 90, a11y ≥ 95</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+        <article
+          class="task done"
+          id="T2"
+          data-size="M"
+          data-who="ai"
+          data-phase="P0"
+          data-baked="1"
+        >
+          <div class="task-head">
+            <label class="cb"
+              ><input type="checkbox" data-task="T2" checked /><span
+                class="box"
+              ></span
+            ></label>
+            <div class="task-title">
+              <div class="tt-row">
+                <span class="tid">T2</span>
+                <h3>
+                  Reconcile the marketing price grid with the real plan ladder
+                </h3>
+                <span class="shipped">SHIPPED</span>
+              </div>
+              <div class="tt-meta">
+                <span
+                  class="size"
+                  style="color: #3d4bb8; background: #e8ebfb"
+                  title="One focused session."
+                  >M</span
+                >
+                <span class="who who-a">AI in chat</span>
+                <span class="ph" style="--c: #b3261e">Stop the leaks</span>
+              </div>
+              <p class="why">
+                <b>Why:</b> The homepage advertises Free / $19 Starter / $99
+                Growth. The code actually sells Free / Starter $19 / Solo $49 /
+                Growth $99 / Pro $299. The tier the code comment says to
+                advertise — Solo $49 — is not shown anywhere on the marketing
+                site.
+              </p>
+            </div>
+            <button
+              class="expand"
+              aria-expanded="false"
+              aria-controls="T2-body"
+            >
+              Details
+            </button>
+          </div>
+          <div class="task-body" id="T2-body" hidden>
+            <div class="prose">
+              <p>
+                Two grids exist and they disagree. In-app
+                <code>PlansGrid</code> reads <code>PLAN_CARDS</code>; marketing
+                <code>AgPricing</code> reads hardcoded i18n strings. The comment
+                in <code>AgPricing.tsx</code> even documents the problem:
+                <i
+                  >"never advertise the $19 entry tier — the plan to advertise
+                  is Solo ($49), which this 3-up marketing grid doesn't yet
+                  show."</i
+                >
+              </p>
+              <p>
+                Fix by making the homepage band a 3-card <b>slice</b> of the
+                same source: Free, Solo (featured), Growth. Pro and Starter live
+                on the full /pricing page from T1.
+              </p>
+            </div>
+            <div class="files">
+              <div class="lbl">Files</div>
+              <ul>
+                <li>
+                  <code
+                    >components/marketing/for-agencies-v2/AgPricing.tsx</code
+                  >
+                </li>
+                <li>
+                  <code
+                    >messages/{en,es,en-CA,fr}.json —
+                    for_agencies.pricing.*</code
+                  >
+                </li>
+                <li>
+                  <code
+                    >modules/cost/pricing.ts — PLAN_CARDS is the source of
+                    truth</code
+                  >
+                </li>
+              </ul>
+            </div>
+            <div class="codewrap">
+              <div class="code-h">
+                <span
+                  >components/marketing/for-agencies-v2/AgPricing.tsx — replace
+                  PLANS</span
+                ><button class="cpy" type="button">Copy</button>
+              </div>
+              <pre
+                class="code"
+                data-lang="tsx"
+              ><code>import { PLAN_CARDS } from "@/modules/cost/pricing";
+
+// Homepage band shows a 3-card SLICE of the real ladder. Solo is featured —
+// it is the advertised entry tier per the repricing decision. The full
+// five-tier ladder lives on /pricing (T1).
+const BAND_KEYS = ["free", "solo", "growth"] as const;
+
+// …then inside the map, replace every t(`pricing.${key}_price`) lookup with
+// the PLAN_CARDS value, exactly as AgPricingPage does.</code></pre>
+            </div>
+
+            <div class="accept">
+              <div class="lbl">Done when</div>
+              <ul>
+                <li>
+                  Homepage band and /pricing never disagree — both read
+                  PLAN_CARDS
+                </li>
+                <li>Solo $49 is visible and featured on the homepage</li>
+                <li>
+                  A unit test asserts marketing card prices === PLAN_CARDS
+                  values
+                </li>
+              </ul>
+            </div>
+          </div>
+        </article>
+        <article
+          class="task done"
+          id="T3"
+          data-size="S"
+          data-who="viktor"
+          data-phase="P0"
+          data-baked="1"
+        >
+          <div class="task-head">
+            <label class="cb"
+              ><input type="checkbox" data-task="T3" checked /><span
+                class="box"
+              ></span
+            ></label>
+            <div class="task-title">
+              <div class="tt-row">
+                <span class="tid">T3</span>
+                <h3>Verify all five Stripe price IDs exist in production</h3>
+                <span class="shipped">SHIPPED</span>
+              </div>
+              <div class="tt-meta">
+                <span
+                  class="size"
+                  style="color: #0f7b4d; background: #e3f4ec"
+                  title="One message. Quick, self-contained."
+                  >S</span
+                >
+                <span class="who who-v">You</span>
+                <span class="ph" style="--c: #b3261e">Stop the leaks</span>
+              </div>
+              <p class="why">
+                <b>Why:</b> STRIPE_PRICE_AGENCY_BOUTIQUE is absent from
+                .env.local. getPriceId() throws a hard error for that plan, so a
+                Pro/Boutique checkout fails at the click.
+              </p>
+            </div>
+            <button
+              class="expand"
+              aria-expanded="false"
+              aria-controls="T3-body"
+            >
+              Details
+            </button>
+          </div>
+          <div class="task-body" id="T3-body" hidden>
+            <div class="prose">
+              <p>
+                Five plan literals map to five env vars. Four are present
+                locally; <code>STRIPE_PRICE_AGENCY_BOUTIQUE</code> is not.
+                <code>PlansGrid</code> degrades gracefully (disabled button) so
+                this is silent — you would never see it until a customer tried
+                to buy the top tier.
+              </p>
+            </div>
+            <div class="files">
+              <div class="lbl">Files</div>
+              <ul>
+                <li>
+                  <code
+                    >Vercel → Project → Settings → Environment Variables</code
+                  >
+                </li>
+                <li><code>modules/billing/plans.ts — PLAN_ENV</code></li>
+              </ul>
+            </div>
+            <div class="codewrap">
+              <div class="code-h">
+                <span>check locally</span
+                ><button class="cpy" type="button">Copy</button>
+              </div>
+              <pre
+                class="code"
+                data-lang="bash"
+              ><code>for k in SMB_PAID SMB_PAID_YEAR AGENCY_SOLO AGENCY_GROWTH AGENCY_PRO AGENCY_BOUTIQUE; do
+  printf '%-24s ' "$k"
+  grep -q "^STRIPE_PRICE_$k=" .env.local &amp;&amp; echo present || echo MISSING
+done</code></pre>
+            </div>
+
+            <div class="accept">
+              <div class="lbl">Done when</div>
+              <ul>
+                <li>All five agency price IDs resolve in production</li>
+                <li>Every card in PlansGrid renders an enabled CTA</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+        <article
+          class="task"
+          id="T4"
+          data-size="M"
+          data-who="ai"
+          data-phase="P0"
+          data-baked="0"
+        >
+          <div class="task-head">
+            <label class="cb"
+              ><input type="checkbox" data-task="T4" /><span class="box"></span
+            ></label>
+            <div class="task-title">
+              <div class="tt-row">
+                <span class="tid">T4</span>
+                <h3>Credit-zero upgrade moment</h3>
+              </div>
+              <div class="tt-meta">
+                <span
+                  class="size"
+                  style="color: #3d4bb8; background: #e8ebfb"
+                  title="One focused session."
+                  >M</span
+                >
+                <span class="who who-a">AI in chat</span>
+                <span class="ph" style="--c: #b3261e">Stop the leaks</span>
+              </div>
+              <p class="why">
+                <b>Why:</b> Two agencies (fixit-soft, suprunand2016) spent every
+                free credit and left. Reaching zero is the highest-intent moment
+                in the product and it currently shows nothing.
+              </p>
+            </div>
+            <button
+              class="expand"
+              aria-expanded="false"
+              aria-controls="T4-body"
+            >
+              Details
+            </button>
+          </div>
+          <div class="task-body" id="T4-body" hidden>
+            <div class="prose">
+              <p>
+                Two triggers, one component. (a) Passive:
+                <code>WalletPillLive</code> already renders "0 credits — add" —
+                make it open the modal rather than link away. (b) Active: when a
+                run is refused for insufficient credits, show the same modal
+                with the blocked action named.
+              </p>
+              <p class="warn-inline">
+                Use the existing overlay stack —
+                <code>components/ui/Modal.tsx</code>, the
+                <code>#agency-overlays</code> host, and
+                <code>ConfirmProvider</code>. Never hand-roll a dialog or call
+                <code>window.confirm</code>.
+              </p>
+            </div>
+            <div class="files">
+              <div class="lbl">Files</div>
+              <ul>
+                <li>
+                  <code
+                    >components/agency/billing/OutOfCreditsModal.tsx — NEW</code
+                  >
+                </li>
+                <li>
+                  <code
+                    >components/agency/WalletPillLive.tsx — trigger at 0</code
+                  >
+                </li>
+                <li>
+                  <code
+                    >modules/enrichment/dispatch.ts — surface the blocked
+                    reason</code
+                  >
+                </li>
+                <li>
+                  <code>components/ui/Modal.tsx — reuse, do not rebuild</code>
+                </li>
+              </ul>
+            </div>
+            <div class="codewrap">
+              <div class="code-h">
+                <span>components/agency/billing/OutOfCreditsModal.tsx</span
+                ><button class="cpy" type="button">Copy</button>
+              </div>
+              <pre class="code" data-lang="tsx"><code>"use client";
+
+// Client: owns open/close state and is mounted from the topbar island.
+import { useTranslations } from "next-intl";
+
+import { Modal } from "@/components/ui/Modal";
+import { CoinGlyph } from "./CoinGlyph";
+
+export interface OutOfCreditsModalProps {
+  open: boolean;
+  onClose: () =&gt; void;
+  /** Name of the action that was blocked, e.g. "Enrich 120 leads". */
+  blockedAction?: string;
+  /** Cheapest paid tier, resolved server-side and passed as plain data. */
+  entryPlan: { name: string; monthlyUsd: number; monthlyCredits: number };
+  locale: string;
+}
+
+export function OutOfCreditsModal({
+  open,
+  onClose,
+  blockedAction,
+  entryPlan,
+  locale,
+}: OutOfCreditsModalProps) {
+  const t = useTranslations("agency.out_of_credits");
+
+  return (
+    &lt;Modal open={open} onClose={onClose} title={t("title")}&gt;
+      &lt;p className="ag-modal-lede"&gt;
+        {blockedAction ? t("blocked", { action: blockedAction }) : t("lede")}
+      &lt;/p&gt;
+
+      &lt;div className="ag-oc-plan"&gt;
+        &lt;CoinGlyph /&gt;
+        &lt;div&gt;
+          &lt;b&gt;{entryPlan.name}&lt;/b&gt;
+          &lt;span&gt;
+            {t("plan_line", {
+              usd: entryPlan.monthlyUsd,
+              credits: entryPlan.monthlyCredits,
+            })}
+          &lt;/span&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+
+      &lt;div className="ag-modal-actions"&gt;
+        {/* Both routes already exist — /usage renders PlansGrid + TopUpPacks. */}
+        &lt;a className="ag-btn ag-btn--primary" href={`/${locale}/usage#plans`}&gt;
+          {t("cta_plans")}
+        &lt;/a&gt;
+        &lt;a className="ag-btn" href={`/${locale}/usage#topup`}&gt;
+          {t("cta_topup")}
+        &lt;/a&gt;
+      &lt;/div&gt;
+    &lt;/Modal&gt;
+  );
+}</code></pre>
+            </div>
+            <div class="copy">
+              <div class="copy-h">
+                Modal copy · agency voice — dense, no hand-holding
+              </div>
+              <div class="copy-b">
+                Title: Out of credits<br /><br />Blocked: "Enrich 120 leads"
+                needs 120 credits. Balance: 0.<br />Idle: Balance: 0. Searching
+                still works — delivering leads doesn't.<br /><br />Plan: Solo ·
+                $49/mo · 750 credits/mo<br />Buttons: See plans · Buy a
+                top-up<br /><br />Footer: Credits reset every billing cycle.
+                Unused top-ups don't expire.
+              </div>
+            </div>
+            <div class="accept">
+              <div class="lbl">Done when</div>
+              <ul>
+                <li>
+                  Hitting 0 credits opens the modal within one interaction
+                </li>
+                <li>
+                  A blocked run names the exact action and credit shortfall
+                </li>
+                <li>
+                  Escape closes it; focus is trapped; focus returns to the
+                  trigger
+                </li>
+                <li>Renders through #agency-overlays, not a bare portal</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+        <article
+          class="task"
+          id="T5"
+          data-size="L"
+          data-who="ai"
+          data-phase="P0"
+          data-baked="0"
+        >
+          <div class="task-head">
+            <label class="cb"
+              ><input type="checkbox" data-task="T5" /><span class="box"></span
+            ></label>
+            <div class="task-title">
+              <div class="tt-row">
+                <span class="tid">T5</span>
+                <h3>Lifecycle emails after signup</h3>
+              </div>
+              <div class="tt-meta">
+                <span
+                  class="size"
+                  style="color: #8a5a00; background: #fff3d6"
+                  title="Several sessions + review chain."
+                  >L</span
+                >
+                <span class="who who-a">AI in chat</span>
+                <span class="ph" style="--c: #b3261e">Stop the leaks</span>
+              </div>
+              <p class="why">
+                <b>Why:</b> Five of six external agencies ran once and were
+                never contacted again. No lifecycle email exists — only
+                transactional.
+              </p>
+            </div>
+            <button
+              class="expand"
+              aria-expanded="false"
+              aria-controls="T5-body"
+            >
+              Details
+            </button>
+          </div>
+          <div class="task-body" id="T5-body" hidden>
+            <div class="prose">
+              <p>
+                Three sends, driven off <code>ProductEvent</code> and
+                <code>EnrichmentRun</code> timestamps. Every send is idempotent
+                — record a <code>ProductEvent</code> of type
+                <code>lifecycle_sent</code> with the step number so a re-run can
+                never double-send.
+              </p>
+              <p>
+                Use the house shell that shipped in v0.19.45
+                (<code>renderEmailShell</code>) so these match every other
+                Mapsly email.
+              </p>
+            </div>
+            <div class="files">
+              <div class="lbl">Files</div>
+              <ul>
+                <li>
+                  <code>modules/agency-portal/notify/lifecycle.ts — NEW</code>
+                </li>
+                <li>
+                  <code>app/api/cron/daily/lifecycle-nudge/route.ts — NEW</code>
+                </li>
+                <li>
+                  <code>lib/email/shell.ts — reuse renderEmailShell</code>
+                </li>
+                <li><code>vercel.json — register the cron</code></li>
+              </ul>
+            </div>
+            <div class="codewrap">
+              <div class="code-h">
+                <span>app/api/cron/daily/lifecycle-nudge/route.ts</span
+                ><button class="cpy" type="button">Copy</button>
+              </div>
+              <pre
+                class="code"
+                data-lang="ts"
+              ><code>import { NextResponse } from "next/server";
+
+import prisma from "@/lib/prisma";
+import { openCronRun, closeCronRun } from "@/app/api/cron/_lib/run";
+import { sendLifecycleStep } from "@/modules/agency-portal/notify/lifecycle";
+
+// Day 2 · day 5 · day 10 after the agency's FIRST enrichment run.
+const STEPS = [
+  { step: 1, afterDays: 2 },
+  { step: 2, afterDays: 5 },
+  { step: 3, afterDays: 10 },
+] as const;
+
+export async function GET(req: Request) {
+  if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const run = await openCronRun("daily:lifecycle-nudge");
+  let sent = 0;
+
+  try {
+    for (const { step, afterDays } of STEPS) {
+      const cutoff = new Date(Date.now() - afterDays * 86_400_000);
+
+      // Agencies whose first run is older than the cutoff, that have NOT
+      // come back since, and that have not already had this step.
+      const candidates = await prisma.agency.findMany({
+        where: {
+          createdAt: { lt: cutoff },
+          events: { none: { type: "lifecycle_sent", propsJson: { path: ["step"], equals: step } } },
+          runs: { some: {} },
+        },
+        select: { id: true, slug: true, members: { select: { user: { select: { email: true } } }, take: 1 } },
+        take: 100, // bounded per run — .claude/rules/scalability.md
+      });
+
+      for (const agency of candidates) {
+        const email = agency.members[0]?.user.email;
+        if (!email) continue;
+        await sendLifecycleStep({ agencyId: agency.id, email, step });
+        await prisma.productEvent.create({
+          data: { agencyId: agency.id, type: "lifecycle_sent", propsJson: { step } },
+        });
+        sent++;
+      }
+    }
+
+    await closeCronRun(run.id, "OK", sent);
+    return NextResponse.json({ ok: true, sent });
+  } catch (e) {
+    await closeCronRun(run.id, "FAILED", sent, String(e));
+    throw e;
+  }
+}</code></pre>
+            </div>
+            <div class="copy">
+              <div class="copy-h">
+                All three emails — agency voice, short, no exclamation marks
+              </div>
+              <div class="copy-b">
+                ─── DAY 2 · subject: your {city} {category} list is still
+                there<br /><br />You mapped {n} {category} businesses in {city}.
+                {qualified} matched your filters.<br /><br />The list is saved:
+                {listUrl}<br /><br />Most agencies run a second market before
+                they decide — the comparison is<br />where the pattern shows up.
+                You have {credits} credits left.<br /><br />—
+                {senderFirstName}<br /><br /><br />─── DAY 5 · subject:
+                {topSignal} across {city}<br /><br />One thing from your {city}
+                scan: {signalCount} of {n} businesses have<br />{topSignal}.
+                That's {pct}% — the benchmark is {benchmark}%.<br /><br />That's
+                the wedge for a pitch. The full breakdown: {listUrl}<br /><br />Run
+                a second city and you'll see whether it's a {city} problem or
+                a<br />{category} problem. Either answer is worth knowing.<br /><br />—
+                {senderFirstName}<br /><br /><br />─── DAY 10 · subject: closing
+                the loop<br /><br />Last note on your {city} scan.<br /><br />If
+                it wasn't useful, tell me what was missing — one line is enough,
+                and it<br />changes what we build next.<br /><br />If it was,
+                the next step is a second market: {discoverUrl}<br /><br />Either
+                way I'll stop emailing after this one.<br /><br />—
+                {senderFirstName}
+              </div>
+            </div>
+            <div class="accept">
+              <div class="lbl">Done when</div>
+              <ul>
+                <li>
+                  Each agency receives each step at most once — enforced by
+                  ProductEvent, verified by an integration test
+                </li>
+                <li>Agencies who came back are excluded from later steps</li>
+                <li>Every send opens and closes a CronRun</li>
+                <li>
+                  Unsubscribe link present and honoured (reuse modules/opt-out)
+                </li>
+              </ul>
+            </div>
+          </div>
+        </article>
+        <article
+          class="task"
+          id="T6"
+          data-size="S"
+          data-who="ai"
+          data-phase="P0"
+          data-baked="0"
+        >
+          <div class="task-head">
+            <label class="cb"
+              ><input type="checkbox" data-task="T6" /><span class="box"></span
+            ></label>
+            <div class="task-title">
+              <div class="tt-row">
+                <span class="tid">T6</span>
+                <h3>Define and track what 'activated' means</h3>
+              </div>
+              <div class="tt-meta">
+                <span
+                  class="size"
+                  style="color: #0f7b4d; background: #e3f4ec"
+                  title="One message. Quick, self-contained."
+                  >S</span
+                >
+                <span class="who who-a">AI in chat</span>
+                <span class="ph" style="--c: #b3261e">Stop the leaks</span>
+              </div>
+              <p class="why">
+                <b>Why:</b> Activation had to be reverse-engineered from run
+                counts. Without a named metric none of T4, T5 or T7 can be
+                judged as working.
+              </p>
+            </div>
+            <button
+              class="expand"
+              aria-expanded="false"
+              aria-controls="T6-body"
+            >
+              Details
+            </button>
+          </div>
+          <div class="task-body" id="T6-body" hidden>
+            <div class="prose">
+              <p>
+                Proposed definition, matching the one real user's behaviour:
+                <b
+                  >an agency is activated when it has run enrichment on two or
+                  more separate calendar days.</b
+                >
+                One-and-done is exactly what the other five did.
+              </p>
+            </div>
+            <div class="files">
+              <div class="lbl">Files</div>
+              <ul>
+                <li><code>modules/analytics/activation.ts — NEW</code></li>
+                <li><code>app/(dev)/dev/page.tsx — surface it</code></li>
+              </ul>
+            </div>
+            <div class="codewrap">
+              <div class="code-h">
+                <span>modules/analytics/activation.ts</span
+                ><button class="cpy" type="button">Copy</button>
+              </div>
+              <pre class="code" data-lang="ts"><code>/**
+ * Activation · an agency that ran enrichment on 2+ distinct calendar days.
+ * Chosen because the single retained agency (oleksii-koshkarov) crossed it
+ * and all five churned agencies did not.
+ */
+export async function getActivationRate(): Promise&lt;{
+  signed: number;
+  activated: number;
+  rate: number;
+}&gt; {
+  const rows = await prisma.$queryRaw&lt;{ agencyId: string; days: bigint }[]&gt;`
+    SELECT "agencyId", COUNT(DISTINCT DATE("startedAt")) AS days
+    FROM "EnrichmentRun"
+    GROUP BY "agencyId"
+  `;
+  const signed = rows.length;
+  const activated = rows.filter((r) =&gt; Number(r.days) &gt;= 2).length;
+  return { signed, activated, rate: signed ? activated / signed : 0 };
+}</code></pre>
+            </div>
+
+            <div class="accept">
+              <div class="lbl">Done when</div>
+              <ul>
+                <li>Activation rate visible on dev.mapsly.ai</li>
+                <li>
+                  Baseline recorded today so the fixes can be measured against
+                  it
+                </li>
+              </ul>
+            </div>
+          </div>
+        </article>
+        <article
+          class="task"
+          id="T7"
+          data-size="M"
+          data-who="ai"
+          data-phase="P0"
+          data-baked="0"
+        >
+          <div class="task-head">
+            <label class="cb"
+              ><input type="checkbox" data-task="T7" /><span class="box"></span
+            ></label>
+            <div class="task-title">
+              <div class="tt-row">
+                <span class="tid">T7</span>
+                <h3>Steer the first search to a well-seeded market</h3>
+              </div>
+              <div class="tt-meta">
+                <span
+                  class="size"
+                  style="color: #3d4bb8; background: #e8ebfb"
+                  title="One focused session."
+                  >M</span
+                >
+                <span class="who who-a">AI in chat</span>
+                <span class="ph" style="--c: #b3261e">Stop the leaks</span>
+              </div>
+              <p class="why">
+                <b>Why:</b> We email US agencies but our deep data is Canadian —
+                2,963 CA dental businesses vs 158 US dentists. A first search
+                into thin data is very likely why five agencies never returned.
+              </p>
+            </div>
+            <button
+              class="expand"
+              aria-expanded="false"
+              aria-controls="T7-body"
+            >
+              Details
+            </button>
+          </div>
+          <div class="task-body" id="T7-body" hidden>
+            <div class="prose">
+              <p>
+                Do not block other markets — pre-fill and recommend. Show a
+                "these are ready now" shortlist built from actual coverage, with
+                the thin-market path still one click away but honestly labelled.
+              </p>
+              <p>
+                Well-seeded today: US Medical spa (533), CA Dentist (1,588), CA
+                Dental clinic (1,375), CA Beauty salon (911), CA Barber shop
+                (494).
+              </p>
+            </div>
+            <div class="files">
+              <div class="lbl">Files</div>
+              <ul>
+                <li><code>app/[locale]/(agency)/welcome/page.tsx</code></li>
+                <li><code>modules/agency-onboarding/</code></li>
+                <li><code>modules/discovery/</code></li>
+              </ul>
+            </div>
+            <div class="codewrap">
+              <div class="code-h">
+                <span>modules/discovery/seeded-markets.ts — NEW</span
+                ><button class="cpy" type="button">Copy</button>
+              </div>
+              <pre class="code" data-lang="ts"><code>/**
+ * Markets with enough enriched depth to make a good first impression.
+ * Threshold: &gt;= 200 businesses AND &gt;= 25% carrying a BusinessSnapshot.
+ * Recomputed weekly; cached for a day.
+ */
+export async function getSeededMarkets(limit = 6) {
+  "use cache";
+  cacheLife("days");
+  cacheTag("seeded-markets");
+  if (process.env.NEXT_PHASE === "phase-production-build") return EMPTY_SEEDED;
+
+  try {
+    return await prisma.$queryRaw`
+      SELECT b.country, b.category, b.city, COUNT(*)::int AS n
+      FROM "Business" b
+      WHERE b."isActive"
+      GROUP BY 1, 2, 3
+      HAVING COUNT(*) &gt;= 200
+      ORDER BY n DESC
+      LIMIT ${limit}
+    `;
+  } catch {
+    return EMPTY_SEEDED;
+  }
+}</code></pre>
+            </div>
+            <div class="copy">
+              <div class="copy-h">Welcome screen copy</div>
+              <div class="copy-b">
+                Start where the data is deepest<br /><br />These markets are
+                fully mapped — you'll get results in under a minute.<br /><br />
+                Medical spa · Miami, US 533 mapped<br />
+                Dentist · Toronto, CA 1,588 mapped<br />
+                Beauty salon · Calgary, CA 911 mapped<br /><br />Or search any
+                market → we'll map it live. First scan takes 3–5 minutes.
+              </div>
+            </div>
+            <div class="accept">
+              <div class="lbl">Done when</div>
+              <ul>
+                <li>
+                  Welcome screen lists real seeded markets from live counts, not
+                  a hardcoded array
+                </li>
+                <li>Any other market is still reachable in one click</li>
+                <li>Copy states the wait honestly for unseeded markets</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+        <article
+          class="task"
+          id="T8"
+          data-size="S"
+          data-who="ai"
+          data-phase="P0"
+          data-baked="0"
+        >
+          <div class="task-head">
+            <label class="cb"
+              ><input type="checkbox" data-task="T8" /><span class="box"></span
+            ></label>
+            <div class="task-title">
+              <div class="tt-row">
+                <span class="tid">T8</span>
+                <h3>Alert when Google traffic drops</h3>
+              </div>
+              <div class="tt-meta">
+                <span
+                  class="size"
+                  style="color: #0f7b4d; background: #e3f4ec"
+                  title="One message. Quick, self-contained."
+                  >S</span
+                >
+                <span class="who who-a">AI in chat</span>
+                <span class="ph" style="--c: #b3261e">Stop the leaks</span>
+              </div>
+              <p class="why">
+                <b>Why:</b> Impressions fell from 271/day to under 20/day on 4
+                August. Ten days passed with nobody noticing. Nothing watches
+                acquisition health.
+              </p>
+            </div>
+            <button
+              class="expand"
+              aria-expanded="false"
+              aria-controls="T8-body"
+            >
+              Details
+            </button>
+          </div>
+          <div class="task-body" id="T8-body" hidden>
+            <div class="prose">
+              <p>
+                A weekly cron already exists
+                (<code>weekly/search-visibility</code>). Extend it: compare the
+                trailing 7-day impression total against the prior 7 days and
+                raise a Sentry warning plus a dashboard blocker when it halves.
+              </p>
+            </div>
+            <div class="files">
+              <div class="lbl">Files</div>
+              <ul>
+                <li>
+                  <code
+                    >app/api/cron/weekly/search-visibility/route.ts —
+                    extend</code
+                  >
+                </li>
+                <li><code>modules/analytics/</code></li>
+              </ul>
+            </div>
+            <div class="codewrap">
+              <div class="code-h">
+                <span>inside the existing weekly cron</span
+                ><button class="cpy" type="button">Copy</button>
+              </div>
+              <pre
+                class="code"
+                data-lang="ts"
+              ><code>const drop = prior &gt; 0 ? (prior - current) / prior : 0;
+if (drop &gt;= 0.5 &amp;&amp; prior &gt;= 100) {
+  Sentry.captureMessage("GSC impressions halved week-over-week", {
+    level: "warning",
+    tags: { feature: "seo", audience: "system" },
+    contexts: { gsc: { current, prior, dropPct: Math.round(drop * 100) } },
+  });
+}</code></pre>
+            </div>
+
+            <div class="accept">
+              <div class="lbl">Done when</div>
+              <ul>
+                <li>A simulated 50% drop fires exactly one Sentry warning</li>
+                <li>The alert shows on the dev dashboard Blockers card</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+      </section>
+      <section class="phase" data-phase="P1">
+        <div class="phase-head" style="--c: #8a5a00">
+          <div>
+            <h2><span class="pid">P1</span>Make people convert</h2>
+            <p>
+              The funnel now holds water. These fill it and turn trials into
+              payments.
+            </p>
+          </div>
+          <div class="phase-prog">
+            <div class="pp-bar">
+              <div class="pp-fill" data-phase-fill="P1"></div>
+            </div>
+            <span data-phase-count="P1">0/5</span>
+          </div>
+        </div>
+        <article
+          class="task"
+          id="T9"
+          data-size="M"
+          data-who="ai"
+          data-phase="P1"
+          data-baked="0"
+        >
+          <div class="task-head">
+            <label class="cb"
+              ><input type="checkbox" data-task="T9" /><span class="box"></span
+            ></label>
+            <div class="task-title">
+              <div class="tt-row">
+                <span class="tid">T9</span>
+                <h3>Offer reset — send the report, delete the ask</h3>
+              </div>
+              <div class="tt-meta">
+                <span
+                  class="size"
+                  style="color: #3d4bb8; background: #e8ebfb"
+                  title="One focused session."
+                  >M</span
+                >
+                <span class="who who-a">AI in chat</span>
+                <span class="ph" style="--c: #8a5a00">Make people convert</span>
+              </div>
+              <p class="why">
+                <b>Why:</b> 43 agencies, 40% opened, 0 replied. Touch 1 asks
+                'can I send you what I found?' — a favour request from a
+                stranger. The report already exists.
+              </p>
+            </div>
+            <button
+              class="expand"
+              aria-expanded="false"
+              aria-controls="T9-body"
+            >
+              Details
+            </button>
+          </div>
+          <div class="task-body" id="T9-body" hidden>
+            <div class="prose">
+              <p>
+                Invert the sequence. Touch 1 currently asks permission and touch
+                2 delivers the link. Swap them: lead with the artifact, make the
+                ask optional and last. The <code>{{reportUrl}}</code> token and
+                the <code>/l/[token]</code> landing pages already work — 533
+                have been generated.
+              </p>
+              <p>
+                Keep the engine untouched. This is a copy + step-order change
+                only: <code>{{#if}}</code>/<code>{{#unless}}</code> guards, flat
+                not nested (the template parser is single-pass — same-type
+                nesting silently breaks).
+              </p>
+            </div>
+            <div class="files">
+              <div class="lbl">Files</div>
+              <ul>
+                <li><code>modules/cold/default-campaign.ts</code></li>
+                <li><code>modules/cold/copy.ts</code></li>
+                <li><code>modules/cold/personalization.ts</code></li>
+              </ul>
+            </div>
+
+            <div class="copy">
+              <div class="copy-h">New 3-touch sequence · agency voice</div>
+              <div class="copy-b">
+                ─── TOUCH 1 · Monday · lead with the artifact<br /><br />SUBJECT:
+                {{n}} {{category}} in {{city}}, ranked by who's losing search<br /><br />BODY:<br />I
+                mapped every {{category}} in {{city}} — {{n}} of them — and
+                scored each on<br />reviews, site speed, ads and map rank.<br /><br />{{reportUrl}}<br /><br />{{qualified}}
+                of them have at least one problem you sell the fix for.<br />{{topSignal}}
+                is the most common: {{signalCount}} businesses.<br /><br />No
+                signup. The page is yours whether or not you reply.<br /><br />—
+                {{senderFirstName}}<br /><br /><br />─── TOUCH 2 · Wednesday ·
+                one specific finding<br /><br />SUBJECT: {{signalCount}} of
+                {{n}} have {{topSignal}}<br /><br />BODY:<br />From Monday's
+                {{city}} scan: {{signalCount}} businesses have {{topSignal}}
+                —<br />{{pct}}%, against a {{benchmark}}% benchmark.<br /><br />{{#if
+                topCompetitorName}}{{topCompetitorName}} is taking the map-pack
+                slot<br />they're missing.{{/if}}<br /><br />Each one is a named
+                pitch with the evidence attached: {{reportUrl}}<br /><br />—
+                {{senderFirstName}}<br /><br /><br />─── TOUCH 3 · Friday · the
+                only ask, and it's small<br /><br />SUBJECT: worth building for
+                {{category}}?<br /><br />BODY:<br />Last note. The {{city}} page
+                stays up either way: {{reportUrl}}<br /><br />One question, if
+                you have ten seconds — is a ranked list like this something<br />you'd
+                use weekly, or is the signal you actually need something
+                else?<br /><br />Reply with a word or two. That's the whole
+                ask.<br /><br />— {{senderFirstName}}
+              </div>
+            </div>
+            <div class="accept">
+              <div class="lbl">Done when</div>
+              <ul>
+                <li>
+                  Touch 1 contains a live report link and zero question marks
+                </li>
+                <li>
+                  All 63 render scenarios pass (7 token states × 3 spin seeds ×
+                  3 touches)
+                </li>
+                <li>No same-type nested {{#if}} anywhere in the templates</li>
+                <li>Subjects ≤ 45 chars; bodies 45–100 words</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+        <article
+          class="task"
+          id="T10"
+          data-size="M"
+          data-who="ai"
+          data-phase="P1"
+          data-baked="0"
+        >
+          <div class="task-head">
+            <label class="cb"
+              ><input type="checkbox" data-task="T10" /><span class="box"></span
+            ></label>
+            <div class="task-title">
+              <div class="tt-row">
+                <span class="tid">T10</span>
+                <h3>Broaden the outbound audience 10×</h3>
+              </div>
+              <div class="tt-meta">
+                <span
+                  class="size"
+                  style="color: #3d4bb8; background: #e8ebfb"
+                  title="One focused session."
+                  >M</span
+                >
+                <span class="who who-a">AI in chat</span>
+                <span class="ph" style="--c: #8a5a00">Make people convert</span>
+              </div>
+              <p class="why">
+                <b>Why:</b> The single highest-value decision in the analysis.
+                Dental + med-spa specialists number ~1,200 — mathematically
+                incapable of yielding 10 customers. All US local-serving
+                agencies is ~12,000.
+              </p>
+            </div>
+            <button
+              class="expand"
+              aria-expanded="false"
+              aria-controls="T10-body"
+            >
+              Details
+            </button>
+          </div>
+          <div class="task-body" id="T10-body" hidden>
+            <div class="prose">
+              <p>
+                Simulated effect, same funnel and copy, pool the only variable:
+                reaching 10 customers goes from <b>0.04% of runs to 37%</b>.
+              </p>
+              <p>
+                Widen the sourcing definition from "agencies that specialise in
+                dental/med-spa" to "agencies that serve local businesses" — SEO
+                shops, web-design studios, review-management firms, GBP
+                specialists, general digital agencies in US metros. Keep
+                vertical language in the personalisation tokens so each email
+                still reads specific.
+              </p>
+            </div>
+            <div class="files">
+              <div class="lbl">Files</div>
+              <ul>
+                <li><code>scripts/agency-ingest.ts</code></li>
+                <li><code>modules/cold/enroll.ts</code></li>
+                <li><code>modules/discovery/</code></li>
+              </ul>
+            </div>
+
+            <div class="accept">
+              <div class="lbl">Done when</div>
+              <ul>
+                <li>≥ 2,000 new agency contacts sourced and verified</li>
+                <li>Bounce stays under 5% on the first 400 sends</li>
+                <li>
+                  Per-recipient vertical token still populates for ≥ 70% of the
+                  list
+                </li>
+              </ul>
+            </div>
+          </div>
+        </article>
+        <article
+          class="task"
+          id="T11"
+          data-size="L"
+          data-who="ai"
+          data-phase="P1"
+          data-baked="0"
+        >
+          <div class="task-head">
+            <label class="cb"
+              ><input type="checkbox" data-task="T11" /><span class="box"></span
+            ></label>
+            <div class="task-title">
+              <div class="tt-row">
+                <span class="tid">T11</span>
+                <h3>Make the first market report genuinely free</h3>
+              </div>
+              <div class="tt-meta">
+                <span
+                  class="size"
+                  style="color: #8a5a00; background: #fff3d6"
+                  title="Several sessions + review chain."
+                  >L</span
+                >
+                <span class="who who-a">AI in chat</span>
+                <span class="ph" style="--c: #8a5a00">Make people convert</span>
+              </div>
+              <p class="why">
+                <b>Why:</b> Scored 71% on its own — the strongest single lever
+                in the study. Today credits are spent to SEE value; they should
+                be spent to TAKE it.
+              </p>
+            </div>
+            <button
+              class="expand"
+              aria-expanded="false"
+              aria-controls="T11-body"
+            >
+              Details
+            </button>
+          </div>
+          <div class="task-body" id="T11-body" hidden>
+            <div class="prose">
+              <p>
+                Move the wall. A new agency gets one full market report —
+                mapped, scored, ranked, viewable — for zero credits. Credits are
+                charged at <b>export</b>: CSV download, contact reveal, and bulk
+                outreach drafting.
+              </p>
+              <p class="warn-inline">
+                Check this against the entitlement model before building — the
+                decision on record is that refresh always charges while viewing
+                bought data is free. This task extends that to a first-run
+                grant, so the ledger needs a distinct reason code (e.g.
+                <code>FIRST_RUN_GRANT</code>) rather than a silent zero-charge,
+                or usage accounting goes dark.
+              </p>
+            </div>
+            <div class="files">
+              <div class="lbl">Files</div>
+              <ul>
+                <li><code>modules/enrichment/dispatch.ts</code></li>
+                <li><code>modules/discovery/search-index-actions.ts</code></li>
+                <li><code>modules/billing/</code></li>
+                <li><code>components/agency/billing/</code></li>
+              </ul>
+            </div>
+
+            <div class="accept">
+              <div class="lbl">Done when</div>
+              <ul>
+                <li>
+                  A brand-new agency can view a full market report having spent
+                  0 credits
+                </li>
+                <li>CSV export and contact reveal both still charge</li>
+                <li>
+                  The grant is recorded in CreditLedger with its own reason code
+                </li>
+                <li>A second market charges normally</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+        <article
+          class="task"
+          id="T12"
+          data-size="M"
+          data-who="ai"
+          data-phase="P1"
+          data-baked="0"
+        >
+          <div class="task-head">
+            <label class="cb"
+              ><input type="checkbox" data-task="T12" /><span class="box"></span
+            ></label>
+            <div class="task-title">
+              <div class="tt-row">
+                <span class="tid">T12</span>
+                <h3>Wire the referral loop into shared reports</h3>
+              </div>
+              <div class="tt-meta">
+                <span
+                  class="size"
+                  style="color: #3d4bb8; background: #e8ebfb"
+                  title="One focused session."
+                  >M</span
+                >
+                <span class="who who-a">AI in chat</span>
+                <span class="ph" style="--c: #8a5a00">Make people convert</span>
+              </div>
+              <p class="why">
+                <b>Why:</b> 16 reports shared, 62 audit links viewed, 533
+                landing pages generated — and not one of them invites the reader
+                to sign up or tells us where it went.
+              </p>
+            </div>
+            <button
+              class="expand"
+              aria-expanded="false"
+              aria-controls="T12-body"
+            >
+              Details
+            </button>
+          </div>
+          <div class="task-body" id="T12-body" hidden>
+            <div class="prose">
+              <p>
+                Two additions to the shared report page: an attributed footer
+                CTA ("Map your own market — free"), and a
+                <code>ref</code> parameter carried into signup so the referring
+                agency is credited. Reuse the existing
+                <code>ColdClick</code> attribution pattern rather than inventing
+                a second one.
+              </p>
+            </div>
+            <div class="files">
+              <div class="lbl">Files</div>
+              <ul>
+                <li><code>app/l/[token]/</code></li>
+                <li><code>app/s/[token]/</code></li>
+                <li><code>modules/reports/</code></li>
+                <li><code>modules/smb-landing/components/</code></li>
+              </ul>
+            </div>
+
+            <div class="copy">
+              <div class="copy-h">Shared-report footer</div>
+              <div class="copy-b">
+                This page was built with Mapsly.<br />Map any market in your
+                city — first one's free. [ Try it ]
+              </div>
+            </div>
+            <div class="accept">
+              <div class="lbl">Done when</div>
+              <ul>
+                <li>Every shared report carries an attributed CTA</li>
+                <li>
+                  Signups arriving via a shared report are traceable to the
+                  sharer
+                </li>
+                <li>No PII in the URL</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+        <article
+          class="task"
+          id="T13"
+          data-size="S"
+          data-who="viktor"
+          data-phase="P1"
+          data-baked="0"
+        >
+          <div class="task-head">
+            <label class="cb"
+              ><input type="checkbox" data-task="T13" /><span class="box"></span
+            ></label>
+            <div class="task-title">
+              <div class="tt-row">
+                <span class="tid">T13</span>
+                <h3>Chase the unused premium account</h3>
+              </div>
+              <div class="tt-meta">
+                <span
+                  class="size"
+                  style="color: #0f7b4d; background: #e3f4ec"
+                  title="One message. Quick, self-contained."
+                  >S</span
+                >
+                <span class="who who-v">You</span>
+                <span class="ph" style="--c: #8a5a00">Make people convert</span>
+              </div>
+              <p class="why">
+                <b>Why:</b> idc-proger holds an AGENCY_PRO wallet with 750
+                credits granted 29 July and has never run a single search. A
+                free top-tier account, unused and unchased.
+              </p>
+            </div>
+            <button
+              class="expand"
+              aria-expanded="false"
+              aria-controls="T13-body"
+            >
+              Details
+            </button>
+          </div>
+          <div class="task-body" id="T13-body" hidden>
+            <div class="files">
+              <div class="lbl">Files</div>
+              <ul>
+                <li><code>— manual, one email</code></li>
+              </ul>
+            </div>
+
+            <div class="copy">
+              <div class="copy-h">One email, no call</div>
+              <div class="copy-b">
+                Subject: your Mapsly account is sitting unused<br /><br />You've
+                got 750 credits on the account from late July and nothing's been
+                run<br />against them yet.<br /><br />If something got in the
+                way — the first screen, the market you wanted wasn't<br />there,
+                or it just wasn't the right week — I'd genuinely like to know
+                which.<br />One line back is enough.<br /><br />If you'd rather
+                I set the first market up for you, tell me the city and<br />category
+                and I'll have it mapped before you next log in.
+              </div>
+            </div>
+            <div class="accept">
+              <div class="lbl">Done when</div>
+              <ul>
+                <li>Email sent</li>
+                <li>Reply logged, or marked as no-response after 10 days</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+      </section>
+      <section class="phase" data-phase="P2">
+        <div class="phase-head" style="--c: #0f7b4d">
+          <div>
+            <h2><span class="pid">P2</span>Build the compounding engine</h2>
+            <p>
+              Slow to start, then it works while you sleep. This is what
+              actually gets you past 10.
+            </p>
+          </div>
+          <div class="phase-prog">
+            <div class="pp-bar">
+              <div class="pp-fill" data-phase-fill="P2"></div>
+            </div>
+            <span data-phase-count="P2">0/6</span>
+          </div>
+        </div>
+        <article
+          class="task"
+          id="T14"
+          data-size="XL"
+          data-who="ai"
+          data-phase="P2"
+          data-baked="0"
+        >
+          <div class="task-head">
+            <label class="cb"
+              ><input type="checkbox" data-task="T14" /><span class="box"></span
+            ></label>
+            <div class="task-title">
+              <div class="tt-row">
+                <span class="tid">T14</span>
+                <h3>Agency-intent market pages</h3>
+              </div>
+              <div class="tt-meta">
+                <span
+                  class="size"
+                  style="color: #b3261e; background: #fbe9e7"
+                  title="A project. New surface, new infra."
+                  >XL</span
+                >
+                <span class="who who-a">AI in chat</span>
+                <span class="ph" style="--c: #0f7b4d"
+                  >Build the compounding engine</span
+                >
+              </div>
+              <p class="why">
+                <b>Why:</b> 2,144 pages exist and rank for 'iboma center
+                reviews' — consumers looking up one med spa. Not one page
+                targets what an agency types. Same data, wrong question.
+              </p>
+            </div>
+            <button
+              class="expand"
+              aria-expanded="false"
+              aria-controls="T14-body"
+            >
+              Details
+            </button>
+          </div>
+          <div class="task-body" id="T14-body" hidden>
+            <div class="prose">
+              <p>
+                One page per category × city, generated from
+                <code>CellMetric</code> / <code>CellSnapshot</code> data already
+                computed. Target the query an agency actually types:
+                <i>"med spa marketing leads Miami"</i>,
+                <i>"dental SEO prospects Toronto"</i>,
+                <i>"how many dentists in Austin need a website"</i>.
+              </p>
+              <p>
+                Each page publishes genuinely useful aggregate market
+                intelligence — count, average rating, % with unanswered reviews,
+                % with slow sites, % running ads, map-pack concentration — and
+                gates the <b>named list</b> behind signup. That is both the SEO
+                asset and the lead magnet in one artifact.
+              </p>
+              <p class="warn-inline">
+                Follow <code>cache-components.md</code> Pattern 1 exactly:
+                <code>'use cache'</code> + <code>cacheLife</code> +
+                <code>cacheTag</code> + a <code>NEXT_PHASE</code> guard
+                returning a fully-shaped <code>EMPTY_MARKET</code>. Vercel's
+                build worker cannot open a Neon socket, and a partial guard
+                shape is the exact failure that broke B.6 four commits running.
+              </p>
+            </div>
+            <div class="files">
+              <div class="lbl">Files</div>
+              <ul>
+                <li>
+                  <code
+                    >app/[locale]/(marketing)/markets/[category]/[city]/page.tsx
+                    — NEW</code
+                  >
+                </li>
+                <li><code>modules/market/public-market-page.ts — NEW</code></li>
+                <li><code>app/sitemap.xml — add the market routes</code></li>
+              </ul>
+            </div>
+            <div class="codewrap">
+              <div class="code-h">
+                <span>modules/market/public-market-page.ts</span
+                ><button class="cpy" type="button">Copy</button>
+              </div>
+              <pre
+                class="code"
+                data-lang="ts"
+              ><code>import { cacheLife, cacheTag } from "next/cache";
+import prisma from "@/lib/prisma";
+
+export interface MarketPage {
+  category: string;
+  city: string;
+  country: string;
+  total: number;
+  avgRating: number;
+  pctUnansweredReviews: number;
+  pctSlowSite: number;
+  pctRunningAds: number;
+  topSignals: { key: string; label: string; count: number }[];
+  updatedAt: string | null;
+}
+
+// EVERY field — a partial guard shape is a build-time type error (INC-25).
+export const EMPTY_MARKET: MarketPage = {
+  category: "", city: "", country: "",
+  total: 0, avgRating: 0,
+  pctUnansweredReviews: 0, pctSlowSite: 0, pctRunningAds: 0,
+  topSignals: [], updatedAt: null,
+};
+
+export async function getMarketPage(
+  category: string,
+  city: string,
+): Promise&lt;MarketPage&gt; {
+  "use cache";
+  cacheLife("days");
+  cacheTag(`market-${category}-${city}`);
+
+  if (process.env.NEXT_PHASE === "phase-production-build") return EMPTY_MARKET;
+
+  try {
+    // …aggregate from Business + BusinessSnapshot + LighthouseAudit + AdLibraryEntry
+    return shapeMarket(rows);
+  } catch {
+    return EMPTY_MARKET;
+  }
+}</code></pre>
+            </div>
+            <div class="copy">
+              <div class="copy-h">Page H1 + gated CTA</div>
+              <div class="copy-b">
+                H1: Medical spas in Miami — 533 mapped, 214 with a fixable
+                problem<br /><br />Sub: Average rating 4.6. 41% never reply to
+                reviews. 28% load slower than<br />
+                3 seconds on mobile. 12 are paying for Google ads right now.<br /><br />CTA:
+                See the 214 businesses by name — free, no card
+              </div>
+            </div>
+            <div class="accept">
+              <div class="lbl">Done when</div>
+              <ul>
+                <li>≥ 40 market pages live and in the sitemap</li>
+                <li>Each carries Dataset or FAQPage JSON-LD</li>
+                <li>
+                  NEXT_PHASE guard returns a complete EMPTY_MARKET — build is
+                  green
+                </li>
+                <li>Lighthouse mobile ≥ 90 on a representative page</li>
+                <li>Named businesses require signup; aggregates are public</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+        <article
+          class="task"
+          id="T15"
+          data-size="M"
+          data-who="ai"
+          data-phase="P2"
+          data-baked="0"
+        >
+          <div class="task-head">
+            <label class="cb"
+              ><input type="checkbox" data-task="T15" /><span class="box"></span
+            ></label>
+            <div class="task-title">
+              <div class="tt-row">
+                <span class="tid">T15</span>
+                <h3>Expand the comparison pages</h3>
+              </div>
+              <div class="tt-meta">
+                <span
+                  class="size"
+                  style="color: #3d4bb8; background: #e8ebfb"
+                  title="One focused session."
+                  >M</span
+                >
+                <span class="who who-a">AI in chat</span>
+                <span class="ph" style="--c: #0f7b4d"
+                  >Build the compounding engine</span
+                >
+              </div>
+              <p class="why">
+                <b>Why:</b> Three exist (Apollo, GoHighLevel, LeadSwift/D7) and
+                they are the highest-purchase-intent pages on the site. Every
+                obvious rival is missing.
+              </p>
+            </div>
+            <button
+              class="expand"
+              aria-expanded="false"
+              aria-controls="T15-body"
+            >
+              Details
+            </button>
+          </div>
+          <div class="task-body" id="T15-body" hidden>
+            <div class="prose">
+              <p>
+                Add BrightLocal, Whitespark, Semrush Local, Localo, LocalFalcon,
+                Birdeye. Prices verified August 2026: BrightLocal from $39/mo,
+                Whitespark sells à la carte ($14–200 rank tracker), Moz Local
+                $14/location.
+              </p>
+              <p class="warn-inline">
+                Every claim about a competitor must be sourced and dated in a
+                comment. Comparison pages are a legal surface, and the analysis
+                already flagged one cherry-picked rival figure in the billing
+                review.
+              </p>
+            </div>
+            <div class="files">
+              <div class="lbl">Files</div>
+              <ul>
+                <li>
+                  <code
+                    >app/[locale]/(marketing-v2)/compare/… — copy the existing
+                    pattern</code
+                  >
+                </li>
+              </ul>
+            </div>
+
+            <div class="accept">
+              <div class="lbl">Done when</div>
+              <ul>
+                <li>6 new compare pages live</li>
+                <li>Every competitor claim carries a dated source comment</li>
+                <li>All in the sitemap with canonical + hreflang</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+        <article
+          class="task"
+          id="T16"
+          data-size="M"
+          data-who="ai"
+          data-phase="P2"
+          data-baked="0"
+        >
+          <div class="task-head">
+            <label class="cb"
+              ><input type="checkbox" data-task="T16" /><span class="box"></span
+            ></label>
+            <div class="task-title">
+              <div class="tt-row">
+                <span class="tid">T16</span>
+                <h3>Get cited by ChatGPT and Perplexity</h3>
+              </div>
+              <div class="tt-meta">
+                <span
+                  class="size"
+                  style="color: #3d4bb8; background: #e8ebfb"
+                  title="One focused session."
+                  >M</span
+                >
+                <span class="who who-a">AI in chat</span>
+                <span class="ph" style="--c: #0f7b4d"
+                  >Build the compounding engine</span
+                >
+              </div>
+              <p class="why">
+                <b>Why:</b> A large share of research starts in an AI assistant
+                in 2026 and almost nobody is competing for local-market data
+                citations. Our aggregates are exactly the citable kind.
+              </p>
+            </div>
+            <button
+              class="expand"
+              aria-expanded="false"
+              aria-controls="T16-body"
+            >
+              Details
+            </button>
+          </div>
+          <div class="task-body" id="T16-body" hidden>
+            <div class="prose">
+              <p>
+                Three mechanics: publish <code>llms.txt</code> pointing at the
+                market pages; mark every market page with
+                <code>Dataset</code> JSON-LD including
+                <code>temporalCoverage</code> and a clear licence; and ensure AI
+                crawlers (GPTBot, PerplexityBot, ClaudeBot, CCBot) are
+                explicitly allowed in <code>robots.ts</code>.
+              </p>
+            </div>
+            <div class="files">
+              <div class="lbl">Files</div>
+              <ul>
+                <li>
+                  <code
+                    >app/[locale]/(marketing)/markets/… — structured data</code
+                  >
+                </li>
+                <li><code>app/llms.txt — NEW</code></li>
+                <li><code>app/robots.ts</code></li>
+              </ul>
+            </div>
+            <div class="codewrap">
+              <div class="code-h">
+                <span>app/robots.ts — extend</span
+                ><button class="cpy" type="button">Copy</button>
+              </div>
+              <pre
+                class="code"
+                data-lang="ts"
+              ><code>// AI answer engines are an acquisition channel in 2026. Allow them on public
+// marketing + market pages; keep them out of app + token routes.
+rules: [
+  { userAgent: "*", allow: "/", disallow: ["/api/", "/l/", "/r/", "/u/", "/o/", "/s/", "/discover", "/home", "/signin"] },
+  { userAgent: ["GPTBot", "PerplexityBot", "ClaudeBot", "CCBot", "Google-Extended"],
+    allow: ["/", "/markets/", "/compare/", "/pricing"],
+    disallow: ["/api/", "/l/", "/r/", "/u/", "/o/", "/s/", "/discover", "/home"] },
+],</code></pre>
+            </div>
+
+            <div class="accept">
+              <div class="lbl">Done when</div>
+              <ul>
+                <li>llms.txt served at the root</li>
+                <li>Dataset JSON-LD validates on market pages</li>
+                <li>
+                  Asking ChatGPT 'how many med spas in Miami don't reply to
+                  reviews' surfaces Mapsly within 8 weeks
+                </li>
+              </ul>
+            </div>
+          </div>
+        </article>
+        <article
+          class="task"
+          id="T17"
+          data-size="XL"
+          data-who="ai"
+          data-phase="P2"
+          data-baked="0"
+        >
+          <div class="task-head">
+            <label class="cb"
+              ><input type="checkbox" data-task="T17" /><span class="box"></span
+            ></label>
+            <div class="task-title">
+              <div class="tt-row">
+                <span class="tid">T17</span>
+                <h3>GoHighLevel marketplace app</h3>
+              </div>
+              <div class="tt-meta">
+                <span
+                  class="size"
+                  style="color: #b3261e; background: #fbe9e7"
+                  title="A project. New surface, new infra."
+                  >XL</span
+                >
+                <span class="who who-a">AI in chat</span>
+                <span class="ph" style="--c: #0f7b4d"
+                  >Build the compounding engine</span
+                >
+              </div>
+              <p class="why">
+                <b>Why:</b> Tens of thousands of agencies already run their
+                business inside GHL every day. Highest-fit distribution surface
+                that exists for this product — and the slowest to build, so
+                start it early and in parallel.
+              </p>
+            </div>
+            <button
+              class="expand"
+              aria-expanded="false"
+              aria-controls="T17-body"
+            >
+              Details
+            </button>
+          </div>
+          <div class="task-body" id="T17-body" hidden>
+            <div class="prose">
+              <p>
+                Scope the v1 deliberately small: OAuth install, push a Mapsly
+                list into GHL as contacts, and a "Map this market" custom menu
+                link. Do not attempt two-way sync.
+              </p>
+              <p>
+                Sequence it behind T1 and T4 — an install that lands on a 404
+                pricing page and a dead credit wall wastes the best channel on
+                the board.
+              </p>
+            </div>
+            <div class="files">
+              <div class="lbl">Files</div>
+              <ul>
+                <li><code>app/api/integrations/ghl/ — NEW</code></li>
+                <li><code>modules/integrations/ghl/ — NEW</code></li>
+              </ul>
+            </div>
+
+            <div class="accept">
+              <div class="lbl">Done when</div>
+              <ul>
+                <li>App approved and listed in the GHL marketplace</li>
+                <li>OAuth install → agency provisioned automatically</li>
+                <li>One-click list push creates GHL contacts</li>
+                <li>Installs tracked as a distinct acquisition source</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+        <article
+          class="task"
+          id="T18"
+          data-size="S"
+          data-who="viktor"
+          data-phase="P2"
+          data-baked="0"
+        >
+          <div class="task-head">
+            <label class="cb"
+              ><input type="checkbox" data-task="T18" /><span class="box"></span
+            ></label>
+            <div class="task-title">
+              <div class="tt-row">
+                <span class="tid">T18</span>
+                <h3>List on G2 and Capterra</h3>
+              </div>
+              <div class="tt-meta">
+                <span
+                  class="size"
+                  style="color: #0f7b4d; background: #e3f4ec"
+                  title="One message. Quick, self-contained."
+                  >S</span
+                >
+                <span class="who who-v">You</span>
+                <span class="ph" style="--c: #0f7b4d"
+                  >Build the compounding engine</span
+                >
+              </div>
+              <p class="why">
+                <b>Why:</b> Free, and it is where agencies build a shortlist.
+                Every competitor is already listed.
+              </p>
+            </div>
+            <button
+              class="expand"
+              aria-expanded="false"
+              aria-controls="T18-body"
+            >
+              Details
+            </button>
+          </div>
+          <div class="task-body" id="T18-body" hidden>
+            <div class="files">
+              <div class="lbl">Files</div>
+              <ul>
+                <li><code>— manual, vendor portals</code></li>
+              </ul>
+            </div>
+
+            <div class="accept">
+              <div class="lbl">Done when</div>
+              <ul>
+                <li>
+                  Both listings live with screenshots, pricing and category
+                </li>
+                <li>First 3 reviews requested from network users</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+        <article
+          class="task"
+          id="T19"
+          data-size="M"
+          data-who="ai"
+          data-phase="P2"
+          data-baked="0"
+        >
+          <div class="task-head">
+            <label class="cb"
+              ><input type="checkbox" data-task="T19" /><span class="box"></span
+            ></label>
+            <div class="task-title">
+              <div class="tt-row">
+                <span class="tid">T19</span>
+                <h3>Repoint the /biz pages at agency intent</h3>
+              </div>
+              <div class="tt-meta">
+                <span
+                  class="size"
+                  style="color: #3d4bb8; background: #e8ebfb"
+                  title="One focused session."
+                  >M</span
+                >
+                <span class="who who-a">AI in chat</span>
+                <span class="ph" style="--c: #0f7b4d"
+                  >Build the compounding engine</span
+                >
+              </div>
+              <p class="why">
+                <b>Why:</b> 2,144 indexed pages currently answer a consumer's
+                question. Adding an agency-facing block turns dead traffic into
+                a funnel entrance without touching the data.
+              </p>
+            </div>
+            <button
+              class="expand"
+              aria-expanded="false"
+              aria-controls="T19-body"
+            >
+              Details
+            </button>
+          </div>
+          <div class="task-body" id="T19-body" hidden>
+            <div class="prose">
+              <p>
+                Keep the consumer content — it is what ranks. Append a clearly
+                separated block: "Are you a marketing agency? See all {n}
+                {category} in {city} ranked by opportunity →" linking to the T14
+                market page. Internal links from 2,144 indexed pages will also
+                accelerate the new market pages' discovery considerably.
+              </p>
+            </div>
+            <div class="files">
+              <div class="lbl">Files</div>
+              <ul>
+                <li>
+                  <code>app/[locale]/(marketing)/biz/[slug]/page.tsx</code>
+                </li>
+              </ul>
+            </div>
+
+            <div class="accept">
+              <div class="lbl">Done when</div>
+              <ul>
+                <li>Every /biz page links to its market page</li>
+                <li>No regression in existing rankings after 4 weeks</li>
+                <li>Click-through to market pages is tracked</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+      </section>
+      <section class="phase" data-phase="P3">
+        <div class="phase-head" style="--c: #5b3df5">
+          <div>
+            <h2><span class="pid">P3</span>Your manual track</h2>
+            <p>
+              No calls. Roughly 2 hours a week, spent where a human genuinely
+              beats automation.
+            </p>
+          </div>
+          <div class="phase-prog">
+            <div class="pp-bar">
+              <div class="pp-fill" data-phase-fill="P3"></div>
+            </div>
+            <span data-phase-count="P3">0/3</span>
+          </div>
+        </div>
+        <article
+          class="task"
+          id="T20"
+          data-size="S"
+          data-who="viktor"
+          data-phase="P3"
+          data-baked="0"
+        >
+          <div class="task-head">
+            <label class="cb"
+              ><input type="checkbox" data-task="T20" /><span class="box"></span
+            ></label>
+            <div class="task-title">
+              <div class="tt-row">
+                <span class="tid">T20</span>
+                <h3>Reply personally to every inbound signal</h3>
+              </div>
+              <div class="tt-meta">
+                <span
+                  class="size"
+                  style="color: #0f7b4d; background: #e3f4ec"
+                  title="One message. Quick, self-contained."
+                  >S</span
+                >
+                <span class="who who-v">You · ongoing</span>
+                <span class="ph" style="--c: #5b3df5">Your manual track</span>
+              </div>
+              <p class="why">
+                <b>Why:</b> The simulation says automated volume beats manual
+                outreach — but it assumes inbound replies get answered. At this
+                volume you can answer every one within an hour.
+              </p>
+            </div>
+            <button
+              class="expand"
+              aria-expanded="false"
+              aria-controls="T20-body"
+            >
+              Details
+            </button>
+          </div>
+          <div class="task-body" id="T20-body" hidden>
+            <div class="prose">
+              <p>
+                Any reply, any signup from a target account, any shared-report
+                view from a named agency. Text only — email or LinkedIn message.
+                No calls.
+              </p>
+            </div>
+
+            <div class="accept">
+              <div class="lbl">Done when</div>
+              <ul>
+                <li>
+                  Median first response under 2 hours during working hours
+                </li>
+                <li>Every reply logged against the agency record</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+        <article
+          class="task"
+          id="T21"
+          data-size="M"
+          data-who="viktor"
+          data-phase="P3"
+          data-baked="0"
+        >
+          <div class="task-head">
+            <label class="cb"
+              ><input type="checkbox" data-task="T21" /><span class="box"></span
+            ></label>
+            <div class="task-title">
+              <div class="tt-row">
+                <span class="tid">T21</span>
+                <h3>Post on LinkedIn twice a week</h3>
+              </div>
+              <div class="tt-meta">
+                <span
+                  class="size"
+                  style="color: #3d4bb8; background: #e8ebfb"
+                  title="One focused session."
+                  >M</span
+                >
+                <span class="who who-v">You · ongoing</span>
+                <span class="ph" style="--c: #5b3df5">Your manual track</span>
+              </div>
+              <p class="why">
+                <b>Why:</b> High fit and it compounds. The market data you
+                already generate is genuinely novel content nobody else can
+                post.
+              </p>
+            </div>
+            <button
+              class="expand"
+              aria-expanded="false"
+              aria-controls="T21-body"
+            >
+              Details
+            </button>
+          </div>
+          <div class="task-body" id="T21-body" hidden>
+            <div class="prose">
+              <p>
+                The format writes itself from T14's output: one market, one
+                surprising number, one screenshot. "41% of Miami med spas never
+                reply to a review. Here's the list." Post the finding, link the
+                public market page.
+              </p>
+            </div>
+
+            <div class="copy">
+              <div class="copy-h">Post template</div>
+              <div class="copy-b">
+                I mapped every {category} in {city} this week — {n}
+                businesses.<br /><br />{signalCount} of them ({pct}%) have
+                {topSignal}.<br /><br />The benchmark is {benchmark}%.<br /><br />That's
+                {signalCount} businesses in one city with a problem an agency<br />gets
+                paid to fix, and no idea they have it.<br /><br />Full
+                breakdown, free, no signup: {marketUrl}
+              </div>
+            </div>
+            <div class="accept">
+              <div class="lbl">Done when</div>
+              <ul>
+                <li>2 posts/week for 8 weeks</li>
+                <li>Each links a public market page</li>
+                <li>Profile visits and referral traffic tracked</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+        <article
+          class="task"
+          id="T22"
+          data-size="M"
+          data-who="viktor"
+          data-phase="P3"
+          data-baked="0"
+        >
+          <div class="task-head">
+            <label class="cb"
+              ><input type="checkbox" data-task="T22" /><span class="box"></span
+            ></label>
+            <div class="task-title">
+              <div class="tt-row">
+                <span class="tid">T22</span>
+                <h3>Be useful in two agency communities</h3>
+              </div>
+              <div class="tt-meta">
+                <span
+                  class="size"
+                  style="color: #3d4bb8; background: #e8ebfb"
+                  title="One focused session."
+                  >M</span
+                >
+                <span class="who who-v">You · ongoing</span>
+                <span class="ph" style="--c: #5b3df5">Your manual track</span>
+              </div>
+              <p class="why">
+                <b>Why:</b> Where agency owners actually are. Most ban
+                promotion, so the only viable move is answering questions with
+                real data.
+              </p>
+            </div>
+            <button
+              class="expand"
+              aria-expanded="false"
+              aria-controls="T22-body"
+            >
+              Details
+            </button>
+          </div>
+          <div class="task-body" id="T22-body" hidden>
+            <div class="prose">
+              <p>
+                Pick two and go deep rather than five shallow: Online Geniuses
+                (Slack, 53k members) and Grow Your Agency (Slack, ~1,100 agency
+                owners). Answer questions using live data — never link on the
+                first reply.
+              </p>
+              <p class="warn-inline">
+                Never automate any part of this. Automated community posting is
+                the fastest route to a ban and, for a product sold on data
+                credibility, disproportionately expensive.
+              </p>
+            </div>
+
+            <div class="accept">
+              <div class="lbl">Done when</div>
+              <ul>
+                <li>Member of both, 3+ substantive answers per week</li>
+                <li>Zero promotional first-replies</li>
+                <li>Profile links back to a market page, not the homepage</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <div class="legend">
+        <h3>Size guide</h3>
+        <div class="lg">
+          <span class="size" style="color: #0f7b4d; background: #e3f4ec">S</span
+          ><span>One message. Quick, self-contained.</span>
+        </div>
+        <div class="lg">
+          <span class="size" style="color: #3d4bb8; background: #e8ebfb">M</span
+          ><span>One focused session.</span>
+        </div>
+        <div class="lg">
+          <span class="size" style="color: #8a5a00; background: #fff3d6">L</span
+          ><span>Several sessions + review chain.</span>
+        </div>
+        <div class="lg">
+          <span class="size" style="color: #b3261e; background: #fbe9e7"
+            >XL</span
+          ><span>A project. New surface, new infra.</span>
+        </div>
+        <p style="margin: 14px 0 0; color: var(--muted); font-size: 13.5px">
+          Sizes are effort, not calendar time — everything is built here in
+          chat, so a run of S tasks can land in one sitting. Order matters more
+          than speed: <b>P0 before anything else</b>. Every visitor P2 earns is
+          wasted while pricing 404s and the credit wall is a dead end.
+        </p>
+      </div>
+
+      <footer>
+        <b>How to use this.</b> Tick a task when it ships; progress is stored in
+        this browser under <code>mapsly-gtm-plan-v1</code>. Say "let's do T4"
+        and we build it. The <b>Details</b> button opens file paths, working
+        code that matches the existing components, ready-to-paste copy, and the
+        acceptance criteria that define done.<br /><br />
+        <b>Grounding.</b> Every "why" traces to the analysis of 14 Aug 2026 —
+        live database, Search Console, and both cold-email waves. Code examples
+        follow the real patterns in this repo: <code>ag.css</code>'s
+        <code>.fb-price-*</code> card system, <code>PLAN_CARDS</code> as pricing
+        source of truth, <code>renderEmailShell</code>,
+        <code>components/ui/Modal.tsx</code>, and the
+        <code>NEXT_PHASE</code> guard discipline from
+        <code>.claude/rules/cache-components.md</code>.<br /><br />
+        <b>Not included by choice.</b> No phone calls anywhere in the plan. No
+        LinkedIn automation, no AppSumo, no Product Hunt — all scored and
+        rejected in the analysis.
+      </footer>
+    </div>
+
+    <script>
+      (function () {
+        var KEY = "mapsly-gtm-plan-v1",
+          TOTAL = 22;
+        var state = {};
+        try {
+          state = JSON.parse(localStorage.getItem(KEY) || "{}");
+        } catch (e) {
+          state = {};
+        }
+        // Tasks shipped in-repo are baked done; localStorage only overrides them.
+        document
+          .querySelectorAll('.task[data-baked="1"]')
+          .forEach(function (t) {
+            if (!(t.id in state)) state[t.id] = true;
+          });
+
+        function phaseOf(el) {
+          return el.closest(".phase").dataset.phase;
+        }
+
+        function paint() {
+          var done = 0;
+          var per = {};
+          document.querySelectorAll(".task").forEach(function (t) {
+            var id = t.id,
+              on = !!state[id];
+            t.classList.toggle("done", on);
+            var cb = t.querySelector("input[data-task]");
+            if (cb) cb.checked = on;
+            var p = phaseOf(t);
+            per[p] = per[p] || { d: 0, n: 0 };
+            per[p].n++;
+            if (on) {
+              done++;
+              per[p].d++;
+            }
+          });
+          document.getElementById("progFill").style.width =
+            (TOTAL ? (done / TOTAL) * 100 : 0) + "%";
+          document.getElementById("progNum").textContent = done + " / " + TOTAL;
+          Object.keys(per).forEach(function (p) {
+            var f = document.querySelector('[data-phase-fill="' + p + '"]');
+            var c = document.querySelector('[data-phase-count="' + p + '"]');
+            if (f)
+              f.style.width =
+                (per[p].n ? (per[p].d / per[p].n) * 100 : 0) + "%";
+            if (c) c.textContent = per[p].d + "/" + per[p].n;
+          });
+        }
+
+        document.addEventListener("change", function (e) {
+          var cb = e.target.closest("input[data-task]");
+          if (!cb) return;
+          state[cb.dataset.task] = cb.checked;
+          try {
+            localStorage.setItem(KEY, JSON.stringify(state));
+          } catch (err) {}
+          paint();
+          applyFilter();
+        });
+
+        document.addEventListener("click", function (e) {
+          var b = e.target.closest(".expand");
+          if (b) {
+            var body = document.getElementById(b.getAttribute("aria-controls"));
+            var open = b.getAttribute("aria-expanded") === "true";
+            b.setAttribute("aria-expanded", String(!open));
+            body.hidden = open;
+            b.textContent = open ? "Details" : "Hide";
+            return;
+          }
+
+          var c = e.target.closest(".cpy");
+          if (c) {
+            var pre = c.closest(".codewrap").querySelector("code");
+            navigator.clipboard.writeText(pre.textContent).then(function () {
+              c.textContent = "Copied";
+              c.classList.add("ok");
+              setTimeout(function () {
+                c.textContent = "Copy";
+                c.classList.remove("ok");
+              }, 1400);
+            });
+            return;
+          }
+        });
+
+        var filter = "all";
+        function applyFilter() {
+          document.querySelectorAll(".task").forEach(function (t) {
+            var show =
+              filter === "all"
+                ? true
+                : filter === "todo"
+                  ? !state[t.id]
+                  : filter === "ai" || filter === "viktor"
+                    ? t.dataset.who === filter
+                    : t.dataset.size === filter;
+            t.classList.toggle("hide", !show);
+          });
+          document.querySelectorAll(".phase").forEach(function (p) {
+            var any = p.querySelectorAll(".task:not(.hide)").length;
+            p.style.display = any ? "" : "none";
+          });
+        }
+        document.querySelectorAll(".filters button").forEach(function (b) {
+          b.addEventListener("click", function () {
+            document.querySelectorAll(".filters button").forEach(function (x) {
+              x.setAttribute("aria-pressed", "false");
+            });
+            b.setAttribute("aria-pressed", "true");
+            filter = b.dataset.f;
+            applyFilter();
+          });
+        });
+        document.getElementById("reset").addEventListener("click", function () {
+          if (!confirm("Clear all progress?")) return;
+          state = {};
+          try {
+            localStorage.removeItem(KEY);
+          } catch (e) {}
+          paint();
+          applyFilter();
+        });
+
+        paint();
+      })();
+    </script>
+  </body>
+</html>

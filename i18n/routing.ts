@@ -22,6 +22,12 @@ export const routing = defineRouting({
       "en-CA": "/for-agencies",
       fr: "/pour-agences",
     },
+    "/pricing": {
+      en: "/pricing",
+      es: "/precios",
+      "en-CA": "/pricing",
+      fr: "/tarifs",
+    },
     // WP6-7 · comparison pages. Locale-agnostic bare-string paths (the slug is
     // the same in every locale — a brand/product name), registered as strings
     // exactly like "/" so the translated-pathnames invariant skips them; the

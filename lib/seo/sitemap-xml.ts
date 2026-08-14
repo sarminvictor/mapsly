@@ -82,6 +82,10 @@ const PUBLIC_PATHS: readonly PublicPath[] = [
   // — it is byte-identical to `/` and canonicalises there, so submitting it
   // would just ask Google to crawl a URL we tell it to ignore.
   { path: "/for-businesses", priority: 0.8, changeFrequency: "weekly" },
+  // The standalone pricing page. High priority: it is the landing target for
+  // every ad, comparison page and AI answer that quotes what Mapsly costs,
+  // and until T1 it 404'd.
+  { path: "/pricing", priority: 0.9, changeFrequency: "monthly" },
   // WP6-7 · comparison pages (high-intent evaluator SEO surface).
   {
     path: "/compare/mapsly-vs-apollo",

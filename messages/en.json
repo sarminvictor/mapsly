@@ -1318,38 +1318,7 @@
     "pricing": {
       "title_lead": "Pay for outcomes,",
       "title_emph": "not seats.",
-      "sub": "1 credit is one delivered lead with verified contacts. Layer on reviews, site speed, ads, and rankings for a few credits more each. Paid plans open any market; saved lists and CSV export ship on every plan. Need 6,000+ a month? Pro is $299.",
-      "p1_name": "Free",
-      "p1_price": "$0",
-      "p1_period": "/mo",
-      "p1_sub": "For solo consultants testing a single vertical.",
-      "p1_f1": "50 leads with verified contacts",
-      "p1_f2": "Search everywhere we've already mapped",
-      "p1_f3": "Signal-matched to your goal",
-      "p1_f4": "Saved lists + CSV export",
-      "p1_f5": "No card required",
-      "p1_cta": "Start free",
-      "p2_badge": "Most popular",
-      "p2_name": "Starter",
-      "p2_price": "$19",
-      "p2_period": "/mo",
-      "p2_sub": "For freelancers and one-person agencies.",
-      "p2_f1": "~250 leads / month",
-      "p2_f2": "Everything in Free",
-      "p2_f3": "Unlimited markets + categories",
-      "p2_f4": "Saved lists + pipeline tracking",
-      "p2_f5": "Signal-grounded first-touch drafts",
-      "p2_cta": "Get started",
-      "p3_name": "Growth",
-      "p3_price": "$99",
-      "p3_period": "/mo",
-      "p3_sub": "For local marketing shops pitching at scale.",
-      "p3_f1": "~1,800 leads / month",
-      "p3_f2": "Everything in Starter",
-      "p3_f3": "3 team seats",
-      "p3_f4": "Bulk first-touch drafts",
-      "p3_f5": "Priority support",
-      "p3_cta": "Get started"
+      "sub": "1 credit is one delivered lead with verified contacts. Layer on reviews, site speed, ads and rankings for a few credits more each. Paid plans open any market; saved lists and CSV export ship on every plan."
     },
     "platform": {
       "title_lead": "One platform.",
@@ -1594,58 +1563,50 @@
   },
   "pricing": {
     "meta": {
-      "title": "Pricing · Mapsly · $29/mo for owners, $49–$499/mo for agencies",
-      "description": "One plan for local business owners ($29/mo). Four tiers for marketing agencies ($49 Solo, $99 Growth, $249 Pro, $499 Boutique). Cancel anytime. 30-day money back.",
-      "og_title": "Mapsly pricing · Owners $29/mo · Agencies from $49/mo",
-      "og_description": "Pay for outcomes, not seats. All plans include verified contacts and the full signal stack. Cancel anytime."
+      "title": "Pricing · Mapsly · agency plans from $19/mo",
+      "description": "Pay for delivered leads, not seats. Free tier with 50 leads, paid plans from $19/mo. Verified contacts, full signal stack, CSV export on every plan. Cancel anytime.",
+      "og_title": "Mapsly pricing · agency plans from $19/mo",
+      "og_description": "1 credit is one delivered lead with verified contacts. Free to start, no card required."
+    },
+    "badge_popular": "Most popular",
+    "cta_free": "Start free",
+    "cta_paid": "Get started",
+    "credits_line": "{n, number} credits / month",
+    "credits_line_once": "{n, number} credits, one time",
+    "note": "Prices in USD. Credits reset each billing cycle on paid plans. Top-up packs never expire.",
+    "faq": {
+      "title": "Questions",
+      "q1": "What exactly is a credit?",
+      "a1": "One credit delivers one lead with verified contact details. Deeper signals cost a few credits more per lead — reviews, site speed, ad activity and map rankings are priced separately so you only pay for the depth you need.",
+      "q2": "What happens when I run out?",
+      "a2": "Searching and viewing your saved lists keep working. Delivering new leads stops until your cycle resets or you buy a top-up pack. Top-ups never expire.",
+      "q3": "Can I change plan later?",
+      "a3": "Yes, in either direction, from the billing screen. Changes take effect immediately and the balance is prorated by Stripe.",
+      "q4": "Do I need a card to start?",
+      "a4": "No. The free tier gives you 50 leads with verified contacts and needs no card. You only enter payment details when you choose a paid plan."
     },
     "hero": {
-      "eyebrow": "Pricing",
-      "title": "Two audiences. One promise.",
-      "sub": "If you own a local business, there's one plan. If you run an agency that finds qualified SMB leads, pick a tier that matches your volume.",
-      "jump_label": "Jump to your pricing",
-      "jump_smb": "I own a business",
-      "jump_agency": "I run an agency"
+      "pill": "Free tier · no card required",
+      "title_lead": "Pay for",
+      "title_emph": "outcomes,",
+      "title_trail": "not seats.",
+      "sub": "One credit delivers one lead with verified contacts. Every plan opens every market.",
+      "cta": "Start free",
+      "trust_1": "50 leads free",
+      "trust_2": "No card to start",
+      "trust_3": "Cancel any time"
     },
-    "smb_eyebrow": "For owners",
-    "smb_title": "One plan. No tier games.",
-    "smb_sub": "Maria runs a med-spa. Marco runs an auto shop. Same software, same price, same weekly check-in.",
-    "smb_card_label": "SMB plan · $29 per month",
-    "includes_label": "Included",
-    "agency_eyebrow": "For agencies",
-    "agency_title": "Pick a tier. Scale up when you outgrow it.",
-    "agency_sub": "Every tier ships verified contacts, the full signal stack, CSV + CRM export, and white-label one-pagers. Lead volume and seat count scale with the tier.",
-    "trust": {
-      "heading": "Built for the long haul",
-      "secure_label": "Stripe-powered checkout",
-      "secure_desc": "PCI-DSS Level 1. Your card stays on Stripe — we never see the number.",
-      "refund_label": "30-day money back",
-      "refund_desc": "Not worth it in the first month? One email. Full refund. No \"what could we do better\" form.",
-      "cancel_label": "Cancel anytime",
-      "cancel_desc": "One click in settings. We prorate the month. No win-back gauntlet.",
-      "soc2_label": "SOC 2 Type II · in progress",
-      "soc2_desc": "Audit kicked off Q3 2026. We'll publish the report on /security when it lands."
+    "plans_eyebrow": "Plans",
+    "leads_line": "delivered leads / mo",
+    "leads_line_once": "delivered leads, one time",
+    "enriched_line": "≈ {n, number} fully enriched",
+    "reset_note": "Plan credits reset monthly · top-ups never expire",
+    "free": {
+      "label": "Still deciding?",
+      "desc": "The free tier gives you {n, number} leads with verified contacts — enough to win your first client. No card required.",
+      "cta": "Start free"
     },
-    "faq": {
-      "eyebrow": "Frequently asked",
-      "title": "Pricing questions, answered.",
-      "q1": "What's the difference between the SMB plan and the agency tiers?",
-      "a1": "The SMB plan is for one local business owner watching their own spa, restaurant, or shop. The agency tiers are for marketing shops finding qualified leads for many SMBs at once. Different jobs, different software, different price.",
-      "q2": "Can I switch tiers later?",
-      "a2": "Yes. Move up or down at any billing cycle from your settings page. Mid-cycle upgrades are prorated; downgrades take effect at the next renewal so you don't lose what you've paid for.",
-      "q3": "What counts as a \"qualified lead\" on the agency tiers?",
-      "a3": "A business that passes the filters you set in Hunter — for example \"med-spa in Miami with reply rate below 25% and at least 100 reviews\". You see the count live before you save the list, so there are no surprise overages.",
-      "q4": "Do you offer a free trial?",
-      "a4": "Growth, Pro, and Boutique each include a 14-day trial — full access, no card required up front. Solo skips the trial because the $49 tier is already the lowest commitment in the category. SMB owners get a free reality check before the $29/mo kicks in.",
-      "q5": "I need an invoice / wire / annual contract.",
-      "a5": "Boutique tier ships invoice billing and annual contracts by default. For Pro tier, email hello@mapsly.ai and we'll switch you over. Solo and Growth are credit-card monthly only — keeps overhead down so the price stays down."
-    },
-    "cta": {
-      "title": "Ready to start?",
-      "sub": "Same sign-in for both audiences. We'll ask whether you're an owner or an agency right after your first link click.",
-      "primary": "Sign in / start free",
-      "secondary": "Talk to us"
-    }
+    "see_full": "See full pricing and FAQ →"
   },
   "marketing_v2": {
     "header": {
@@ -1661,6 +1622,7 @@
     },
     "footer": {
       "rights": "© {year} Mapsly. All rights reserved.",
+      "pricing": "Pricing",
       "privacy": "Privacy",
       "terms": "Terms",
       "cookies": "Cookies",
