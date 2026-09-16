@@ -115,6 +115,19 @@ export async function getDashboardData(): Promise<DashboardData> {
 }
 ```
 
+## 6 · Build cache can serve dead Google Font URLs (INC-68)
+
+`next/font/google` bakes concrete `fonts.gstatic.com` woff2 URLs into `.next/cache`. Google rotates those hashes **inside the same font version**, so a restored Vercel build cache can hold URLs that now 404 — and the build dies with `Module not found: Can't resolve '@vercel/turbopack-next/internal/font/google/font'`.
+
+A green local `deploy-check` cannot catch this: `rm -rf .next` locally re-fetches live URLs. The failure lives in the _remote restored cache_, and the import trace usually names a file the commit never touched.
+
+```bash
+# The fix — retrying the push alone restores the same stale cache and fails again.
+vercel deploy --prod --force      # --force SKIPS the build cache (--with-cache retains it)
+```
+
+Durable fix: self-host the fonts in `public/fonts/` with `@font-face` (FreightBig Pro already is — see `app/globals.css`) and delete the `next/font/google` calls. Then `grep -rn "next/font/google" app/ components/` returns nothing and the failure mode is gone.
+
 ## Anti-patterns (block at review)
 
 - ❌ Commit by `claude@anthropic.com` / `bot@github.com` on a Vercel repo (INC-10)
@@ -125,7 +138,7 @@ export async function getDashboardData(): Promise<DashboardData> {
 
 ## Cites
 
-INC-06, 07, 10, 12, 27 — see `.claude/memory/incidents.md`.
+INC-06, 07, 10, 12, 27, 68 — see `.claude/memory/incidents.md`.
 
 ## See also
 

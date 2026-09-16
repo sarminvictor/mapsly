@@ -474,3 +474,21 @@ Two bars rendered for `2026-03`; February 2026 silently missing from the 12-mont
 **Prevention:** NEVER hand-roll IMAP reads against the cold mailboxes; `scripts/inbox-scan.ts` is the only sanctioned diagnostic path (it also sweeps Junk/Spam folders and prints each message's seen-state so a consumed marker is visible). Mechanical check: `grep -rn "ImapFlow" scripts/ | grep -v inbox-scan.ts` must return nothing.
 **Where encoded:** scripts/inbox-scan.ts (header comment) · this entry.
 **Tags:** cold-email, imap, compliance, diagnostics
+
+### INC-2026-08-14-68 · Vercel build cache + rotated Google Fonts hashes = failed prod deploy
+
+**Symptom:** Production build failed on a commit whose `pnpm deploy-check` was green locally (including a clean `rm -rf .next` rebuild). Vercel log: `Module not found: Can't resolve '@vercel/turbopack-next/internal/font/google/font'` ×12, preceded by `Received response with status 404 when requesting https://fonts.gstatic.com/s/spacegrotesk/v22/V8mloQ...woff2` ×3. Import trace pointed at `app/[locale]/(agency)/layout.tsx` — a file the commit never touched, which is the tell that the cause is external.
+
+**Root cause:** `next/font/google` resolves Google's CSS to concrete `fonts.gstatic.com` woff2 URLs and bakes them into `.next/cache`. Google rotates those file hashes **within the same font version** (still `v22` here — the version number does NOT change, so nothing looks stale). Vercel restored the build cache from the previous deployment (`Restored build cache from previous deployment (Fc93DjuL...)`), Turbopack reused the cached URLs, and every one of them now 404s. Verified by hand: those exact URLs return 404 today while `fonts.googleapis.com/css2?family=Space+Grotesk` still reports `v22`.
+
+Local builds are immune because a `rm -rf .next` re-fetches the CSS and gets live URLs. **A green local gate cannot catch this class of failure** — it is purely a property of the restored remote cache.
+
+**Fix applied:** `vercel deploy --prod --force` (in this CLI `--force` skips the build cache; `--with-cache` is the opt-in to retain it). Fresh fetch resolved live URLs, build passed, `dpl_BkQrCeGpDMmrGDsHRniJQuVVKMMd` went live. Production was never down — the failed build simply never replaced the previous deployment.
+
+**Prevention:** two layers.
+1. *Immediate recipe.* Any Vercel build failing with a `fonts.gstatic.com` 404 or `Can't resolve '@vercel/turbopack-next/internal/font/google/font'` is this incident. Do not debug the diff, do not revert — redeploy without cache: `vercel deploy --prod --force`. Retrying the git push alone does NOT work: the same stale cache is restored again.
+2. *Durable fix (open).* Self-host Space Grotesk + Bricolage Grotesque as woff2 in `public/fonts/` with `@font-face`, exactly as FreightBig Pro already is (`app/globals.css`), and drop the two `next/font/google` calls in `app/[locale]/(marketing-v2)/layout.tsx` and `app/[locale]/(agency)/layout.tsx`. That removes the build-time network dependency entirely and makes recurrence structurally impossible. Mechanical check once done: `grep -rn "next/font/google" app/ components/` must return nothing.
+
+**Where encoded:** this entry · `.claude/rules/vercel.md` (§6) · durable fix tracked as a build-plan task.
+**Confidence:** high — 404s reproduced directly against the URLs in the build log.
+**Tags:** vercel, build-cache, fonts, next-font, deploy, external-dependency

@@ -540,8 +540,8 @@
           in this browser
         </p>
         <div class="hero-stats">
-          <div class="hs"><b>22</b><span>tasks total</span></div>
-          <div class="hs"><b>6·11·3·2</b><span>S · M · L · XL</span></div>
+          <div class="hs"><b>23</b><span>tasks total</span></div>
+          <div class="hs"><b>6·12·3·2</b><span>S · M · L · XL</span></div>
           <div class="hs"><b>6</b><span>need you (no calls)</span></div>
           <div class="hs">
             <b>83%</b><span>simulated odds of hitting 10</span>
@@ -553,7 +553,7 @@
     <div class="bar">
       <div class="wrap">
         <div class="prog"><i id="progFill"></i></div>
-        <span class="pnum" id="progNum">0 / 22</span>
+        <span class="pnum" id="progNum">0 / 23</span>
         <div class="filters">
           <button data-f="all" aria-pressed="true">All</button>
           <button data-f="todo" aria-pressed="false">To do</button>
@@ -582,7 +582,7 @@
             <div class="pp-bar">
               <div class="pp-fill" data-phase-fill="P0"></div>
             </div>
-            <span data-phase-count="P0">0/8</span>
+            <span data-phase-count="P0">0/9</span>
           </div>
         </div>
         <article
@@ -1659,6 +1659,138 @@ export async function getSeededMarkets(limit = 6) {
                 </li>
                 <li>Any other market is still reachable in one click</li>
                 <li>Copy states the wait honestly for unseeded markets</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+        <article
+          class="task"
+          id="T23"
+          data-size="M"
+          data-who="ai"
+          data-phase="P0"
+          data-baked="0"
+        >
+          <div class="task-head">
+            <label class="cb"
+              ><input type="checkbox" data-task="T23" /><span class="box"></span
+            ></label>
+            <div class="task-title">
+              <div class="tt-row">
+                <span class="tid">T23</span>
+                <h3>Self-host the Google fonts</h3>
+              </div>
+              <div class="tt-meta">
+                <span
+                  class="size"
+                  style="color: #3d4bb8; background: #e8ebfb"
+                  title="One focused session."
+                  >M</span
+                >
+                <span class="who who-a">AI in chat</span>
+                <span class="ph" style="--c: #b3261e">Stop the leaks</span>
+              </div>
+              <p class="why">
+                <b>Why:</b> A production deploy failed on 14 Aug because Vercel
+                restored a build cache holding fonts.gstatic.com URLs that
+                Google had silently rotated. A green local gate cannot catch it
+                — the stale URLs live in the remote cache (INC-2026-08-14-68).
+              </p>
+            </div>
+            <button
+              class="expand"
+              aria-expanded="false"
+              aria-controls="T23-body"
+            >
+              Details
+            </button>
+          </div>
+          <div class="task-body" id="T23-body" hidden>
+            <div class="prose">
+              <p>
+                <code>next/font/google</code> bakes concrete woff2 URLs into
+                <code>.next/cache</code>. Google rotates those hashes
+                <b>inside the same font version</b> (still <code>v22</code>), so
+                the version number never looks stale and the cached URLs quietly
+                start 404-ing. The build then dies with
+                <code
+                  >Can't resolve
+                  '@vercel/turbopack-next/internal/font/google/font'</code
+                >, usually pointing at a file the commit never touched.
+              </p>
+              <p>
+                The workaround is <code>vercel deploy --prod --force</code>,
+                which skips the cache. The fix is to stop depending on the
+                network at build time at all —
+                <b>the pattern already exists in this repo</b>: FreightBig Pro
+                is self-hosted in <code>public/fonts/</code> with plain
+                <code>@font-face</code> in <code>app/globals.css</code>. Do the
+                same for the other two faces.
+              </p>
+              <p class="warn-inline">
+                Visual-risk change: it touches font loading on every marketing
+                and agency surface. Verify weights and
+                <code>font-display: swap</code> match the current
+                <code>next/font</code> output before shipping, and check for
+                FOUT on a cold load.
+              </p>
+            </div>
+            <div class="files">
+              <div class="lbl">Files</div>
+              <ul>
+                <li>
+                  <code
+                    >public/fonts/ — add Space Grotesk + Bricolage Grotesque
+                    woff2</code
+                  >
+                </li>
+                <li>
+                  <code
+                    >components/marketing/for-businesses/fb.css — @font-face
+                    blocks</code
+                  >
+                </li>
+                <li>
+                  <code
+                    >app/[locale]/(marketing-v2)/layout.tsx — drop
+                    next/font/google</code
+                  >
+                </li>
+                <li>
+                  <code
+                    >app/[locale]/(agency)/layout.tsx — drop
+                    next/font/google</code
+                  >
+                </li>
+              </ul>
+            </div>
+            <div class="codewrap">
+              <div class="code-h">
+                <span>mechanical check once done</span
+                ><button class="cpy" type="button">Copy</button>
+              </div>
+              <pre
+                class="code"
+                data-lang="bash"
+              ><code># Must return nothing — any hit is a build that can fail on Google's schedule.
+grep -rn "next/font/google" app/ components/</code></pre>
+            </div>
+
+            <div class="accept">
+              <div class="lbl">Done when</div>
+              <ul>
+                <li>
+                  grep for next/font/google across app/ + components/ returns
+                  nothing
+                </li>
+                <li>
+                  Fonts render identically to today on the homepage, /pricing
+                  and the agency portal
+                </li>
+                <li>
+                  A cache-restoring deploy (normal git push, no --force) builds
+                  green
+                </li>
               </ul>
             </div>
           </div>
@@ -3023,7 +3155,7 @@ rules: [
     <script>
       (function () {
         var KEY = "mapsly-gtm-plan-v1",
-          TOTAL = 22;
+          TOTAL = 23;
         var state = {};
         try {
           state = JSON.parse(localStorage.getItem(KEY) || "{}");
