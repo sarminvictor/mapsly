@@ -121,7 +121,8 @@ export class ApifyError extends Error {
 // ---- Public API ---------------------------------------------------------
 
 export interface RunActorOptions {
-  /** Actor id (e.g. "CcN2BafzaiuLOpCGg") or "username~actor-name" slug. */
+  /** Actor id (e.g. "j2QCzerTSlY9TnK3T") or "username~actor-name" slug.
+   *  NOTE: ids are ACCOUNT-scoped — they change if APIFY_TOKEN's account does. */
   actorId: string;
   /** Actor input — sent as the run's input JSON. */
   input: Record<string, unknown>;

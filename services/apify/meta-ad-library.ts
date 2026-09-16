@@ -18,15 +18,20 @@ import { getKv, isKvAvailable } from "@/lib/cache/kv";
 import { runActor } from "./client";
 
 /**
- * Published actor id. DEFAULT is now the HTTP-direct rebuild `mapsly-meta-graphql`
- * (id QUHP4uf8sgdavSCVT, source `apify-actors/meta-graphql/`) — validated live
- * 2026-07-10: keyword/cell path 11/11 success at $0.009–0.075/run vs the old
- * `mapsly-meta-ad-library` (CcN2BafzaiuLOpCGg) 27% success + $0.90 timeout burns.
- * Same dataset + RUN_SUMMARY contract (drop-in confirmed against these schemas).
- * ROLLBACK without a deploy: set META_AD_LIBRARY_ACTOR_ID=CcN2BafzaiuLOpCGg.
+ * Published actor id. DEFAULT is the HTTP-direct rebuild `mapsly-meta-graphql`
+ * (source `apify-actors/meta-graphql/`) — validated live 2026-07-10: keyword/cell
+ * path 11/11 success at $0.009–0.075/run vs the Playwright `mapsly-meta-ad-library`
+ * 27% success + $0.90 timeout burns. Same dataset + RUN_SUMMARY contract.
+ *
+ * ACCOUNT MOVE 2026-09-16 · actor ids are ACCOUNT-scoped. These ids are on
+ * `boxly_ca`; the originals on `formidable_embargo` were QUHP4uf8sgdavSCVT
+ * (graphql) and CcN2BafzaiuLOpCGg (playwright). The id MUST match whichever
+ * account APIFY_TOKEN belongs to — changing one without the other is a 404.
+ * ROLLBACK to the Playwright build without a deploy:
+ *   META_AD_LIBRARY_ACTOR_ID=Bwo6S8pc8vLGKNnIl
  * See docs/meta-graphql-actor-build-2026-07-10.html.
  */
-const ACTOR_ID = process.env.META_AD_LIBRARY_ACTOR_ID ?? "QUHP4uf8sgdavSCVT";
+const ACTOR_ID = process.env.META_AD_LIBRARY_ACTOR_ID ?? "j2QCzerTSlY9TnK3T";
 
 const OPERATION = "apify.meta-ad-library.search";
 

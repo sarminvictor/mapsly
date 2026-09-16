@@ -1,7 +1,7 @@
 // services/dom-fetcher/fetcher.ts · the Apify DOM-fetch adapter.
 //
 // Bridges our published "Cloudflare-busting DOM fetcher" actor (source in
-// `apify-actors/dom-fetcher/`, id VQmuafAxGueqPgCey) into the app. The actor
+// `apify-actors/dom-fetcher/`, see DOM_FETCHER_ACTOR_ID) into the app. The actor
 // navigates a real browser through a residential proxy, clears the Cloudflare
 // JS challenge, and returns the rendered HTML for one or many URLs. ALL parsing
 // (contacts, tech, services, AI) happens downstream over that DOM — this
@@ -35,8 +35,18 @@ import {
   type DomFetchOutcome,
 } from "./outcome";
 
-/** Published actor id. Not a secret (it's a public-actor id) → no env var. */
-export const DOM_FETCHER_ACTOR_ID = "VQmuafAxGueqPgCey";
+/**
+ * Published actor id. Not a secret (it's an actor id, not a credential) — the
+ * env var exists so an Apify ACCOUNT move is a config change, not a deploy.
+ * Actor ids are account-scoped: re-pushing the source to a different account
+ * mints a NEW id, so a hardcoded-only id turns a token swap into a code change
+ * (the Meta adapter already had this override; this one didn't).
+ * ACCOUNT MOVE 2026-09-16 · this id is `mapsly-contact-scraper` on `boxly_ca`;
+ * the original on `formidable_embargo` was VQmuafAxGueqPgCey. The id MUST match
+ * whichever account APIFY_TOKEN belongs to — changing one without the other 404s.
+ */
+export const DOM_FETCHER_ACTOR_ID =
+  process.env.DOM_FETCHER_ACTOR_ID ?? "kVc9wTBhaSiBQ2XEJ";
 
 /** Cost-attribution tag for the open CronRun + error messages. */
 const OPERATION = "dom-fetcher.fetch";
